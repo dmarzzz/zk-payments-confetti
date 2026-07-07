@@ -1,15 +1,25 @@
 # Spec: the zk payment channel object and theorems T1–T7
 
-Status: **revision 4 for the M0 human gate (task B1).** Gate history:
-rev-1 was reviewed by a three-lens panel (game definitions, protocol
-fidelity, theorem statements; 3× REVISE, two blocking counterexamples);
-rev-2 fixed everything and a fresh reviewer verified every fix while
-finding two new blocking holes in the repair periphery (B fund
-conservation, post-slash claim forgery); rev-3 fixed those and round 3
-verified them while finding three majors in the second-order periphery
-(R_close-B refund cap, B slash-path coverage, checkpoint cadence). This
-revision incorporates those. The full review record with every
-counterexample is `research_knowledge/gates.md`. This document is the trust surface of the
+Status: **revision 8 for the M0 human gate (task B1).** Round 7 verified
+all of round 6's fixes and found the $nf_j$ reveal weaponizable by
+receipt withholding (→ receipt-bearing checkpoint disputes with an
+upgrade sub-window; $j{=}0$ closes receipt-free) and the sweep bar
+one-directional (→ two-sided, with on-ledger disproof at settlement) —
+both repaired in this revision. Earlier gate history, six
+rounds so far, every round by a fresh reviewer who did not write the text:
+rev-1, three-lens panel, 3× REVISE — T6 false via cross-gateway replay
+(→ MC14), UNLINK unsatisfiable (→ MC15), merge evidence missing (→ MC17),
+receipt splicing (→ MC7 tags); rev-2 verified plus two new blockings — B
+fund conservation (→ MC18), post-slash claim forgery (→ MC19); rev-3
+verified plus three majors (→ R_close-B caps, B slash path, checkpoint
+cadence); rev-4 verified plus the j-side drain (→ second close cap);
+rev-5 verified plus the gap-index understatement, the run's deepest hole
+(→ MC20: A closes by unused-nullifier enumeration, B by certified count);
+rev-6 verified MC20's shape plus the B stale-receipt door (→ the $nf_j$
+reveal, in rev-7) and the A sweep-bar/loss-bearer decision (rev-7), with
+the checkpoint commitment pinned as a binding Merkle set commitment.
+The full review record with every counterexample is
+`research_knowledge/gates.md`. This document is the trust surface of the
 formalization. A reviewer reads this file and the security-game docstrings,
 and nothing else; every Lean definition in the repo must be traceable to a
 sentence here, and every ambiguity here is a potential
@@ -115,8 +125,11 @@ payee role in the fleet setting), and an **idealized ledger** $\mathcal{L}$
 theorems silently depended on it).** The ledger holds one **commingled
 escrow pool**: `Open` adds $D$ to the pool against $cm$; sweeps draw from the
 pool per fresh nullifier (pre-slash, a nullifier is by design unattributable
-to any $cm$, so no per-channel draw is possible); payer-close pays
-$D - j\cdot C$ out of the pool. Pool solvency is exactly what T1 protects.
+to any $cm$, so no per-channel draw is possible); payer-close pays the
+MC20 refund ($C$ per proven-unused index plus the sub-ticket residue —
+$D - j\cdot C$ on the honest path) out of the pool, and refunded
+nullifiers are barred from sweeps. Pool solvency is what T1 plus the MC20
+sweep bar protect.
 Sweep transactions are **authenticated to the gateway roster** fixed at
 `Setup`: only registered gateways may sweep (otherwise a payer front-runs
 the sweep of its own tickets and T2 falls — rev-1 finding), and the sweep
@@ -148,10 +161,11 @@ membership tree (producing a new root), adds $D$ to the escrow pool against
 $cm$, and marks the channel *open*. Payer's private state initializes to
 $st_P = (k, i{=}0, R{=}0, \text{refund evidence} = \varnothing)$.
 Instantiation B additionally runs the **genesis receipt** exchange (MC7):
-the payer sends $ct_0 = Enc(pk_E, (H_{tag}(k), 0);\ r_0)$ with a NIZK that
-$ct_0$ encrypts $(H_{tag}(k), 0)$ for the $k$ committed in $cm$ (no anonymity
-loss: `Open` is a public event naming $cm$ anyway); the payee verifies and
-returns $\sigma_S(ct_0)$. In instantiation A one `Open` binds the payer to
+the payer sends $ct_0 = Enc(pk_E, (H_{tag}(k), 0, 0);\ r_0)$ — the triple
+$(tag, R{=}0, n{=}0)$, rev-6 count certification — with a NIZK that $ct_0$
+encrypts it for the $k$ committed in $cm$ (no anonymity loss: `Open` is a
+public event naming $cm$ anyway); the payee verifies and returns
+$\sigma_S(ct_0)$. In instantiation A one `Open` binds the payer to
 the whole fleet (the "channel" is payer-to-fleet); in B it binds payer to the
 single payee. Touches: ledger tree, escrow pool, payer state. Note: `Open`
 is a public ledger event; hiding *that* a party opened a channel
@@ -241,21 +255,71 @@ Either side, at any time.
   At expiry the ledger **automatically** pays
   $C \cdot |U| + (D - cap \cdot C)$ — for an honest closer with $j$
   emitted indices, $|U| = cap - j$ and the payout is exactly
-  $D - j \cdot C$, the same floor as before — and the channel is closed
-  **and evicted from the tree (root rotates)**, so post-close spend
-  proofs fail and in-flight tickets die; gateways have the window to
-  redeem in-flight tickets and checkpoint (their close protection is
-  conditioned on checkpoint currency at the close transaction, the same
-  cadence lever as MC19). A fully spent-down payer closes with
+  $D - j \cdot C$, the same floor as before — **with a two-sided sweep
+  bar (rev-6 + rev-7): at settlement the ledger first checks $U$ against
+  $RedeemedNF$, and any $nf \in U$ already swept — pre-close or during
+  the window — is a proven-false claim with the disproof on-ledger,
+  voiding the close and slashing, no checkpoint needed — a
+  settlement-detected slash has no evidence submitter, and its
+  post-window remainder stays in the pool (rev-8 F8-m4); it then records
+  $U$ and thereafter refuses sweeps of any $nf \in U$** (rev-6 blocking
+  find: without the forward bar, a false claim uncaught by a stale
+  checkpoint is paid twice, refund plus sweep, and the commingled pool
+  bears it; rev-7 found the forward-only bar leaves the sweep-first
+  ordering double-paying identically. With both directions the pool
+  conserves in every ordering; the residual loss from a stale
+  checkpoint — a false claim neither checkpointed nor yet swept — lands
+  on the tardy gateway, which is the honest reading of checkpoint
+  cadence as that gateway's own lever), and the channel is
+  closed **and evicted from the tree (root rotates)**, so post-close
+  spend proofs fail and in-flight tickets die; gateways have the window
+  to redeem in-flight tickets and checkpoint. A's honest-limits note,
+  symmetric to B's racing note (rev-6): an acceptance in flight at the
+  close transaction is structurally un-checkpointable pre-close, so even
+  perfect cadence cannot protect it — the gateway's exposure is bounded
+  by its acceptance-in-transit volume at any close event. A fully spent-down payer closes with
   $U = \varnothing$ at payout $D - cap\cdot C$ (the sub-ticket residue);
   over-claiming *fewer* unused indices than it has only donates.
-- *Payer close* — instantiation B (declared-count close, MC18/MC20): the
-  payer submits $(cm, j, \pi_{close})$ where $\pi_{close}$ proves
-  $cm = H_{id}(k)$ and **$j$ equals the certified spend count $n$ of its
-  latest receipt** — MC20's B-side repair: the receipt chain certifies
-  $(tag, R, n)$ and $\mathcal{R}_{spend}^B$ proves its index equals the
-  certified $n$, so B spends are contiguous by construction and neither
-  gap-index nor stale-count closes exist. $\mathcal{R}_{close}^B$
+- *Payer close* — instantiation B (certified-count close with nullifier
+  reveal, MC18/MC20): the payer submits $(cm, j, nf_j, \pi_{close})$
+  where $\pi_{close}$ proves $cm = H_{id}(k)$, that a payee-signed
+  receipt certifies $(H_{tag}(k), R, j)$ — the receipt chain certifies
+  the count and $\mathcal{R}_{spend}^B$ proves each spend's index equals
+  its receipt's certified $n$, so B spends are **contiguous by
+  construction** — and that $nf_j = H_{nf}(H_a(k, j))$: the revealed
+  nullifier of the first index *beyond* the declared count ($j = 0$
+  closes carry no receipt conjunct — $cm$ plus the $nf_0$ proof suffice;
+  rev-7: otherwise a payee that withholds the genesis signature wins $D$
+  by ForceClose). Contiguity is what makes the reveal decisive (rev-6
+  blocking find): a stale receipt's $j$ is an already-spent index, its
+  nullifier sits in the payee's pre-close checkpoint, and the dispute
+  convicts. **The dispute discipline (rev-7 blocking find — receipt
+  supply is adversary-controlled, so a bare nullifier match would let a
+  receipt-withholding payee wedge an honest payer into a slashable
+  close):** B checkpoint entries are *receipt-bearing* — the tuple
+  carries the accepted ticket's presented ciphertext, declared cost $c$,
+  increment randomness $r'$, and the signed successor
+  $ct' = ct^* \boxplus Enc(pk_E, (0, C_{max}-c, 1); r')$ with
+  $\sigma_S(ct')$, all publicly checkable against each other — and a
+  stale-close dispute must open the **full tuple** for $nf_j$ from a
+  pre-close checkpoint, not membership alone. A valid dispute does
+  **not** slash: it opens a response sub-window of duration $\tau$
+  ($> \Delta$, §1) in which the closer may re-close at count $j+1$ —
+  the dispute itself just *published the withheld receipt*, and the
+  payer reconstructs its opening from its own ticket opening plus the
+  public $(c, r')$. Only failure to upgrade voids the close and slashes.
+  Escalation is capped by contiguity: a receipt at $n = j+2$ requires a
+  payer-produced ticket certifying $j{+}1$, so each round moves one
+  count, cheaters converge to their true count or slash, and an honest
+  payer — whose receipt-vs-accepted gap is at most 1, again by
+  contiguity — upgrades at most once, losing at most the one $C_{max}$
+  that T3 scope note (i) already prices per abort. An honest closer at
+  its true count faces no valid dispute at all: its $nf_j$ is PRF-hidden
+  pre-close, and a fabricated receipt-bearing tuple would need a
+  payer-produced ticket at index $j$ that was never emitted (knowledge
+  soundness). Neither gap-index (contiguity), stale-receipt (reveal +
+  checkpoint), nor receipt-withholding (upgrade sub-window) attacks
+  survive. $\mathcal{R}_{close}^B$
   additionally verifies the two settlement caps: $R \le j\cdot C_{max}$
   (rev-3 R3-1: else a colluding payee signs inflated $R$ and drains the
   pool) and $j\cdot C_{max} \le D + R$ (rev-4 F1: else an overstated
@@ -266,8 +330,9 @@ Either side, at any time.
   $j\cdot C_{max} - R \le D$ at the same event — its exact net
   $\sum c_\ell$ when the chain is honest — and the two sum to $D$:
   conservation per channel by construction. The window $\tau$ admits
-  ordinary `Dispute` evidence; understatement is structurally impossible
-  (certified count), overstatement is capped. Close-racing exposure
+  ordinary `Dispute` evidence and the stale-receipt dispute above;
+  understatement self-convicts (contiguity + reveal), overstatement is
+  capped. Close-racing exposure
   (honest limitation): service accepted between a close's inclusion and
   its settlement cannot be netted (the closing channel is unattributable
   among tickets); the payee's exposure is bounded by its acceptance rate
@@ -278,13 +343,17 @@ Either side, at any time.
   (MC16) submits redeemed tuples $(nf, x, y, \pi)$ to $\mathcal{L}$ at any
   time; the ledger verifies $\pi$ against $\mathcal{R}_{spend}$
   specifically (close transactions carry $\pi_{close}$, which is not
-  sweepable — rev-2 NEW-6), keeps a global set $RedeemedNF$, dedups by
-  $nf$, and pays $C$ per fresh $nf$ from the pool. Sweeping is unilateral:
-  it requires no payer cooperation. Sweeps of tickets accepted before a
-  payer-close remain payable after it: under MC20 the close refunds only
-  proven-unused indices, so the pool retains exactly $C$ per used index —
-  the ceiling on what can still be swept (rev-5 found the old
-  declared-$j$ close broke this claim via gap indices; MC20 restores it). **The honest sweep protocol includes monitoring:** an honest gateway
+  sweepable — rev-2 NEW-6 — and nullifiers recorded in a settled close's
+  $U$ are sweep-barred, rev-6), keeps a global set $RedeemedNF$, dedups
+  by $nf$, and pays $C$ per fresh $nf$ from the pool. Sweeping is
+  unilateral: it requires no payer cooperation. Sweeps of tickets
+  accepted before a payer-close remain payable after it: the close
+  refunds only claimed-unused indices and bars them from sweeps, so the
+  pool retains at least $C$ per used-and-unclaimed index — the ceiling
+  on what can still be swept, now exact on the honest path and
+  conservative under false claims (rev-5 found the old declared-$j$
+  close broke this claim via gap indices; MC20 + the sweep bar restore
+  it). **The honest sweep protocol includes monitoring:** an honest gateway
   watches `Dispute` events and sweeps its outstanding tickets of a slashed
   member within that window (T2 depends on this duty; rev-1 finding).
 - *Payee close* — instantiation B ("force-close", MC18 [repair]): B has no
@@ -333,7 +402,15 @@ R3-3: a fixed per-epoch cadence would leave every L-window conflict
 un-checkpointed at slash time whenever $L < T_e$, hollowing out the
 recovery this mechanism exists to protect — checkpoint cadence is
 therefore the second operational recovery lever, alongside sweep cadence),
-and a window claim must open against a pre-slash checkpoint. Without this, the window is forgeable by the fleet itself: once
+and a window claim must open against a pre-slash checkpoint. **The
+checkpoint is a binding set commitment — concretely, a Merkle root over
+the gateway's accepted tuples — and every claim or close-dispute opens it
+with a membership witness against the pre-slash (resp. pre-close) root**
+(rev-6 required fix: without pinned binding semantics, the
+honest-closer-protection argument — "a genuinely-unused nullifier is
+PRF-hidden until revealed, so no pre-close checkpoint contains it" — has
+nothing to bite on; binding is collision resistance, assumption 3, so an
+opening for a value chosen post-close fails). Without this, the window is forgeable by the fleet itself: once
 `Dispute` publishes the evidence pair, $k$ is recomputable by anyone, so a
 malicious *registered* gateway could mint fresh "conflicts" and old-root
 spend proofs at will (rev-2 blocking finding NEW-2 — the rev-2 text
@@ -377,28 +454,38 @@ signature keypair $(vk_S, sk_S)$.
 - Per accepted spend the payee declares actual cost $c \le C_{max}$ and owes
   a refund of $C_{max} - c$. The payer maintains a running refund total
   $R = \sum (C_{max} - c_\ell)$ over its accepted spends.
-- **Certified refund chain (MC7, revised after two rev-1 findings).** The
-  certified object is a ciphertext $ct$ encrypting the *pair*
-  $(tag, R)$ under $pk_E$, where $tag = H_{tag}(k)$ **binds the chain to the
-  channel** — without the tag, honestly issued receipts from one channel
-  splice into another channel's solvency proofs and T1 falls (rev-1 blocking
-  finding). The chain: genesis $ct_0$ certified at `Open` (§2); per accepted
-  spend the payee computes $ct' = ct \boxplus Enc(pk_E, (0, C_{max}-c);\ r')$
-  and returns the receipt $\rho = (ct', \sigma_S(ct'), r', c)$ — the
-  increment's encryption randomness $r'$ travels in the receipt, so the
-  payer can maintain the full opening of its certified ciphertext and prove
-  consistency in zero knowledge (without $r'$ the honest payer cannot form
-  any solvency witness after its first refund — rev-1 finding). The payer
-  tracks $R$ in plaintext; no honest algorithm ever decrypts.
+- **Certified refund chain (MC7, revised after two rev-1 findings; count
+  added in rev-6/MC20).** The certified object is a ciphertext $ct$
+  encrypting the *triple* $(tag, R, n)$ under $pk_E$, where
+  $tag = H_{tag}(k)$ **binds the chain to the channel** — without the tag,
+  honestly issued receipts from one channel splice into another channel's
+  solvency proofs and T1 falls (rev-1 blocking finding) — and $n$ is the
+  **certified spend count** (rev-6: without it, spends need not be
+  contiguous and understatement closes exist). The chain: genesis $ct_0$
+  certified at `Open` (§2); per accepted spend the payee computes
+  $ct' = ct \boxplus Enc(pk_E, (0, C_{max}-c, 1);\ r')$ — incrementing
+  both the refund total and the count — and returns the receipt
+  $\rho = (ct', \sigma_S(ct'), r', c)$; the increment's encryption
+  randomness $r'$ travels in the receipt, so the payer can maintain the
+  full opening of its certified ciphertext and prove consistency in zero
+  knowledge (without $r'$ the honest payer cannot form any solvency
+  witness after its first refund — rev-1 finding). The payer tracks
+  $(R, n)$ in plaintext; no honest algorithm ever decrypts.
 - **Solvency** becomes $(i+1)\cdot C_{max} \le D + R$, proven in-circuit
-  against the certified $ct$: the witness includes $(k, R, \text{opening})$,
-  and $\mathcal{R}_{spend}^B$ additionally proves the ciphertext's tag
-  component equals $H_{tag}(k)$ for the same $k$ as the membership witness
-  (chain binding), and that a valid $\sigma_S$ covers the presented
-  ciphertext. Withholding $\rho$ is the payee's abort lever in this
-  instantiation: it stalls the growth of $R$ and can render a payer
-  insolvent for future $C_{max}$-spends (T4's evict oracle has real teeth
-  here).
+  against the certified $ct$: the witness includes
+  $(k, R, n, \text{opening})$, and $\mathcal{R}_{spend}^B$ additionally
+  proves the ciphertext's tag component equals $H_{tag}(k)$ for the same
+  $k$ as the membership witness (chain binding), **that the spend's index
+  $i$ equals the certified count $n$** (rev-6/MC20 contiguity conjunct),
+  and that a valid $\sigma_S$ covers the presented ciphertext.
+  Withholding $\rho$ is the payee's abort lever in this instantiation: it
+  stalls the growth of $R$ and can render a payer insolvent for future
+  $C_{max}$-spends (T4's evict oracle has real teeth here). Rev-7 found
+  withholding also wedges the close at the stale count, weaponizing the
+  $nf_j$ dispute against honest payers; the §2 upgrade sub-window repairs
+  it — a dispute publishes the withheld receipt and the payer re-closes
+  one count higher, so the abort lever costs the payer at most one
+  $C_{max}$ and can never slash it.
 - Two representations of the certified total, both formalized:
   - **B-static**: the payer presents, at its next spend, the ciphertext $ct$
     bit-identical to the one the payee last signed, with the signature
@@ -475,9 +562,15 @@ assumption below names the Lean declaration that carries it):
    Used by: T1, T2, T3 in instantiation B (rev-2 NEW-7: forged receipts
    would inflate $R$ at the settlement, so T2-B uses it too).
 5. **Re-randomizable additively homomorphic encryption**: IND-CPA, correct
-   homomorphic addition, and re-randomization producing ciphertexts
-   distributed independently of the input ciphertext (B only). Used by: T4
-   on B-rerand; its *absence of use* is what breaks B-static.
+   homomorphic addition, re-randomization producing ciphertexts
+   distributed independently of the input ciphertext, and
+   **opening-homomorphism** — openings of summands combine to an opening
+   of the $\boxplus$-sum (rev-8 F8-m1: implicitly load-bearing since the
+   rev-2 receipt-randomness fix, and load-bearing twice over for the
+   rev-8 upgrade-path reconstruction; every standard instantiation has
+   it, but the Lean assumption must carry it). (B only.) Used by: T4 on
+   B-rerand; honest-completeness of B spends and closes; the T3-B/T5-B
+   upgrade clauses. Its *absence of use* is what breaks B-static.
 6. **Blind-signature unforgeability and blindness.** Declared in
    `Assumptions.lean` per the executor contract; **unused** by
    instantiations A and B (they would be exercised by a BOLT-style
@@ -515,7 +608,9 @@ honest infrastructure, not of the adversary). "Controls a party" means it
 runs arbitrary code in that party's place, holding all its keys and state.
 Oracles named in a game are the *only* interfaces to honest parties; honest
 parties otherwise follow the protocol exactly, including the abort-retry
-rule of MC2 and the sweep-monitoring duty of MC16.
+rule of MC2, the sweep-monitoring duty of MC16, the checkpointing duty of
+MC19 (rev-6: load-bearing for slash recovery *and* close protection), and
+the payer's ledger-monitoring duty of §1.
 
 ---
 
@@ -574,9 +669,15 @@ tickets and follows the sweep protocol (including the MC16 monitoring
 duty) has, by every time $t_{done} \ge$ (its last sweep submission for
 $T$) $+ \Delta$ plus, where a slash intervened, the close of that dispute
 window, settled from the ledger exactly $C \cdot |T|$, regardless of payer
-behavior — including payers who close early, close with understated
-indices, or deliberately trigger their own slash (the self-slash race),
-*given the modeled `Dispute` with its gateway-priority window* (MC4/MC16).
+behavior — including payers who close early, close with false
+unused-claims (MC20), or deliberately trigger their own slash (the
+self-slash race), *given the modeled `Dispute` with its gateway-priority
+window* (MC4/MC16) *and given the payee's checkpoints are current at every
+payer-close* (rev-6: a used index falsely claimed unused is caught only
+from a pre-close checkpoint; with the MC20 sweep bar, a stale checkpoint
+costs the tardy gateway exactly the un-checkpointed refunded tickets, and
+the in-flight facet — acceptances in transit at the close transaction —
+is structurally unprotectable and bounded by transit volume, §2).
 The deadline is T2's own; T5 covers the close path (rev-1 de-circularization).
 The upper bound ("exactly", not "at least") holds unconditionally: the
 ledger's $nf$-dedup and per-ticket price cap it.
@@ -585,13 +686,21 @@ ledger's $nf$-dedup and per-ticket price cap it.
 controlling all payers and the scheduler: an honest payee that follows the
 protocol (issuing honest receipts, checkpointing, force-closing abandoned
 channels) settles, per channel, **at least** $\sum_\ell c_\ell$ over that
-channel's accepted spends — with equality exactly when the payer closes
-*cooperatively*, defined as a transcript predicate: the close presents the
-latest receipt at the true spend count (rev-3 R3-5: a Byzantine payer
-closing on a stale receipt or overstated index only overpays the payee) —
+channel's spends **accepted before the close's ledger inclusion** (rev-6:
+a spend accepted between a close's inclusion and its settlement is
+structurally unattributable and unpaid — the racing exposure §2 scopes,
+bounded by acceptance rate times $\tau$; the rev-3 claim that a stale
+receipt "only overpays the payee" was inverted by the rev-6 count
+coupling and is retracted — stale-receipt closes are now *caught*, not
+absorbed, via the $nf_j$ reveal) — with equality exactly when the payer
+closes *cooperatively*, defined as a transcript predicate: the close
+presents the latest receipt at the true spend count —
 and exactly $D$ (a forfeit, $\ge \sum_\ell c_\ell$ by T1-B) when the payer
-abandons; each within $\Delta + \tau$ of the channel's close or
-force-close event. A *slashed* B channel settles through the slash-window
+abandons; each within $\Delta + \tau$ of the channel's **final**
+(re-)close or force-close event — against a stale or cheating close the
+upgrade cascade adds up to one round per understated count before that
+final close (rev-8 F8-m3; the honest-payer case has at most one round,
+T5). A *slashed* B channel settles through the slash-window
 per-nullifier claims instead (§2 MC18/R3-2), recovered up to the remaining
 deposit against pre-slash checkpoints, exactly as in A. Forged-receipt
 inflation of $R$ is excluded by EUF-CMA (§5.4) and receipt inflation by a
@@ -640,8 +749,14 @@ adversary produces `Dispute` evidence that slashes an honest payer**, except
 with probability $negl(\lambda)$ — formally the FRAME game of T7 with the
 adversary strengthened to control all $N$ gateways, discharged by the same
 single-signal exculpability lemma (an honest payer emits at most one signal
-per index, counting the close signal; producing a second point on any of its
-lines requires $k$). Rev-1 note: "no valid evidence *exists*" was the prior
+per index — under MC20 the close emits **no** signal at all, only
+PRF-fresh nullifier reveals with no line point; producing a second point
+on any of its lines requires $k$) — **and no close-dispute path slashes
+it either** (rev-7/8: in A an honest $U$ contains only never-emitted
+nullifiers, undisputable by checkpoint binding; in B an honest closer at
+its true count faces no valid receipt-bearing dispute, and a
+receipt-deprived closer upgrades within the sub-window at a cost of at
+most one $C_{max}$, per §2's dispute discipline). Rev-1 note: "no valid evidence *exists*" was the prior
 wording and is literally false — evidence always exists mathematically; what
 is negligible is any adversary *producing* it.
 
@@ -660,9 +775,11 @@ abort, and the theorem makes this explicit rather than hiding it. (ii) In
 the refund variant the floor uses receipts *held*: refunds withheld by a
 malicious payee are lost value, bounded by the per-spend refund; disputing
 an under-declared $c$ is out of scope (it deanonymizes, per the sources).
-(iii) The close signal occupies index $j$ (next unused) and is not charged:
-payout arithmetic is over the $j$ spends at indices $0..j{-}1$; the rev-1
-off-by-one audit confirmed the formula.
+(iii) The close charges no index (rev-6/MC20: A's close reveals the
+nullifiers of the $cap - j$ unused indices, B's reveals $nf_j$ — neither
+emits a signal): payout arithmetic is over the $j$ spends at indices
+$0..j{-}1$, via $|U| = cap - j$ in A; the rev-1 off-by-one audit's
+conclusion carries over.
 
 **Anti-vacuity.** Against a BOLT-style scheme where closing on a stale state
 forfeits the whole balance, a payee that induces one confusion about state
@@ -790,10 +907,18 @@ scheduler, but subject to the idealized ledger's $\Delta$-inclusion:
   $t+\Delta$, window $\tau$, settlement automatic at expiry — §2 pins the
   automatic execution, so there is no second transaction and no $O(\cdot)$
   slack; rev-1 finding: "$O(\Delta)$" is not a formal statement). An
-  honest closer's window admits no valid dispute (MC20: its claimed-unused
-  nullifiers are PRF-hidden pre-close, so no pre-close checkpoint contains
-  them; its double-sign evidence cannot exist per T3), so the voided-close
-  branch never fires for honest payers.
+  honest closer's window admits no valid dispute in A (MC20: its
+  claimed-unused nullifiers are PRF-hidden pre-close, so no pre-close
+  checkpoint contains them; its double-sign evidence cannot exist per
+  T3), so the voided-close branch never fires for honest A payers. In B
+  (rev-7/8): an honest closer at its true count likewise faces no valid
+  receipt-bearing dispute; a receipt-deprived honest closer faces at
+  most **one** upgrade round (its count gap is at most 1 by contiguity),
+  extending the bound once by $\tau + \Delta$ — so the honest-B bound is
+  $t + \Delta + \tau$ plain, or $t + 2\Delta + 2\tau$ under a
+  receipt-withholding dispute (dispute at window end, re-close included
+  within $\Delta$, fresh window $\tau$; rev-8 F8-m2 fixed an off-by-$\Delta$
+  here), and the voided branch never fires.
 - *Payee sweep (A only):* a sweep submitted at $t$ is included and paid by
   $t + \Delta$ (no window). The payee's *reactive* duties (window
   monitoring) are part of T2, not liveness of its own close.
@@ -914,16 +1039,20 @@ Oracles:
 - $\mathcal{O}spend(m)$ — the honest member emits its next-index ticket on
   gateway-bound message $m$ of $\mathcal{A}$'s choice, delivered to
   $\mathcal{A}$.
-- $\mathcal{O}close$ — the honest member closes: it emits $s_{close}$ at
-  its next unused index on $m_{close}$, on the public ledger, visible to
-  $\mathcal{A}$ (rev-1 finding: the close signal is the one signal every
-  member eventually emits, at the moment $cm$ becomes public and the member
-  most targetable; a FRAME game without it leaves the deployed protocol's
-  main framing window uncovered).
+- $\mathcal{O}close$ — the honest member closes: under MC20 (rev-6) the
+  close emits **no signal** — it publishes $(cm, U)$, the PRF-fresh
+  nullifiers of the member's unused indices, on the public ledger,
+  visible to $\mathcal{A}$. The rev-1 rationale stands — the close is the
+  moment $cm$ goes public and the member is most targetable, so FRAME
+  must cover it — but what the adversary now gains is nullifier values
+  with **no line points** (no $(x, y)$ was ever emitted for an unused
+  index), strictly less material than rev-4's close signal. The oracle
+  stays in the game to keep the framing window covered and to feed the
+  reveal into the adversary's view.
 
 The honest member never emits two signals at the same index with different
 messages (it is honest; identical re-sends under the retry rule are
-permitted; the close signal occupies its own fresh index). $\mathcal{A}$
+permitted; the close emits no signal under MC20). $\mathcal{A}$
 outputs $ev^* = (nf, (x, y), (x', y'))$.
 
 **Statement.** For every PPT $\mathcal{A}$: the probability that
@@ -980,7 +1109,9 @@ item.**
   treats it as reject-duplicate, not evidence); switching messages requires
   the next index. Consequence, made explicit in T3: authorized value counts
   emitted tickets, so abort griefing costs the payer up to one ticket price
-  per abort.
+  per abort. Rev-7 scope note for B: an abort that withholds the receipt
+  additionally wedges the certified count one behind — the §2 upgrade
+  sub-window keeps the close safe, at the same ≤ one-ticket price.
 - **MC3 — Rate-limit semantics for T6.** The egress post notes the epoch
   pseudonym is not gateway-scoped, so the fleet-wide budget is silently $N$
   times the per-gateway budget. We take that at face value and define the
@@ -1099,14 +1230,16 @@ item.**
   per-nullifier sweeps at $C_{max}$ plus a refund-bearing close pay $D+R$
   out of a $D$ deposit, and pre-slash unattributability makes per-channel
   netting impossible. B therefore settles each channel exactly once, at
-  close: payer gets $(D+R) - j\cdot C_{max}$ with $R \le j\cdot C_{max}$
-  enforced in $\mathcal{R}_{close}^B$ (rev-3 R3-1), payee gets
-  $j\cdot C_{max} - R = \sum c_\ell$; a silent payer is handled by
-  force-close-with-forfeit after a response window; a *slashed* channel
-  settles through the slash-window per-nullifier claims (rev-3 R3-2 —
-  close-time netting cannot reach a frozen channel, and without the slash
-  path the self-slash race reopens in B). Conservation is exact by
-  construction. This resolves the settlement-cadence side of open
+  close: payer gets $(D+R) - j\cdot C_{max}$ with both settlement caps
+  $R \le j\cdot C_{max}$ and $j\cdot C_{max} \le D + R$ enforced in
+  $\mathcal{R}_{close}^B$ (rev-3 R3-1, rev-4 F1) and the count certified
+  plus $nf_j$ revealed per MC20 (rev-6: stale-receipt closes self-convict
+  via the reveal), payee gets $j\cdot C_{max} - R = \sum c_\ell$; a
+  silent payer is handled by force-close-with-forfeit after a response
+  window; a *slashed* channel settles through the slash-window
+  per-nullifier claims (rev-3 R3-2 — close-time netting cannot reach a
+  frozen channel, and without the slash path the self-slash race reopens
+  in B). Conservation is exact by construction. This resolves the settlement-cadence side of open
   problem 8 for B differently than for A — a genuine design consequence of
   refund privacy, worth a paragraph in the paper.
 - **MC20 — Verifiable spend count at close. [repair]** Rev-5's blocking
@@ -1119,11 +1252,17 @@ item.**
   closes by unused-nullifier enumeration — reveal PRF-fresh nullifiers of
   claimed-unused indices with an in-circuit well-formedness proof; false
   claims are disproven by bit-match against pre-close checkpoints; payout
-  $C\cdot|U|$ + residue. **B** (interactive receipts) certifies the count
-  in the chain — $(tag, R, n)$ with $\mathcal{R}_{spend}^B$ proving
-  index $= n$, so contiguity holds by construction and the close settles
-  at the certified count. Closed channels are evicted from the tree at
-  settlement (kills post-close ticket replay). That the same hole demands
+  $C\cdot|U|$ + residue, two-sided sweep bar (rev-7). **B** (interactive
+  receipts) certifies the count in the chain — $(tag, R, n)$ with
+  $\mathcal{R}_{spend}^B$ proving index $= n$, so contiguity holds by
+  construction and the close settles at the certified count with the
+  $nf_j$ reveal (rev-6: stale receipts self-convict) under the
+  receipt-bearing dispute discipline with its upgrade sub-window (rev-7:
+  receipt withholding cannot slash an honest closer — disputes publish
+  the withheld receipt and the close upgrades one count per round,
+  converging at the true count; $j=0$ closes need no receipt). Closed
+  channels are evicted from the tree at settlement (kills post-close
+  ticket replay). That the same hole demands
   two structurally different repairs is a finding about the design space
   (non-interactive spending trades away cheap closes), owed a paragraph
   in the paper.
@@ -1135,8 +1274,10 @@ item.**
   Repair: gateways checkpoint a commitment to their accepted sets on the
   ledger at any time, at least once per epoch (rev-3 R3-3: window recovery
   is gated on pre-slash checkpoints, so cadence is a recovery lever), and
-  window claims verify against a pre-slash checkpoint. Rev-6: checkpoints
-  do triple duty — they also gate the MC20 close-dispute (a false
+  window claims verify against a pre-slash checkpoint. Rev-7/8: in B,
+  checkpoint entries are *receipt-bearing* (§2 — the close-dispute must
+  exhibit the full receipt tuple, not nullifier membership alone).
+  Rev-6: checkpoints do triple duty — they also gate the MC20 close-dispute (a false
   unused-claim is provable only from a pre-close checkpoint, which is
   also what protects honest closers from post-hoc fabrication) and their
   currency at a close transaction conditions the payee's close
@@ -1181,6 +1322,7 @@ Rev-2 additions are the repair rows at the bottom.
 | MC14 gateway-bound messages: payment-layer form of the post's "bind the proof's message field to the target" production note | Egress post, production-notes list; rev-1 gate findings (all three reviewers) |
 | MC15/MC16/MC17 and the MC7 expansion: protocol/game repairs forced by rev-1 counterexamples | `research_knowledge/gates.md` (B1 gate record) |
 | MC18 close-time netting for B and MC19 checkpointed window claims: repairs forced by rev-2 counterexamples (NEW-1, NEW-2), refined by rev-3 (R3-1..R3-3) | `research_knowledge/gates.md` (B1 gate record, rounds 2–3) |
+| MC20 verifiable spend count at close (A enumeration + B certified count with $nf_j$ reveal, receipt-bearing disputes, upgrade sub-window, two-sided sweep bar): repairs forced by rev-5/6/7 counterexamples | `research_knowledge/gates.md` (B1 gate record, rounds 5–7) |
 
 The construction-of-record for instantiation B is the ZK API Usage Credits
 thread (Crapis & Buterin, ethresear.ch/t/24104) as summarized and verified
