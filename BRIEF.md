@@ -1,6 +1,6 @@
 # Task brief: zk payment channels, the literature and the proofs
 
-A handoff document. The executor is expected to be an agent (or agent swarm) with a human reviewing theorem statements; the audience for the outputs is the applied-zk research community.
+The executor's contract for the autoresearch experiment described in README.md. The executor is an agent (or agent swarm); the human reviews theorem statements and security-game definitions at the marked gates, and nothing else; the audience for the outputs is the applied-zk research community. Where this brief says "prove," it means kernel-checked, not argued.
 
 ## Context
 
