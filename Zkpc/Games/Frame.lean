@@ -25,13 +25,22 @@ clause by clause; deviations are marked `GATE-NOTE:`.
    member's signals itself. GATE-NOTE: scheduler control is the
    adversary's free interleaving of queries.
 3. Oracles: `Ospend(m)` — the honest member emits its next-index ticket
-   on a gateway-bound message `m` of the adversary's choice; `Oclose` —
-   the honest member emits `s_close` at its next unused index on
-   `m_close`, publicly (rev-1: the close signal is the one signal every
-   member eventually emits, at the moment it is most targetable).
+   on a gateway-bound message `m` of the adversary's choice. `Oclose`,
+   under MC20 (rev-6/7), emits **no signal** in the real protocol: the
+   A-close publishes `(cm, U)`, the PRF-fresh nullifiers of the unused
+   indices, on the public ledger (rev-1's rationale stands: the close is
+   the moment `cm` goes public and the member is most targetable, so
+   FRAME must cover it). That reveal surface is covered here by the
+   `nfAt i` oracle (D1): `nf(i) = H_nf(H_a(k, i))` through the shared
+   caches, for ANY adversary-chosen `i` — a strict superset of any
+   actual `U` (no `cap`/unused bookkeeping), uniform in shape.
+   The game's `close` oracle (close-as-signal) is retained as **legacy
+   surplus power**, not MC20 close semantics — see its docstring.
 4. The honest member never emits two signals at the same index with
    different messages: structural here — the index counter increments at
-   every emission, so each index carries at most one signal ever.
+   every emission, so each index carries at most one signal ever; and
+   the MC20 close reveals are nullifier values with **no line points**
+   (no `(x, y)` ever exists for an unused index).
    GATE-NOTE: the MC2 identical re-send is omitted — the signal for a
    given `(k, i, m)` is a deterministic function of the (cached) oracle
    answers, so a re-send would deliver a value the adversary already
@@ -49,17 +58,20 @@ clause by clause; deviations are marked `GATE-NOTE:`.
 
 ## Random-oracle model
 
-The three domain-separated hashes are lazily sampled random oracles with
+The four domain-separated hashes are lazily sampled random oracles with
 caches inside the game state: `H_a(·,·)` (`roA`), `H_x(·)` (`roX`),
-`H_nf(·)` (`roNf`). The adversary gets *direct* query access to all three
-(clause 2), and the honest member's emissions draw from the **same**
-caches, so adversary queries and honest signals are ROM-consistent (an
-adversary that guesses `k` can verify it against observed signals).
-GATE-NOTE: the epoch pseudonym `nf_e = H_e(k, e)` and epochs are absent —
-they play no role in `Dispute`'s line algebra, and their omission only
-removes information the adversary would otherwise receive... more
-precisely `nf_e` is one more value of a `k`-keyed RO; if gate review
-wants it, it is one more oracle of the same `lazyRO` shape.
+`H_nf(·)` (`roNf`), and `H_e(·,·)` (`roE`, Mi1). The adversary gets
+*direct* query access to all four (clause 2), and the honest member's
+emissions draw from the **same** caches, so adversary queries and honest
+signals are ROM-consistent (an adversary that guesses `k` can verify it
+against observed signals). Simulation note (Mi1): the game still has no
+epoch clock, so honest tickets here carry no `nf_e` — but the honest
+member's epoch pseudonyms are exactly `roE (k, e)` against this shared
+cache, so a T7 proof wanting epoch-faithful tickets can deliver
+`nf_e = roE (k, e)` alongside each signal without changing the state
+shape; conversely everything the adversary could learn from those
+deliveries it can already ask `roE` for (it cannot hit `(k, ·)` without
+knowing `k`, which is the same event the main argument bounds).
 
 ## Tie to `Zkpc.Games.RLN` (task G4)
 
@@ -106,12 +118,12 @@ def lazyRO {α : Type} [DecidableEq α] (cache : α → Option F) (q : α) :
       pure (v, Function.update cache q (some v))
 
 /-- FRAME game state: the honest member's next unused index, whether it
-has closed, and the three random-oracle caches (shared between the honest
+has closed, and the four random-oracle caches (shared between the honest
 member's emissions and the adversary's direct queries). -/
 structure FrameSt (F M : Type) : Type where
   /-- honest member's next unused index (emission consumes, MC2) -/
   idx : ℕ
-  /-- whether the honest member has emitted its close signal -/
+  /-- whether the honest member has closed -/
   closed : Bool
   /-- cache of `H_a : F × ℕ → F` (the per-index line slope key) -/
   roA : F × ℕ → Option F
@@ -119,6 +131,8 @@ structure FrameSt (F M : Type) : Type where
   roX : M → Option F
   /-- cache of `H_nf : F → F` (nullifier) -/
   roNf : F → Option F
+  /-- cache of `H_e : F × ℕ → F` (epoch pseudonym family, Mi1) -/
+  roE : F × ℕ → Option F
 
 /-- Initial FRAME state: index 0, unclosed, empty oracle caches. -/
 def FrameSt.init (F M : Type) : FrameSt F M where
@@ -127,6 +141,7 @@ def FrameSt.init (F M : Type) : FrameSt F M where
   roA := fun _ => none
   roX := fun _ => none
   roNf := fun _ => none
+  roE := fun _ => none
 
 /-- The honest member emits its signal for message `m` at its next unused
 index and advances the index: `x = H_x(m)`, `a = H_a(k, idx)`,
@@ -139,42 +154,64 @@ def emitSignal (k : F) (m : M) (s : FrameSt F M) :
   let (a, cA) ← lazyRO s.roA (k, s.idx)
   let (nf, cNf) ← lazyRO s.roNf a
   pure (⟨x, rlnY k a x, nf⟩,
-    { idx := s.idx + 1, closed := s.closed, roA := cA, roX := cX, roNf := cNf })
+    { s with idx := s.idx + 1, roA := cA, roX := cX, roNf := cNf })
 
 /-! ## Oracle surface -/
 
-/-- FRAME oracle queries: the two honest-member oracles of Spec.md T7
-plus direct access to the three random oracles (the adversary holds
-`N − 1` gateways' keys and all corrupt members' secrets; the hash
-functions are public). -/
+/-- FRAME oracle queries: the honest-member oracles of Spec.md T7, the
+MC20 close-reveal surface (`nfAt`), and direct access to the four random
+oracles (the adversary holds `N − 1` gateways' keys and all corrupt
+members' secrets; the hash functions are public). -/
 inductive FrameOp (F M : Type) : Type
   /-- `Ospend(m)`: honest member emits its next-index signal on `m` -/
   | spend (m : M)
-  /-- `Oclose`: honest member emits the close signal at its next unused
-  index on `m_close`, on the public ledger -/
+  /-- LEGACY SURPLUS POWER — **not** spec-faithful close semantics.
+  Under MC20 (rev-6/7) the real A-close emits **no signal**: it
+  publishes `(cm, U)`, PRF-fresh nullifiers with no line points (that
+  reveal is covered, as a strict superset, by `nfAt`). This oracle makes
+  the honest member emit one *extra signal* on `m_close` at its next
+  index and stop — surplus power subsumed by one `spend m_close` query
+  (plus the stop, which only removes future signals). Retained so the
+  game dominates both the MC20 close and the pre-MC20
+  close-as-final-spend design. -/
   | close
+  /-- **The MC20 close-reveal surface (D1)**: the nullifier of the honest
+  member's index `i`, `nf(i) = H_nf(H_a(k, i))`, through the shared
+  caches, for ANY adversary-chosen `i`. The real close publishes exactly
+  `{nf(i) : i unused, i < cap}` — a subset of what this oracle hands
+  out, so the game's adversary is strictly stronger than any close
+  observer (uniform in shape: no `cap`/unused bookkeeping needed). -/
+  | nfAt (i : ℕ)
   /-- direct `H_a` query -/
   | roA (kq : F) (i : ℕ)
   /-- direct `H_x` query -/
   | roX (m : M)
   /-- direct `H_nf` query -/
   | roNf (aq : F)
+  /-- direct `H_e` query (epoch pseudonym family; Mi1, see the module
+  simulation note) -/
+  | roE (kq : F) (e : ℕ)
 
-/-- Response types: honest-member oracles answer `Option (Signal F)` —
-`none` once the member has closed (a closed member emits nothing; the
-close signal itself is the last emission) — and RO queries answer `F`. -/
+/-- Response types: honest-member signal oracles answer
+`Option (Signal F)` — `none` once the member has closed (it is honest: it
+stops emitting) — and reveal/RO queries answer `F`. -/
 @[reducible] def frameSpec (F M : Type) : OracleSpec (FrameOp F M)
   | .spend _ => Option (Signal F)
   | .close => Option (Signal F)
+  | .nfAt _ => F
   | .roA _ _ => F
   | .roX _ => F
   | .roNf _ => F
+  | .roE _ _ => F
 
 /-- The FRAME oracle handler for honest member secret `k` and distinguished
 close message `mclose`. `spend`/`close` answer `⊥` after the member has
-closed (it is honest: it stops emitting); `close` flips the closed flag
-after emitting `s_close` at the next unused index. RO queries hit the
-shared caches. -/
+closed (it is honest: it stops emitting); `close` is the LEGACY surplus
+oracle (one extra signal on `mclose`, then stop — see `FrameOp.close`;
+the MC20-faithful reveal is `nfAt`). `nfAt i` answers
+`roNf (roA (k, i))` through the shared caches — it is answered even
+after close (the ledger's close reveal is permanent public data). RO
+queries hit the shared caches. -/
 def frameImpl (k : F) (mclose : M) :
     QueryImpl.Stateful unifSpec (frameSpec F M) (FrameSt F M)
   | .spend m => StateT.mk fun s =>
@@ -187,6 +224,10 @@ def frameImpl (k : F) (mclose : M) :
       else do
         let (sig, s') ← emitSignal k mclose s
         pure (some sig, { s' with closed := true })
+  | .nfAt i => StateT.mk fun s => do
+      let (a, cA) ← lazyRO s.roA (k, i)
+      let (nf, cNf) ← lazyRO s.roNf a
+      pure (nf, { s with roA := cA, roNf := cNf })
   | .roA kq i => StateT.mk fun s => do
       let (v, c) ← lazyRO s.roA (kq, i)
       pure (v, { s with roA := c })
@@ -196,6 +237,9 @@ def frameImpl (k : F) (mclose : M) :
   | .roNf aq => StateT.mk fun s => do
       let (v, c) ← lazyRO s.roNf aq
       pure (v, { s with roNf := c })
+  | .roE kq e => StateT.mk fun s => do
+      let (v, c) ← lazyRO s.roE (kq, e)
+      pure (v, { s with roE := c })
 
 /-! ## Dispute evidence and the recovery algebra -/
 
@@ -248,9 +292,10 @@ theorem recoverSecret_line (nf k a x x' : F) (hx : x ≠ x') :
 2. The adversary (an arbitrary strategy
    `A : OracleComp (frameSpec F M) (Evidence F)` — it *is* the `N − 1`
    corrupt gateways, all corrupt members, and the scheduler) interacts
-   with the honest member through `Ospend`/`Oclose` and with the public
-   random oracles directly; every honest signal is delivered to it as an
-   oracle response (the `N − 1`-gateway view).
+   with the honest member through `Ospend`/`Oclose` (legacy surplus) /
+   `nfAt` (the MC20 close-reveal superset) and with the public random
+   oracles directly; every honest signal is delivered to it as an oracle
+   response (the `N − 1`-gateway view).
 3. The adversary outputs `ev* = (nf, (x, y), (x', y'))`, and the game
    outputs whether `Dispute` slashes the honest member (`Slashes`). -/
 def frameGame (mclose : M) (A : OracleComp (frameSpec F M) (Evidence F)) :
