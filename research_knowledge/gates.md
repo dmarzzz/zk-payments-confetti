@@ -334,12 +334,24 @@ ticket (that match IS the conviction mechanism), and an honest
 receipt-deprived payer reaches the path. **F10-m1 (minor):** MC18 still
 carried the unscoped pre-rev-10 slash rule.
 
-### Round 11 — rev-11 (F10-1 scoping + residue, F10-m1): pending
+### Round 11 — 2026-07-07, rev-11: **SIGN-OFF (final)**
 
-MC15 satisfaction claim scoped to true-count closes; the
-receipt-withholding one-session linkage recorded as an honest limit in
-MC15 + T4's what-is-NOT-claimed (owed to the paper); MC18 scoped to the
-identity/fund split.
+F10-1 scoping verified with a full mechanics walk (the residue is true:
+one spend / one epoch session, via the revealed nf_j matching the
+emitted ticket and its nf_e; the upgrade path restores funds, not
+privacy — the first close is on-ledger and permanent, and no text
+claims otherwise); F10-m1 verified consistent across MC18/§2/T2-B.
+Two wording nuances routed to the paper's honest-limits, not the spec:
+(i) a payee that declines to dispute keeps the receipt unpublished and
+gets the linkage at the cost of only one forgone c ≤ C_max — the
+publication prices the payee's recovery, not the linkage; (ii) the
+session extension of the linkage requires the ticket transcript, which
+in B only the payee holds.
+
+**B1 GATE: SIGN-OFF on Spec.md rev-11. Definitions FINAL.** Eleven
+rounds, six reviewers-equivalent of independent context, every blocking
+finding a concrete counterexample, two external audits (K1, K4) and one
+independent method (TLC) converging on the same repairs.
 
 ### (superseded round-10 plan entry)
 
