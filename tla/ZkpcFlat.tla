@@ -144,7 +144,14 @@ Redeem(t) ==
   /\ ~UnspentBlocked(t)
   /\ LET fresh == ~\E s \in ss : NfEq(s, t)
          acc   == fresh /\ rate[t.m] < B
-     IN /\ (t \notin seen) \/ acc  \* prune pure stutter re-deliveries
+         \* State reduction (logged in tla-findings.md): the gateway only
+         \* remembers a presented ticket if it accepts it or if it conflicts
+         \* with something already observed (the evidence branch of check 6,
+         \* incl. conflicts with public close signals).  Plain rejects and
+         \* bit-identical duplicates leave no trace and can be re-presented
+         \* later, so forgetting them loses no behavior.
+         keep  == acc \/ \E s \in seen : Conflict(s, t)
+     IN /\ acc \/ (keep /\ t \notin seen)   \* prune no-op re-deliveries
         /\ seen' = seen \cup {t}
         /\ ss'   = IF acc THEN ss \cup {t} ELSE ss
         /\ rate' = IF acc THEN [rate EXCEPT ![t.m] = @ + 1] ELSE rate
@@ -330,13 +337,17 @@ Conservation ==
 (* C3: liveness under fairness                                             *)
 (***************************************************************************)
 
-Fairness ==
-  /\ \A m \in Members : /\ WF_vars(ExpireCloseWindow(m))
-                        /\ WF_vars(ExpireSlashWindow(m))
-                        /\ WF_vars(GwDispute(m))
-                        /\ WF_vars(DisputeCloseFraud(m))
-  /\ \A t \in TicketSp : /\ WF_vars(GwSweep(t))
-                         /\ WF_vars(ClaimSweep(t))
+\* A single weak-fairness constraint on the disjunction of all
+\* honest-infrastructure progress actions suffices: each such action
+\* strictly decreases a finite settlement measure (unswept accepted
+\* tickets + open windows + undisputed evidence) and never re-enables
+\* itself, so no individual action can be starved by the others.
+ProgressStep ==
+  \/ \E m \in Members : ExpireCloseWindow(m) \/ ExpireSlashWindow(m)
+                        \/ GwDispute(m) \/ DisputeCloseFraud(m)
+  \/ \E t \in ss : GwSweep(t) \/ ClaimSweep(t)
+
+Fairness == WF_vars(ProgressStep)
 
 LiveSpec == Init /\ [][Next]_vars /\ Fairness
 
@@ -349,6 +360,7 @@ HonestCloseSettles ==
 \* Every accepted ticket is eventually settled to the gateway (sweep or
 \* slash-window claim).
 SweepSettles ==
-  \A t \in TicketSp : (t \in ss) ~> Swept(t)
+  \A t \in [m : Members, idx : 0..(MaxIdx - 1), pay : Payloads] :
+    (t \in ss) ~> Swept(t)
 
 =============================================================================

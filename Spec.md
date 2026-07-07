@@ -1,6 +1,15 @@
 # Spec: the zk payment channel object and theorems T1–T7
 
-Status: **revision 8 for the M0 human gate (task B1).** Round 7 verified
+Status: **revision 9.** Rev-8 was SIGNED OFF at gate B1 (round 8); rev-9
+is a scoped, gate-tracked amendment from the K4 external review
+(simulated outside cryptographer attacking the definitions): the T4
+challenge upgraded from single-spend to **session form** (the $q=1$ game
+certified only first-spend-per-epoch unlinkability — a definitional
+hole for the fleet's real usage), the **CloseView-simulatability
+obligation** added to MC15 (challenge termination blinds the game to
+close-time content), the calibration battery widened, and the
+fund-slash/identity-slash distinction recorded. Scoped re-review of
+exactly these deltas: B1 round 9. Prior history: round 7 verified
 all of round 6's fixes and found the $nf_j$ reveal weaponizable by
 receipt withholding (→ receipt-bearing checkpoint disputes with an
 upgrade sub-window; $j{=}0$ closes receipt-free) and the sweep bar
@@ -416,7 +425,13 @@ malicious *registered* gateway could mint fresh "conflicts" and old-root
 spend proofs at will (rev-2 blocking finding NEW-2 — the rev-2 text
 wrongly cited T7's lemma here; T7 protects only members whose $k$ is still
 secret). After the window, the remainder of $D$ goes to the evidence
-submitter as bounty. Touches: escrow pool, tree, $RedeemedNF$, checkpoint
+submitter as bounty. **Slash taxonomy (rev-9, K4):** `Dispute`-proper
+slashes run the line algebra and **publish $k$** — retroactively linking
+the member's entire spend history (the honest-limits cost of
+detect-and-slash, owed a paragraph in the paper); close-dispute and
+settlement-detected slashes (MC20) run bit-matches and receipt
+exhibitions only — **$k$ stays hidden**, so they are fund-slashes, not
+identity-slashes. Touches: escrow pool, tree, $RedeemedNF$, checkpoint
 log.
 
 ---
@@ -815,23 +830,36 @@ batch at the same time. **Pre-challenge oracles** (unrestricted):
 - $\mathcal{O}close(u)$: directs $P_u$ to close (its close is a public
   ledger event $\mathcal{A}$ sees, revealing $cm_u$ and its spend count).
 
-**Challenge and termination.** $\mathcal{A}$ outputs a message $m^*$ at
-some time; let $e^*$ be the current epoch. The game checks **at challenge
+**Challenge and termination (session form, rev-9 — from the K4 external
+review).** $\mathcal{A}$ outputs a message **vector**
+$\vec{m}^* = (m^*_1, \ldots, m^*_q)$, $q \ge 1$ of its choice, at some
+time; let $e^*$ be the current epoch. The game checks **at challenge
 time** that neither candidate has emitted any signal during $e^*$ (rev-2
 NEW-5: freshness is a challenge-time predicate on the transcript, not a
 foreknowledge condition on the oracles), and outputs $\bot$ otherwise; see
-MC6. The game checks both
-candidates are *challenge-capable*: open, unslashed, unclosed, and solvent
-for one more spend under their current certified state (A:
-$(j_u+1)\cdot C \le D$ for $P_u$'s next index $j_u$; B:
-$(j_u+1)\cdot C_{max} \le D + R_u$ against the receipts $P_u$ holds). If
-either is not, $\mathcal{A}$ receives $\bot$ instead of a ticket (a
-candidate it evicted into insolvency shrinks the capable set — the game
-charges that to the anonymity set, not to the scheme; this is precisely the
-calibrated content of the abort attack). Otherwise $P_b$ emits the
-challenge ticket $t^*$ for $m^*$ at its next index, and $\mathcal{A}$
-receives $t^*$. **The game then ends**: $\mathcal{A}$ outputs its guess
-$b'$ immediately; no oracle answers after the challenge (or after $\bot$).
+MC6. The game checks both candidates are *challenge-capable for $q$*:
+open, unslashed, unclosed, and solvent for $q$ more spends under their
+current certified state (A: $(j_u+q)\cdot C \le D$ for $P_u$'s next index
+$j_u$; B: $(j_u+q)\cdot C_{max} \le D + R_u$ against the receipts $P_u$
+holds). If either is not, $\mathcal{A}$ receives $\bot$ instead of
+tickets (a candidate it evicted into insolvency shrinks the capable set —
+the game charges that to the anonymity set, not to the scheme; this is
+precisely the calibrated content of the abort attack). Otherwise $P_b$
+emits the challenge tickets $t^*_1..t^*_q$ for $\vec{m}^*$ at its next
+$q$ indices, all within $e^*$ (sharing the session pseudonym
+$nf_{e^*}$), and $\mathcal{A}$ receives the batch. **The game then
+ends**: $\mathcal{A}$ outputs its guess $b'$ immediately; no oracle
+answers after the challenge (or after $\bot$). Why the session form: the
+K4 external review showed the single-spend challenge ($q = 1$) certifies
+only *first-spend-per-epoch* unlinkability — a scheme leaking a
+persistent cross-epoch tag only on second-and-later spends within an
+epoch passed the $q=1$ game while being lifetime-linkable for any member
+that spends twice per epoch (the deployed fleet's normal usage). With
+the session challenge, such a tag surfaces inside the challenge batch
+and matches the pre-challenge transcript, so the game catches it; what
+is certified is the unlinkability of a member's **whole epoch session**
+to its identity and its other epochs, with within-session linkage via
+$nf_{e^*}$ remaining by design (MC6).
 Because $b$ is sampled up front, the advantage is well-defined on every
 execution path, and $\bot$-executions contribute exactly $\tfrac12$
 (rev-1 finding: the prior game sampled $b$ after the capability check,
@@ -858,6 +886,17 @@ spend count revealed at close is a side channel this theorem does not
 cover** (same epistemic status as MC6's within-epoch linkage) — a member
 that closes immediately after a spend correlates its count with observed
 traffic. The paper's honest-limits section must carry this.
+
+**Calibration battery (rev-9, K4 Concern 5: one bit of separation is
+thin evidence; the battery adds must-catch and must-win points).** Beyond
+the B-static/B-rerand pair below, the H-phase formalization must also
+exhibit: a **must-catch A-index-leak variant** (tickets carry the index
+in the clear — the game must be winnable against it) and a **must-catch
+$nf_e$-reuse variant** (the epoch pseudonym derivation reused across
+epochs — winnable via cross-epoch matching); and FRAME's battery gains
+**must-win degenerate-RLN adversaries** (against $y = k$ and against
+$a$ reused across indices, concrete adversaries must win FRAME with
+probability 1 — the anti-vacuity notes' breaks, made constructive).
 
 **Calibration requirement (definitional test, binding on the Lean game).**
 Instantiated on **B-static**, the game must be *winnable*: there is a
@@ -1213,7 +1252,14 @@ item.**
   what-is-NOT-claimed and owed an honest-limits paragraph in the paper.
   A's close additionally reveals the unused nullifiers themselves; these
   are PRF-fresh values never used anywhere, so they carry no linkage
-  beyond the count.
+  beyond the count. **CloseView-simulatability obligation (rev-9, K4
+  Concern 2):** because the game terminates at the challenge, close-time
+  content is outside its view — so every instantiation owes the stated
+  obligation that its close output is simulatable from $(cm,
+  \text{spend count})$ alone. Both in-scope closes satisfy it (A's $U$
+  and B's $nf_j$ are PRF-fresh), and a hypothetical close that published
+  *used* nullifiers — total retroactive deanonymization — is exactly
+  what this obligation excludes, since no simulator could produce them.
 - **MC16 — Pooled escrow; authenticated sweeps; monitoring duty.
   [repair]** The ledger's fund accounting (commingled pool) was implicit in
   rev-1 and two theorems silently depended on it; sweep authentication to

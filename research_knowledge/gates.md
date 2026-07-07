@@ -288,6 +288,46 @@ slash remainder stays in the pool; F8-m5 header dangle).
 **B1 GATE: SIGN-OFF on Spec.md rev-8.** The M0 definitions are frozen.
 Any future change to §2/§7/§8 re-opens this gate.
 
+### Round 9 (scoped re-open) — 2026-07-07, rev-9 K4 amendments: pending
+
+The K4 external review (simulated outside cryptographer; report at
+k4-external-review.md) found two definitional holes the internal rounds
+could not see from inside: (1) the q=1 challenge certifies only
+first-spend-per-epoch unlinkability — a second-spend-only tag leak
+passes while being lifetime-linkable at the fleet's real usage; (2)
+challenge termination blinds the game to close-time content — a close
+publishing USED nullifiers would pass. Adjudication: strengthen, not
+narrow (the T4 proof had not started; cheapest-ever moment). Rev-9:
+session-form challenge (vector of q spends in the fresh epoch; certifies
+whole-session unlinkability); CloseView-simulatability obligation in
+MC15; calibration battery widened (must-catch index-leak + nf_e-reuse,
+must-win degenerate-RLN FRAME adversaries); fund-slash vs identity-slash
+taxonomy recorded (close-dispute slashes never publish k). K4 Concerns
+3 and 6 (composed deployment statement; slash-publishes-k retroactive
+linkage) routed to the paper's honest-limits; Concern 4 disposition:
+A's close-dispute exculpability is kernel-checked in the Core layer,
+B's upgrade-path safety is spec-level — stated as such in the paper.
+Scoped B1 round 9 verifies exactly these deltas.
+
+## Gate K1 — independent statement audit
+
+2026-07-07: **FAITHFUL-WITH-NOTES sign-off** (k1-statement-audit.md).
+No theorem states less than its docstring; all deltas documented
+GATE-NOTEs except one drift finding: FRAME omits cm = H_id(k) from the
+adversary view (strictly less information, unacknowledged) — routed to
+the games agent with the rev-9 batch. Expected-rework items (T5/Flat on
+the pre-MC20 machine, assumption-5 opening-homomorphism, header stamps)
+were already in flight.
+
+## Gate K4 — external definition review (simulated)
+
+2026-07-07: **REVISE → adjudicated into rev-9** (see B1 round 9 entry).
+Survived angles recorded in the report: bit-first/⊥-accounting, abort
+teeth, freshness-as-predicate, adversary-issued genesis, FRAME nfAt
+superset, unconditional-tag schemes. The ⊥-branch anonymity accounting
+endorsed as field-standard; the gap was missing arithmetic, not wrong
+accounting.
+
 ## Gate B3 — security-game definitions in Lean (Zkpc/Games/)
 
 ### Round 1 — 2026-07-07, fresh reviewer vs Framework/Unlink/Frame.lean: REVISE
