@@ -147,6 +147,61 @@ the MC18/MC19 second-order periphery, all with local fixes:
   honest-limits note (window recovery presumes fleet honesty — collusion
   crowd-out documented for the paper's honest-limits section).
 
-### Round 4 — pending
+### Round 4 — 2026-07-06, fresh reviewer vs Spec.md rev-4: REVISE (one major)
 
-Rev-4 (R3-1..9 fixes) submitted for final delta verification.
+R3-2..R3-9 verified genuinely fixed and mutually consistent (the B
+self-slash race was walked once more under rev-4 mechanics and confirmed
+closed modulo checkpoint freshness, which the theorems condition on).
+Residuals:
+
+- **F1 (major):** R3-1's cap was one-sided — nothing bounded the close
+  index j in B, so a Byzantine payer closing at an arbitrary overstated
+  fresh index (undisputable: collides with nothing) made the ledger pay
+  the payee j·C_max − R unboundedly beyond the channel's D from the
+  commingled pool; the payer-side payout was also negative/undefined in ℕ.
+  **Fix (rev-5):** second verified conjunct j·C_max ≤ D + R in R_close^B
+  (an honest closer's last spend proved exactly this; full spend-down
+  still closes at payout 0); A's close needs no such cap because it pays
+  nobody but the closer.
+- **F2 (minor, fixed):** no-double-pay wording widened — no close of any
+  kind, cooperative or forfeit, executes on a frozen channel; a pending
+  ForceClose window is voided by the freeze.
+- **F3 (minor, fixed):** §4 settlement bullet restates both caps.
+- **F4 (minor, fixed):** seniority provenance tags unified to MC19.
+
+### Round 5 — 2026-07-06, fresh reviewer vs Spec.md rev-5: REVISE (one blocking)
+
+F1's conjuncts verified present, honest-safe (j=0 and full-spend-down
+edges walked), and arithmetically sound (payouts in [0,D], sum D). The
+Byzantine (j,R) sweep found the run's deepest hole:
+
+- **Gap-index understatement (blocking):** nothing enforces index
+  contiguity — solvency is per-index, indices are hidden. A payer skips
+  index 0, spends at 1..m, closes at j=0 (smallest UNUSED index, so
+  compliant with the strictest reading and colliding with nothing) and
+  recovers the full D after consuming service. Falsifies T2's floor in
+  both instantiations, voids MC1's self-conviction argument, and (flagged
+  in passing) breaks A's "pool retains j·C" sweep-ceiling claim the same
+  way. Root cause: the ledger has no verifiable spend count.
+  **Fix (rev-6): MC20** — A closes by unused-nullifier enumeration
+  (reveal PRF-fresh nullifiers of claimed-unused indices, in-circuit
+  well-formedness, false claims disproven by bit-match against pre-close
+  checkpoints — which also protect honest closers, since genuinely-unused
+  nullifiers are PRF-hidden until the close reveals them); B certifies
+  the count in the receipt chain ((tag, R, n), R_spend^B proves
+  index = n, contiguity by construction). Closed channels are evicted
+  from the tree at settlement (kills post-close ticket replay, a
+  secondary hole the repair surfaced). That A and B need structurally
+  different repairs is a design-space finding for the paper.
+- **T5/F2 consistency (major):** a freeze mid-ForceClose-window voids the
+  forfeit, so T5-B's bound needs the freeze carve-out. Fixed in rev-6.
+- Minors fixed: "both with equality" wording, MC18 one-cap restatement,
+  §2 seniority tag → MC19.
+
+Also folded into rev-6 from the Lean G4 workstream (gate-note): H_x maps
+into F_p \ {0} — at x = 0 the signal is y = k, the secret outright;
+single_signal_hiding is conditioned on x ≠ 0 (§1, §5.3).
+
+### Round 6 — pending
+
+Rev-6 (MC20 + carve-outs + x ≠ 0) submitted for verification.

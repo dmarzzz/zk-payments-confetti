@@ -80,7 +80,12 @@ production note that the proof's message field should bind the target.
 **The RLN signal.** For secret $k$, spend index $i \in \mathbb{N}$, and
 message $m$:
 
-$$a = H_a(k, i), \quad x = H_x(m), \quad y = k + a \cdot x, \quad nf = H_{nf}(a).$$
+$$a = H_a(k, i), \quad x = H_x(m), \quad y = k + a \cdot x, \quad nf = H_{nf}(a),$$
+
+with $H_x$ mapping into $F_p \setminus \{0\}$ (rev-6, from the Lean G4
+work: at $x = 0$ the signal degenerates to $y = k$ — the secret outright —
+so single-signal hiding is conditioned on $x \ne 0$ and the deployment
+domain-separates $H_x$ away from zero).
 
 The *signal* is $s = (x, y, nf)$. Two well-formed signals on the same $(k,i)$
 with $x \ne x'$ are two points on the line $Y = k + aX$: anyone can compute
@@ -210,44 +215,76 @@ state; (via `Dispute`) ledger.
 **$Close(pp, \text{role}, st, \mathcal{L}) \to \text{settlement}$.**
 Either side, at any time.
 
-- *Payer close* ("close-as-final-spend", MC1 [repair]): the payer submits
-  $(cm, j, s_{close}, \pi_{close})$ to $\mathcal{L}$, where $s_{close}$ is a
-  well-formed signal at its next unused index $j$ on the distinguished
-  message $m_{close}$, and $\pi_{close}$ proves well-formedness and
-  $cm = H_{id}(k)$. **$\mathcal{R}_{close}$ has no solvency conjunct** — a
-  fully spent-down payer ($j \cdot C = D$) can still close, with payout $0$
-  (rev-1 reviewer note: a transcriber copying $\mathcal{R}_{spend}$ would
-  otherwise make full spend-down unclosable). Because indices are consumed
-  strictly increasingly, closing at any already-spent index collides with an
-  existing signal and is slashable, so a payer understating its spend count
-  convicts itself; a payer overstating only donates. The ledger opens a
-  window $\tau$ during which any party may submit `Dispute` evidence against
-  $s_{close}$ (or any other index). At expiry the ledger **automatically**
-  settles and marks the channel closed — no second claim transaction (T5
-  needs this pinned). Settlement: in A, the payer receives $D - j\cdot C$
-  from the pool. In B (MC18), the close is the channel's *entire*
-  settlement event: the payer receives $(D + R) - j\cdot C_{max}$ against
-  its certified refund evidence, **and $\mathcal{R}_{close}^B$ enforces
-  $R \le j\cdot C_{max}$ as a verified conjunct** (rev-3 R3-1: without
-  ledger-side enforcement, a payee colluding with a corrupt payer signs an
-  inflated $R$ and the close drains other channels' deposits from the
-  commingled pool; honest payers are unaffected since their
-  $R \le \sum(C_{max}-c_\ell) \le j\cdot C_{max}$ always). The payout is
-  then non-negative by the solvency invariant and $\le D$ by the enforced
-  cap, and the payee receives $j\cdot C_{max} - R$ — its exact net $\sum c_\ell$ over this channel's
-  accepted spends when the chain is honest; the two payouts sum to $D$, so
-  conservation per channel holds by construction. The payer-close reveals
-  $cm$ and the spend count $j$; what that leaks is scoped in MC15.
+- *Payer close* — instantiation A ("close-by-unused-enumeration", MC20
+  [repair], **replacing** revs 1–5's close-as-final-spend): rev-5 killed
+  the old design with the *gap-index understatement*: nothing enforces
+  index contiguity, so a payer could skip index 0, spend at indices
+  $1..m$ (indices are hidden witnesses), close at $j = 0$ — colliding
+  with nothing, hence undisputable — and recover the full $D$ after
+  consuming the service. The root cause is that the ledger has no
+  verifiable spend count. Repair: the payer submits
+  $(cm, U, \pi_{close})$ where $U$ is the set of **revealed nullifiers of
+  its claimed-unused indices**, and $\pi_{close}$ proves $cm = H_{id}(k)$
+  and that each $nf \in U$ equals $H_{nf}(H_a(k, i))$ for a distinct
+  index $i < cap := \lfloor D/C \rfloor$, for the same witness $k$.
+  Revealed unused nullifiers are PRF-fresh values never emitted anywhere,
+  so past spends stay unlinkable; $|U|$ reveals the spend count, exactly
+  the leak MC15 already scopes. During the window $\tau$: (a) a
+  registered gateway holding an *acceptance whose nullifier is in $U$,
+  checkpointed before the close transaction*, presents it — the claim is
+  proven false, the close is voided, and the channel is slashed (a false
+  unused-claim is the new self-conviction; the pre-close-checkpoint
+  requirement blocks post-hoc fabrication, since an honest closer's
+  genuinely-unused nullifiers are PRF-hidden until the close reveals
+  them, so no pre-close checkpoint can contain them); (b) ordinary
+  `Dispute` evidence freezes the channel and voids the close as usual.
+  At expiry the ledger **automatically** pays
+  $C \cdot |U| + (D - cap \cdot C)$ — for an honest closer with $j$
+  emitted indices, $|U| = cap - j$ and the payout is exactly
+  $D - j \cdot C$, the same floor as before — and the channel is closed
+  **and evicted from the tree (root rotates)**, so post-close spend
+  proofs fail and in-flight tickets die; gateways have the window to
+  redeem in-flight tickets and checkpoint (their close protection is
+  conditioned on checkpoint currency at the close transaction, the same
+  cadence lever as MC19). A fully spent-down payer closes with
+  $U = \varnothing$ at payout $D - cap\cdot C$ (the sub-ticket residue);
+  over-claiming *fewer* unused indices than it has only donates.
+- *Payer close* — instantiation B (declared-count close, MC18/MC20): the
+  payer submits $(cm, j, \pi_{close})$ where $\pi_{close}$ proves
+  $cm = H_{id}(k)$ and **$j$ equals the certified spend count $n$ of its
+  latest receipt** — MC20's B-side repair: the receipt chain certifies
+  $(tag, R, n)$ and $\mathcal{R}_{spend}^B$ proves its index equals the
+  certified $n$, so B spends are contiguous by construction and neither
+  gap-index nor stale-count closes exist. $\mathcal{R}_{close}^B$
+  additionally verifies the two settlement caps: $R \le j\cdot C_{max}$
+  (rev-3 R3-1: else a colluding payee signs inflated $R$ and drains the
+  pool) and $j\cdot C_{max} \le D + R$ (rev-4 F1: else an overstated
+  index pays the payee unboundedly from the pool; an honest closer's last
+  spend proved exactly this inequality, so it never blocks). With both
+  caps the payouts are well-defined naturals: the payer receives
+  $(D+R) - j\cdot C_{max} \in [0, D]$, the payee receives
+  $j\cdot C_{max} - R \le D$ at the same event — its exact net
+  $\sum c_\ell$ when the chain is honest — and the two sum to $D$:
+  conservation per channel by construction. The window $\tau$ admits
+  ordinary `Dispute` evidence; understatement is structurally impossible
+  (certified count), overstatement is capped. Close-racing exposure
+  (honest limitation): service accepted between a close's inclusion and
+  its settlement cannot be netted (the closing channel is unattributable
+  among tickets); the payee's exposure is bounded by its acceptance rate
+  times $\tau$, and an implementation shortens it by pausing acceptance
+  while any close window is open. The close reveals $cm$ and the spend
+  count $j$ (MC15).
 - *Payee close* — instantiation A ("sweep"): a **registered gateway**
   (MC16) submits redeemed tuples $(nf, x, y, \pi)$ to $\mathcal{L}$ at any
   time; the ledger verifies $\pi$ against $\mathcal{R}_{spend}$
-  specifically (the close signal's public $(nf_j, \pi_{close})$ is not
+  specifically (close transactions carry $\pi_{close}$, which is not
   sweepable — rev-2 NEW-6), keeps a global set $RedeemedNF$, dedups by
   $nf$, and pays $C$ per fresh $nf$ from the pool. Sweeping is unilateral:
-  it requires no payer cooperation. Sweeps of tickets emitted before a
-  payer-close remain payable after it (the pool retains $j \cdot C$ from
-  that close, which is exactly the ceiling on what can still be swept —
-  T1). **The honest sweep protocol includes monitoring:** an honest gateway
+  it requires no payer cooperation. Sweeps of tickets accepted before a
+  payer-close remain payable after it: under MC20 the close refunds only
+  proven-unused indices, so the pool retains exactly $C$ per used index —
+  the ceiling on what can still be swept (rev-5 found the old
+  declared-$j$ close broke this claim via gap indices; MC20 restores it). **The honest sweep protocol includes monitoring:** an honest gateway
   watches `Dispute` events and sweeps its outstanding tickets of a slashed
   member within that window (T2 depends on this duty; rev-1 finding).
 - *Payee close* — instantiation B ("force-close", MC18 [repair]): B has no
@@ -266,8 +303,9 @@ Either side, at any time.
   slash-window per-nullifier claims of `Dispute` — the payee claims
   $C_{max}$ per checkpointed accepted nullifier of the slashed member
   against the remaining deposit (no refund netting: a cheater forfeits its
-  refunds). No double-payment arises because the frozen channel's
-  cooperative close can never occur. Without this path, a B payer consumes
+  refunds). No double-payment arises because **no close of any kind —
+  cooperative or forfeit — executes on a frozen channel**; a pending
+  ForceClose window is voided by the freeze (rev-4 F2). Without this path, a B payer consumes
   service, self-slashes, and collects the remainder as its own `Dispute`
   bounty — the same race MC4 closed in A.
 
@@ -287,7 +325,7 @@ nullifiers $nf_i = H_{nf}(H_a(k,i))$ are enumerable (MC4); and (ii)
 whose $nf$ is dedup-blocked in $RedeemedNF$ under a different $x$ presents
 the evidence pair and is paid $C$ per documented conflict. Claim seniority
 when the remainder is short: (i) before (ii), pro-rata within each class
-(rev-2 NEW-3). **Window-claim provenance (MC19, [repair]):** both claim
+(MC19). **Window-claim provenance (MC19, [repair]):** both claim
 kinds are valid only for acceptances *checkpointed before the slash
 transaction* — each gateway posts a commitment to its accepted set to the
 ledger **at any time it chooses, and at least once per epoch** (rev-3
@@ -377,11 +415,14 @@ signature keypair $(vk_S, sk_S)$.
     This is the patched design and T4 must pass against it.
 - Settlement (MC18): the channel settles once, at close. The payer's
   payout is $(D + R) - j\cdot C_{max}$, proven against its latest certified
-  receipt; the payee's payout is $j\cdot C_{max} - R = \sum c_\ell$ at the
-  same event. There are no per-nullifier sweeps in B; a silent payer is
-  handled by the payee's force-close-with-forfeit path (§2). Rev-2 NEW-1
-  established that A's sweep mechanics cannot conserve funds in B; this
-  close-time netting conserves exactly $D$ per channel by construction.
+  receipt, with both settlement caps $R \le j\cdot C_{max}$ and
+  $j\cdot C_{max} \le D + R$ enforced in $\mathcal{R}_{close}^B$ (rev-3
+  R3-1, rev-4 F1); the payee's payout is $j\cdot C_{max} - R = \sum c_\ell$
+  at the same event. There are no per-nullifier sweeps in B outside the
+  slash window; a silent payer is handled by the payee's
+  force-close-with-forfeit path (§2). Rev-2 NEW-1 established that A's
+  sweep mechanics cannot conserve funds in B; this close-time netting
+  conserves exactly $D$ per channel by construction.
 - B-static's genesis anchor (rev-2 NEW-4): $ct_0$ is certified against
   $cm$ at `Open`, and B-static presents it *bit-identically at the first
   spend* — so the break in B-static is not merely spend-to-spend chaining
@@ -425,8 +466,11 @@ assumption below names the Lean declaration that carries it):
    carried as its **own named assumption** (rev-1 finding: standard PRF
    security does not by itself yield it, because $y = k + a\cdot x$ uses the
    key additively — a KDM-flavored use): **`single_signal_hiding`** — one
-   point $(x,\ k + H_a(k,i)\cdot x)$ per index reveals nothing about $k$.
-   Used by: T4, T7 (and index-injectivity in T1).
+   point $(x,\ k + H_a(k,i)\cdot x)$ per index, with $x \ne 0$ (§1,
+   rev-6), reveals nothing about $k$: algebraically, one observation is
+   consistent with *every* candidate secret via a unique coefficient
+   (`rln_single_point_hiding` in `Zkpc/Games/RLN.lean` proves exactly
+   this). Used by: T4, T7 (and index-injectivity in T1).
 4. **EUF-CMA signatures** for the payee's refund key $sk_S$ (B only).
    Used by: T1, T2, T3 in instantiation B (rev-2 NEW-7: forged receipts
    would inflate $R$ at the settlement, so T2-B uses it too).
@@ -745,13 +789,22 @@ scheduler, but subject to the idealized ledger's $\Delta$-inclusion:
   its T3-floor amount by $t + \Delta + \tau$ exactly (inclusion by
   $t+\Delta$, window $\tau$, settlement automatic at expiry — §2 pins the
   automatic execution, so there is no second transaction and no $O(\cdot)$
-  slack; rev-1 finding: "$O(\Delta)$" is not a formal statement).
+  slack; rev-1 finding: "$O(\Delta)$" is not a formal statement). An
+  honest closer's window admits no valid dispute (MC20: its claimed-unused
+  nullifiers are PRF-hidden pre-close, so no pre-close checkpoint contains
+  them; its double-sign evidence cannot exist per T3), so the voided-close
+  branch never fires for honest payers.
 - *Payee sweep (A only):* a sweep submitted at $t$ is included and paid by
   $t + \Delta$ (no window). The payee's *reactive* duties (window
   monitoring) are part of T2, not liveness of its own close.
 - *Payee force-close (B, MC18):* a force-close submitted at $t$ settles —
-  by the payer's responsive close or by forfeit — by $t + \Delta + \tau$
-  (rev-3 R3-8).
+  by the payer's responsive close or by forfeit — by $t + \Delta + \tau$,
+  **unless the channel is frozen mid-window by a valid `Dispute`** (only
+  possible against a payer that double-signed), in which case settlement
+  routes through the slash window and completes by the slash time
+  $+ \tau + \Delta$ (rev-5 consistency finding: the freeze voids the
+  forfeit, so the force-close bound carries this carve-out; for an honest
+  counterparty no valid `Dispute` exists and the plain bound stands).
 
 Counterparty silence, garbage submissions, and concurrent disputes cannot
 extend these bounds; except with probability $negl(\lambda)$, no transaction
@@ -909,17 +962,17 @@ labeled and its necessity witnessed by a concrete counterexample (recorded
 in `research_knowledge/gates.md`). **The M0 reviewer is asked to check every
 item.**
 
-- **MC1 — Close mechanics ("close-as-final-spend"). [repair]** Settlement
-  cadence and payer-withdrawal mechanics are underspecified in the source
-  construction (RESEARCH.md open problem 8; the thread comment on claiming
-  "the fair share" is unanswered). We adopt: payer-close emits a signal at
-  the next unused index on a distinguished message, so understating one's
-  spend count is itself a slashable double-sign (Compact-E-Cash-style);
-  payee sweep is unilateral and $nf$-deduped on the ledger; settlement at
-  window expiry is automatic. Neither mechanism appears in the sources —
-  this is new protocol, in the same category as MC4, and rev-1 required it
-  relabeled as such. The ledger-accounting substrate it needs (commingled
-  pool) is MC16.
+- **MC1 — Close mechanics. [repair; superseded in part by MC20]**
+  Settlement cadence and payer-withdrawal mechanics are underspecified in
+  the source construction (RESEARCH.md open problem 8; the thread comment
+  on claiming "the fair share" is unanswered). Revs 1–5 adopted
+  "close-as-final-spend" (close signal at the next unused index, so
+  understatement self-convicts); **rev-5 broke it** with the gap-index
+  counterexample (no contiguity ⇒ closing at a skipped index collides
+  with nothing) and **MC20 replaced it**: A closes by unused-nullifier
+  enumeration, B closes at its receipt-certified count. What survives of
+  MC1: unilateral $nf$-deduped sweeps (A), automatic settlement at window
+  expiry, and the commingled-pool substrate (MC16).
 - **MC2 — Abort-retry rule.** Neither source specifies honest payer behavior
   when the payee aborts mid-spend. We adopt: the index is consumed at
   *emission*; the honest payer may re-send the bit-identical ticket (same
@@ -941,7 +994,7 @@ item.**
   slashed member's outstanding redeemed tickets — attribution is possible
   post-slash because $k$ is public and the member's nullifiers are
   enumerable — and (ii) documented conflicting acceptances (dedup-blocked
-  service); seniority (i) before (ii), pro-rata within class (rev-3 R3-8);
+  service); seniority (i) before (ii), pro-rata within class (MC19);
   the *remainder* goes to the submitter.
   T2 and T6's exposure clause are conditioned on this repair, and T2's
   anti-vacuity note records what breaks without it.
@@ -979,6 +1032,10 @@ item.**
   against $cm$ where linkability is free anyway. B-static vs B-rerand
   differ only in whether the presented ciphertext is bit-identical to a
   signed one or re-randomized with an in-circuit equivalence proof.
+  Rev-6 (MC20): the chain also certifies the spend count — ciphertexts
+  encrypt $(tag, R, n)$, receipts increment $n$, and
+  $\mathcal{R}_{spend}^B$ proves its index equals the certified $n$,
+  making B spends contiguous by construction.
   Transposition note (rev-1 fidelity): omarespejel's finding was linkage
   across *settlements*; B-static exhibits the same mechanism across
   consecutive *spends* — same tag, broader venue, acknowledged as such.
@@ -1019,9 +1076,13 @@ item.**
   unsatisfiable (three universal distinguishers: challenge replay via
   retry, solvency-exhaustion probing, close-count reading). The game now
   ends at challenge delivery, retaining full pre-challenge abort/evict
-  power. The honest residue: the spend count $j$ revealed at payer-close is
-  a real side channel the theorem does not cover, stated in T4's
+  power. The honest residue: the spend count revealed at payer-close —
+  as $j$ in B, as $cap - |U|$ in A's MC20 enumeration (same information)
+  — is a real side channel the theorem does not cover, stated in T4's
   what-is-NOT-claimed and owed an honest-limits paragraph in the paper.
+  A's close additionally reveals the unused nullifiers themselves; these
+  are PRF-fresh values never used anywhere, so they carry no linkage
+  beyond the count.
 - **MC16 — Pooled escrow; authenticated sweeps; monitoring duty.
   [repair]** The ledger's fund accounting (commingled pool) was implicit in
   rev-1 and two theorems silently depended on it; sweep authentication to
@@ -1048,6 +1109,24 @@ item.**
   construction. This resolves the settlement-cadence side of open
   problem 8 for B differently than for A — a genuine design consequence of
   refund privacy, worth a paragraph in the paper.
+- **MC20 — Verifiable spend count at close. [repair]** Rev-5's blocking
+  find: neither instantiation enforced index contiguity, so a gap-index
+  close (skip index 0, spend at 1..m, close at 0) recovered the full
+  deposit after consuming service — falsifying T2's floor and voiding
+  MC1's self-conviction argument, in both A and B, plus A's
+  pool-retention claim. Two repairs, one per instantiation, because their
+  information structures differ: **A** (non-interactive, no receipts)
+  closes by unused-nullifier enumeration — reveal PRF-fresh nullifiers of
+  claimed-unused indices with an in-circuit well-formedness proof; false
+  claims are disproven by bit-match against pre-close checkpoints; payout
+  $C\cdot|U|$ + residue. **B** (interactive receipts) certifies the count
+  in the chain — $(tag, R, n)$ with $\mathcal{R}_{spend}^B$ proving
+  index $= n$, so contiguity holds by construction and the close settles
+  at the certified count. Closed channels are evicted from the tree at
+  settlement (kills post-close ticket replay). That the same hole demands
+  two structurally different repairs is a finding about the design space
+  (non-interactive spending trades away cheap closes), owed a paragraph
+  in the paper.
 - **MC19 — Window-claim provenance. [repair]** Post-slash, $k$ is public
   (the `Dispute` transaction reveals it), so nothing algebraic stops a
   registered gateway from minting "documented conflicts" or old-root spend
@@ -1056,7 +1135,12 @@ item.**
   Repair: gateways checkpoint a commitment to their accepted sets on the
   ledger at any time, at least once per epoch (rev-3 R3-3: window recovery
   is gated on pre-slash checkpoints, so cadence is a recovery lever), and
-  window claims verify against a pre-slash checkpoint. Claim seniority
+  window claims verify against a pre-slash checkpoint. Rev-6: checkpoints
+  do triple duty — they also gate the MC20 close-dispute (a false
+  unused-claim is provable only from a pre-close checkpoint, which is
+  also what protects honest closers from post-hoc fabrication) and their
+  currency at a close transaction conditions the payee's close
+  protection, the third cadence lever. Claim seniority
   when the remainder is short: sweeps (i) before conflicts (ii), pro-rata
   within class. Honest-limits note (rev-3 R3-9): window recovery presumes
   fleet honesty — a member–gateway collusion can pre-checkpoint real
