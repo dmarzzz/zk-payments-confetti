@@ -1,7 +1,22 @@
 # Spec: the zk payment channel object and theorems T1–T7
 
-Status: **revision 9.** Rev-8 was SIGNED OFF at gate B1 (round 8); rev-9
-is a scoped, gate-tracked amendment from the K4 external review
+Status: **revision 11.** Round 10 passed F9-1a/b and F9-m2 and found the
+rev-10 joint-transcript sharpening flipped MC15's satisfaction claim for
+B — a stale close's $nf_j$ transcript-match is the conviction mechanism
+itself, so it cannot be jointly simulatable; rev-11 scopes the claim to
+true-count closes and records the receipt-withholding one-session
+linkage residue as an honest limit (MC15, T4), plus scopes MC18's slash
+rule (F10-m1). Prior: Round 9 verified the session-form challenge
+end-to-end (the K4 construction now loses; ⊥ stays b-independent via the
+non-adaptive vector and symmetric capable-for-$q$) and found one major:
+the new slash taxonomy exposed that the $k$-gated MC4/R3-2 settlement
+machinery cannot run for fund-slashes — rev-10 states the A
+checkpoint-dispute remainder rule (pool-retained, no bounty) and scopes
+B's per-nullifier claims to identity-slashes with fund-slashes settling
+by forfeit; plus the F9-m1 joint-transcript sharpening of the CloseView
+obligation and the F9-m2 multiplicity-tag calibration point. Rev-8 was
+SIGNED OFF at gate B1 (round 8); rev-9/10
+are scoped, gate-tracked amendments from the K4 external review
 (simulated outside cryptographer attacking the definitions): the T4
 challenge upgraded from single-spend to **session form** (the $q=1$ game
 certified only first-spend-per-epoch unlinkability — a definitional
@@ -259,8 +274,15 @@ Either side, at any time.
   unused-claim is the new self-conviction; the pre-close-checkpoint
   requirement blocks post-hoc fabrication, since an honest closer's
   genuinely-unused nullifiers are PRF-hidden until the close reveals
-  them, so no pre-close checkpoint can contain them); (b) ordinary
-  `Dispute` evidence freezes the channel and voids the close as usual.
+  them, so no pre-close checkpoint can contain them). **A
+  checkpoint-dispute slash is a fund-slash — $k$ stays hidden (rev-10
+  F9-1a): its remainder stays in the pool with no submitter bounty (a
+  bounty would break conservation, since the member's remaining used
+  nullifiers cannot be enumerated or barred without $k$), and ordinary
+  sweeps continue against the pool with no deadline** — the same rule as
+  the settlement-detected slash (F8-m4). (b) Ordinary `Dispute` evidence
+  freezes the channel and voids the close as usual (that path recovers
+  $k$ and is an identity-slash with the full MC4 window mechanics).
   At expiry the ledger **automatically** pays
   $C \cdot |U| + (D - cap \cdot C)$ — for an honest closer with $j$
   emitted indices, $|U| = cap - j$ and the payout is exactly
@@ -376,12 +398,22 @@ Either side, at any time.
   responds in time — it monitors the ledger for its $cm$ (§1) and
   $\tau > \Delta$ guarantees its response lands — so forfeit only
   transfers value from payers that abandoned the protocol.
-  **B slash path (rev-3 R3-2):** a *slashed* B channel is frozen and never
-  closes, so close-time netting cannot settle it; B therefore retains the
-  slash-window per-nullifier claims of `Dispute` — the payee claims
-  $C_{max}$ per checkpointed accepted nullifier of the slashed member
-  against the remaining deposit (no refund netting: a cheater forfeits its
-  refunds). No double-payment arises because **no close of any kind —
+  **B slash path (rev-3 R3-2; scoped to identity-slashes in rev-10,
+  F9-1b):** a *slashed* B channel is frozen and never closes, so
+  close-time netting cannot settle it. For an **identity-slash**
+  (`Dispute`-proper, $k$ public), B retains the slash-window
+  per-nullifier claims — the payee claims $C_{max}$ per checkpointed
+  accepted nullifier of the slashed member against the remaining deposit
+  (no refund netting: a cheater forfeits its refunds); attribution runs
+  on the public $k$. For a **fund-slash** (failed upgrade, $k$ hidden —
+  rev-9's taxonomy exposed that the per-nullifier claims cannot run
+  here, since B-rerand makes acceptances unlinkable and only the
+  disputed $nf_j$ is attributable): the channel settles by **forfeit of
+  $D$ to the payee** — the slashed party is a proven cheater or
+  protocol-abandoner that declined its own published upgrade path, the
+  payee is B's sole counterparty, and the forfeit mirrors the
+  ForceClose-forfeit and covers the payee's otherwise-stranded revenue
+  ($\sum c \le D$ by T1-B; conservation-safe). No double-payment arises because **no close of any kind —
   cooperative or forfeit — executes on a frozen channel**; a pending
   ForceClose window is voided by the freeze (rev-4 F2). Without this path, a B payer consumes
   service, self-slashes, and collects the remainder as its own `Dispute`
@@ -715,9 +747,12 @@ abandons; each within $\Delta + \tau$ of the channel's **final**
 (re-)close or force-close event — against a stale or cheating close the
 upgrade cascade adds up to one round per understated count before that
 final close (rev-8 F8-m3; the honest-payer case has at most one round,
-T5). A *slashed* B channel settles through the slash-window
-per-nullifier claims instead (§2 MC18/R3-2), recovered up to the remaining
-deposit against pre-slash checkpoints, exactly as in A. Forged-receipt
+T5). A B channel hit by an **identity-slash** settles through the
+slash-window per-nullifier claims (§2 MC18/R3-2), recovered up to the
+remaining deposit against pre-slash checkpoints, exactly as in A; one hit
+by a **fund-slash** (failed upgrade) settles by forfeit of $D$ to the
+payee (§2, rev-10 F9-1b — the per-nullifier claims are $k$-gated and
+cannot run when $k$ stays hidden). Forged-receipt
 inflation of $R$ is excluded by EUF-CMA (§5.4) and receipt inflation by a
 *colluding* payee is capped by $\mathcal{R}_{close}^B$'s enforced
 $R \le j\cdot C_{max}$ (rev-3 R3-1).
@@ -896,7 +931,12 @@ $nf_e$-reuse variant** (the epoch pseudonym derivation reused across
 epochs — winnable via cross-epoch matching); and FRAME's battery gains
 **must-win degenerate-RLN adversaries** (against $y = k$ and against
 $a$ reused across indices, concrete adversaries must win FRAME with
-probability 1 — the anti-vacuity notes' breaks, made constructive).
+probability 1 — the anti-vacuity notes' breaks, made constructive); and a
+**must-catch multiplicity-tag variant** (rev-10 F9-m2: a persistent tag
+leaked only on second-and-later spends within an epoch — the K4
+construction that motivated the session form; a $q = 2$ session
+distinguisher must win against it, constructively witnessing that the
+session challenge closes Concern 1).
 
 **Calibration requirement (definitional test, binding on the Lean game).**
 Instantiated on **B-static**, the game must be *winnable*: there is a
@@ -921,7 +961,10 @@ within one epoch share the epoch pseudonym $nf_e$ and are linkable *to each
 other* by design — that is the rate-limiting mechanism; T4 claims
 unlinkability of spends to member identity and across epochs, and the
 game's epoch-freshness condition is the formal expression of that scope
-(MC6). The spend count revealed at payer-close is not covered (MC15).
+(MC6). The spend count revealed at payer-close is not covered (MC15);
+nor is the B stale-close residue — under receipt withholding, an honest
+payer's forced stale close links $cm$ to one epoch session at the price
+of the payee publishing the withheld receipt (rev-11 F10-1, MC15).
 Timing, content, and volume fingerprints are out of scope (§5).
 
 **Anti-vacuity.** Three-fold: (i) the B-static/B-rerand calibration pair
@@ -1253,13 +1296,29 @@ item.**
   A's close additionally reveals the unused nullifiers themselves; these
   are PRF-fresh values never used anywhere, so they carry no linkage
   beyond the count. **CloseView-simulatability obligation (rev-9, K4
-  Concern 2):** because the game terminates at the challenge, close-time
-  content is outside its view — so every instantiation owes the stated
-  obligation that its close output is simulatable from $(cm,
-  \text{spend count})$ alone. Both in-scope closes satisfy it (A's $U$
-  and B's $nf_j$ are PRF-fresh), and a hypothetical close that published
-  *used* nullifiers — total retroactive deanonymization — is exactly
-  what this obligation excludes, since no simulator could produce them.
+  Concern 2; sharpened rev-10 F9-m1):** because the game terminates at
+  the challenge, close-time content is outside its view — so every
+  instantiation owes the stated obligation that its close output is
+  simulatable from $(cm, \text{spend count})$ alone, **judged jointly
+  with the member's spend transcript** (marginally, even a
+  used-nullifier close looks uniform; the exclusion bites because the
+  simulator's output must remain correct when correlated against the
+  transcript's tickets) and with the simulator granted NIZK-ZK for the
+  $\pi_{close}$ component. A's close satisfies it on every path (honest
+  $U$ contains only never-emitted PRF-fresh values, receipt-independent);
+  **B's satisfies it for true-count closes only** (rev-11 F10-1: a
+  *stale* close's revealed $nf_j$ bit-matches the member's own
+  transcript ticket at index $j$ — that match *is* §2's conviction
+  mechanism, so it is definitionally not jointly simulatable, and an
+  honest receipt-deprived payer reaches this path whenever the payee
+  withholds the last receipt). The residue is stated as an honest limit:
+  **under receipt withholding, the resulting stale close publicly links
+  $cm$ to one spend — and via that ticket's $nf_e$ to one epoch session
+  — at the price of the payee publishing the withheld receipt**; same
+  epistemic class as the count leak, carried in T4's what-is-NOT-claimed
+  and owed to the paper's honest-limits section. A hypothetical close
+  that published *used* nullifiers wholesale — total retroactive
+  deanonymization — remains exactly what the obligation excludes.
 - **MC16 — Pooled escrow; authenticated sweeps; monitoring duty.
   [repair]** The ledger's fund accounting (commingled pool) was implicit in
   rev-1 and two theorems silently depended on it; sweep authentication to
@@ -1282,10 +1341,13 @@ item.**
   plus $nf_j$ revealed per MC20 (rev-6: stale-receipt closes self-convict
   via the reveal), payee gets $j\cdot C_{max} - R = \sum c_\ell$; a
   silent payer is handled by force-close-with-forfeit after a response
-  window; a *slashed* channel settles through the slash-window
-  per-nullifier claims (rev-3 R3-2 — close-time netting cannot reach a
-  frozen channel, and without the slash path the self-slash race reopens
-  in B). Conservation is exact by construction. This resolves the settlement-cadence side of open
+  window; a channel hit by an *identity*-slash settles through the
+  slash-window per-nullifier claims, and one hit by a *fund*-slash
+  (failed upgrade) settles by forfeit of $D$ to the payee (rev-3 R3-2,
+  scoped in rev-10/11 — the per-nullifier claims are $k$-gated,
+  close-time netting cannot reach a frozen channel, and without a slash
+  path the self-slash race reopens in B). Conservation is exact by
+  construction. This resolves the settlement-cadence side of open
   problem 8 for B differently than for A — a genuine design consequence of
   refund privacy, worth a paragraph in the paper.
 - **MC20 — Verifiable spend count at close. [repair]** Rev-5's blocking
