@@ -1,0 +1,5 @@
+.lake/
+tools/tla2tools.jar
+*.olean
+tla/states/
+tla/runs/
