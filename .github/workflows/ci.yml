@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No sorry anywhere
+        run: |
+          if grep -rn --include='*.lean' -w 'sorry' Zkpc.lean Zkpc/; then
+            echo '::error::sorry found — zero tolerance at every milestone boundary'
+            exit 1
+          fi
+      - name: Axioms only in Zkpc/Assumptions.lean
+        run: |
+          if grep -rn --include='*.lean' -w 'axiom' Zkpc.lean Zkpc/ | grep -v '^Zkpc/Assumptions.lean:'; then
+            echo '::error::axiom found outside Zkpc/Assumptions.lean'
+            exit 1
+          fi
+      - name: No proof escape hatches
+        run: |
+          if grep -rnE --include='*.lean' -w 'admit|native_decide' Zkpc.lean Zkpc/; then
+            echo '::error::admit/native_decide found — not allowed'
+            exit 1
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Cache lake packages
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-${{ runner.os }}-${{ hashFiles('lake-manifest.json', 'lean-toolchain') }}
+          restore-keys: lake-${{ runner.os }}-
+      - name: Fetch mathlib cache
+        run: lake exe cache get
+      - name: Build
+        run: lake build
