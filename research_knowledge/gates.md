@@ -412,3 +412,28 @@ rewritten to MC20 (behavior provably immaterial: closed ⇒
 challenge-incapable). **D3** — spec-side dangles: fixed in rev-7.
 Minors Mi1–Mi4 recorded (nf_e omission in FRAME + named proof
 obligations), recommended not gating.
+
+### Round 2 — 2026-07-07: **SIGN-OFF** on the M1/M2/D1/D2 fixes
+
+zkBridgeObligation verified as the correct bridging Prop (right shape,
+right direction, discoverable); adversary-issued genesis walked incl.
+the asymmetric-malformed case (⊥ structurally b-independent); nfAt
+verified as a strict superset of any MC20 reveal with no new line
+points; close docstrings MC20-faithful with the lastSig no-op argument
+airtight; no regressions in the round-1 verified cores; O1–O3 register
+approved as the right residual obligations.
+
+### Round 3 — 2026-07-07: **SIGN-OFF** on the rev-9 batch (session form,
+O4, FRAME cm)
+
+Session challenge: non-adaptivity STRUCTURAL (one-move List submission,
+closed spendBatch fold, no mid-batch views); capable-for-q both-checked
+before b is consulted; unfaithful-instance mid-batch ⊥ covered by the
+O2 obligation, explicit. O4 adjudicated SUFFICIENT: the per-state
+marginal form subsumes rev-10's joint-transcript judging (close coins
+fresh given state; two-states-same-summary separation gives the
+exclusion teeth; F10-1 is the empirical confirmation). FRAME cm: roId
+keyed at the preimage, no new k-extraction channel. Minors O4-a..d
+(docstring/register syncs, incl. aligning O4's satisfaction text to
+rev-11's true-count scoping) routed to the H-phase alongside instance
+work. **The T4/T7 proof phase is unblocked.**
