@@ -116,10 +116,17 @@ structure Scheme (F : Type) [Field F] where
   into a gateway's spent set, emitting merge-time evidence on conflict
   (MC17 — required behavior). -/
   merge : PayeeSt → SpentTuple → PayeeSt × Option Evidence
-  /-- payer close ("close-as-final-spend", MC1): emit the close signal at
-  the next unused index on `m_close` and submit; opens the window `τ`;
-  settlement at expiry is automatic (§2). `R_close` has no solvency
-  conjunct, so a fully spent-down payer can close. -/
+  /-- payer close (MC20, Spec.md rev-8+): **no close signal exists.**
+  In A the payer publishes `(cm, U, π_close)` — the PRF-fresh nullifiers
+  of its claimed-unused indices — and is paid per proven-unused index; in
+  B it publishes `(cm, j, nf_j, π_close)` at its receipt-certified count.
+  The window `τ` admits close-disputes (checkpoint bit-match in A,
+  receipt-bearing tuples with the upgrade sub-window in B) and ordinary
+  `Dispute` evidence; settlement, the two-sided sweep-bar check, and
+  voiding at expiry are ledger-internal window semantics (§2), not tuple
+  algorithms — the symbolic machine models them as `closeDispute` /
+  `settleClose` / `settleVoid` transitions. A fully spent-down payer can
+  still close. -/
   payerClose : Params → PayerSt → LedgerSt → Option LedgerSt
   /-- payee close ("sweep"): a *registered* gateway (MC16) submits redeemed
   tuples; the ledger dedups by nullifier against `RedeemedNF` and pays per
@@ -128,8 +135,13 @@ structure Scheme (F : Type) [Field F] where
   /-- `Dispute(pp, ev, L)`: permissionless; validates the conflicting pair
   by line algebra, slashes and evicts the recovered commitment (root
   rotation, MC5), opens the gateway-priority window with its two claim
-  kinds, remainder to submitter (MC4/MC16). `none` if the evidence is
-  invalid. -/
+  kinds, remainder to submitter (MC4/MC16). This is the
+  **identity-slash** path — `k` is recovered and published. The
+  **fund-slash** paths (MC20 close-disputes, settlement-detected false
+  claims; rev-10 taxonomy) never run the line algebra, keep `k` hidden,
+  and settle per §2 (A: remainder pooled; B: forfeit); they live in the
+  ledger's window semantics, not this algorithm. `none` if the evidence
+  is invalid. -/
   dispute : Params → Evidence → LedgerSt → Option LedgerSt
 
 end Zkpc.Spec

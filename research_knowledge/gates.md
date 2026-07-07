@@ -309,6 +309,47 @@ A's close-dispute exculpability is kernel-checked in the Core layer,
 B's upgrade-path safety is spec-level — stated as such in the paper.
 Scoped B1 round 9 verifies exactly these deltas.
 
+Round-9 result (2026-07-07): session form PASS (K4 construction walked
+to defeat; non-adaptive vector + symmetric capable-for-q noted as
+load-bearing), CloseView obligation PASS (minor F9-m1: joint-transcript
+judging + NIZK-ZK for π_close), battery PASS (minor F9-m2: add the
+multiplicity-tag must-catch), header PASS — and one MAJOR, F9-1: the
+slash taxonomy is TRUE but exposed that fund-slashes cannot run the
+k-gated settlement machinery: (a) A's checkpoint-dispute slash had no
+stated remainder rule (bounty would break conservation — the member's
+other used nullifiers can't be enumerated or barred without k); (b) B's
+failed-upgrade slash stranded the payee's revenue (R3-2 claims are
+k-gated; only nf_j is attributable). REVISE.
+
+### Round 10 — 2026-07-07, rev-10: REVISE (one major)
+
+F9-1a PASS (conservation re-derived on all four per-channel paths; the
+no-bounty dispute incentive verified coherent — the disputing gateway
+protects its own sweep-bar exposure, duty-as-hypothesis framing stands).
+F9-1b PASS (forfeit path walked end-to-end; honest-unreachability chain
+complete). F9-m2 PASS. **F10-1 (major):** the rev-10 joint-transcript
+sharpening flipped MC15's "both closes satisfy it" to FALSE for B — a
+stale close's revealed nf_j bit-matches the member's own transcript
+ticket (that match IS the conviction mechanism), and an honest
+receipt-deprived payer reaches the path. **F10-m1 (minor):** MC18 still
+carried the unscoped pre-rev-10 slash rule.
+
+### Round 11 — rev-11 (F10-1 scoping + residue, F10-m1): pending
+
+MC15 satisfaction claim scoped to true-count closes; the
+receipt-withholding one-session linkage recorded as an honest limit in
+MC15 + T4's what-is-NOT-claimed (owed to the paper); MC18 scoped to the
+identity/fund split.
+
+### (superseded round-10 plan entry)
+
+Fixes: A checkpoint-dispute remainder stays pooled, no bounty, ordinary
+sweeps continue (extends F8-m4); B slash path scoped to identity-slashes,
+fund-slash settles by forfeit of D to the sole payee (proven cheater or
+abandoner declined its own published upgrade; mirrors ForceClose-forfeit;
+Σc ≤ D conservation-safe); T2-B split accordingly; CloseView obligation
+judged jointly with the transcript; multiplicity-tag calibration point.
+
 ## Gate K1 — independent statement audit
 
 2026-07-07: **FAITHFUL-WITH-NOTES sign-off** (k1-statement-audit.md).

@@ -28,19 +28,33 @@ restates its Spec.md T4 clause; encoding deviations are marked
    have no interaction surface with the candidates (Spec.md: "maximality
    at zero cost"), so they are not modeled — the adversary simulates them
    internally.
-4. **Challenge and termination**: `phase1` *ends by returning* the
-   challenge message `m*`. The game checks, at challenge time,
-   epoch-freshness (`epochFresh`: neither candidate emitted a signal in
-   the current epoch) and challenge-capability (`challengeCapable`: both
-   candidates unclosed and solvent for one more spend). On failure the
-   adversary receives `⊥` (`none`) — in-band data, not game failure. On
-   success `P_b` emits the challenge ticket for `m*` at its next index
-   and the adversary receives its view. **The game then ends**: the
-   adversary's `guess` is a pure function of its retained memory and the
-   challenge response — no oracle access after the challenge, by type
-   (`ChalAdversary`). In particular the three world-observable components
-   rev-1's gate found leaky (the retry buffer, the index counters, close
-   events) are reachable only through the pre-challenge oracle surface.
+4. **Challenge and termination (session form, rev-9 — from the K4
+   external review)**: `phase1` *ends by returning* the challenge
+   message **vector** `m*₁..m*_q : List S.M`, `q ≥ 1` of the adversary's
+   choice. The game checks, at challenge time, epoch-freshness
+   (`epochFresh`: neither candidate emitted a signal in the current
+   epoch — unchanged) and challenge-capability **for `q`**
+   (`challengeCapable … q`: both candidates unclosed and solvent for `q`
+   more spends). On failure the adversary receives `⊥` (`none`) —
+   in-band data, not game failure; both checks test *both* candidates,
+   so `⊥`-vs-ticket is `b`-independent. On success `P_b` emits the whole
+   batch at its next `q` indices (`spendBatch`), all at the current
+   epoch `e*` — sharing the session pseudonym `nf_{e*}`, structurally:
+   the batch runs atomically at `g.epoch` with no oracle interleaving —
+   and the adversary receives the ticket list. **The game then ends**:
+   the adversary's `guess` is a pure function of its retained memory and
+   the challenge response — no oracle access after the challenge, by
+   type (`ChalAdversary`). In particular the three world-observable
+   components rev-1's gate found leaky (the retry buffer, the index
+   counters, close events) are reachable only through the pre-challenge
+   oracle surface. Why the session form (rev-9): `q = 1` certified only
+   *first-spend-per-epoch* unlinkability — a scheme leaking a persistent
+   cross-epoch tag only on second-and-later spends within an epoch
+   passed the `q = 1` game while being lifetime-linkable under normal
+   fleet usage; with the session challenge such a tag surfaces inside
+   the batch and matches the pre-challenge transcript. What is certified
+   is whole-epoch-session unlinkability; within-session linkage via
+   `nf_{e*}` remains by design (MC6).
 5. Advantage: `|Pr[b' = b] − 1/2|` (`unlinkAdvantage := guessGap`).
 
 **GATE-OBLIGATION (M1):** instances whose `View` drops the zk proof `π`
@@ -90,7 +104,12 @@ structure UnlinkScheme : Type 1 where
   `|U|`, i.e. the spend count, the MC15 leak T4 does not cover). B
   (certified-count close): the close publishes `(cm_u, j, nf_j, π_close)`
   — `CloseView` must carry `cm_u`, the certified count `j`, and the
-  revealed `nf_j` of the first index beyond it. -/
+  revealed `nf_j` of the first index beyond it.
+
+  **GATE-OBLIGATION (O4, rev-9/K4 Concern 2):** because the game
+  terminates at the challenge, close-time content is outside its view —
+  every instance owes `closeViewSimulatable` (end of this file): its
+  close output is simulatable from `(cm, spend count)` alone. -/
   CloseView : Type
   /-- public transcript of one `Open` (candidate creation) -/
   OpenView : Type
@@ -138,10 +157,12 @@ structure UnlinkScheme : Type 1 where
   argument is the current epoch, available to instances whose close
   artifacts are epoch-dependent. -/
   close : ℕ → PSt → ProbComp (CloseView × PSt)
-  /-- the solvency half of challenge-capability, on the candidate's
-  current certified state: A: `(j+1)·C ≤ D`; B: `(j+1)·C_max ≤ D + R`
-  against the receipts held (Spec.md T4 challenge clause). -/
-  capable : PSt → Bool
+  /-- the solvency half of challenge-capability, parameterized by the
+  session length `q` (rev-9 session form): the candidate is solvent for
+  `q` more spends under its current certified state — A: `(j+q)·C ≤ D`
+  for next index `j`; B: `(j+q)·C_max ≤ D + R` against the receipts
+  held (Spec.md T4, challenge clause in session form). -/
+  capableFor : ℕ → PSt → Bool
 
 /-! ## Oracle surface -/
 
@@ -284,43 +305,63 @@ against every scheme (Spec.md T4 anti-vacuity (ii)). -/
 def epochFresh (S : UnlinkScheme) (g : GSt S) : Bool :=
   !(g.lastSig false == some g.epoch) && !(g.lastSig true == some g.epoch)
 
-/-- **Challenge-capability** (Spec.md T4): both candidates are open,
-unslashed, unclosed, and solvent for one more spend under their current
-certified state. Encoded: unclosed (`closed` flag) and solvent
-(`S.capable`). GATE-NOTE: "open" holds by construction (both candidates
+/-- **Challenge-capability for `q`** (Spec.md T4, session form rev-9):
+both candidates are open, unslashed, unclosed, and solvent for `q` more
+spends under their current certified state. Encoded: unclosed (`closed`
+flag) and solvent-for-`q` (`S.capableFor q`).
+GATE-NOTE: "open" holds by construction (both candidates
 are opened at setup and there is no eviction-from-the-tree oracle), and
 "unslashed" reduces to true — no UNLINK oracle can slash an honest
 candidate (producing slash evidence against an honest payer is exactly
 the FRAME game, T7). A candidate the adversary evicted into insolvency
-fails `capable`, shrinking the capable set — the game charges that to the
-anonymity set, not the scheme (the calibrated content of the abort
+fails `capableFor`, shrinking the capable set — the game charges that to
+the anonymity set, not the scheme (the calibrated content of the abort
 attack). Proof-order note (Mi2): Spec.md §7's proof order runs
 single-signal-exculpability → … → T4 → T7-as-stated, with the
 exculpability lemma (all-`N`-corrupt FRAME, T3's second clause)
 established *before* T4 — so reading "unslashed" as vacuous here
 introduces no circularity. -/
-def challengeCapable (S : UnlinkScheme) (g : GSt S) : Bool :=
-  (!(g.closed false) && S.capable (g.cand false)) &&
-  (!(g.closed true) && S.capable (g.cand true))
+def challengeCapable (S : UnlinkScheme) (g : GSt S) (q : ℕ) : Bool :=
+  (!(g.closed false) && S.capableFor q (g.cand false)) &&
+  (!(g.closed true) && S.capableFor q (g.cand true))
 
-/-- The challenge move: on the checks failing, the adversary receives `⊥`
-(in-band `none`). Otherwise `P_b` emits the challenge ticket for `m*` at
-its next index in the current epoch, and the adversary receives exactly
-the ticket view — the advanced state of `P_b` is discarded, which is the
+/-- Emit the challenge session: `P_b`'s tickets for `m*₁..m*_q` at its
+next `q` indices, all at the fixed epoch `e` — no oracle runs between
+the batch's spends, so the whole session shares `nf_e` structurally. If
+any spend in the batch returns `none`, the adversary receives `⊥` for
+the whole session (see the Mi3 obligation on `challengeResp`: under
+`capableFor q` this cannot happen for faithful instances). -/
+def spendBatch (S : UnlinkScheme) (e : ℕ) :
+    S.PSt → List S.M → ProbComp (Option (List S.View))
+  | _, [] => pure (some [])
+  | st, m :: ms => do
+      match ← S.spend e st m with
+      | none => pure none
+      | some (v, st') => (Option.map (v :: ·)) <$> spendBatch S e st' ms
+
+/-- The challenge move (session form, rev-9): on the checks failing, the
+adversary receives `⊥` (in-band `none`). Otherwise `P_b` emits the
+challenge session `t*₁..t*_q` for the vector `m*₁..m*_q` at its next `q`
+indices in the current epoch, and the adversary receives exactly the
+ticket views — the advanced state of `P_b` is discarded, which is the
 structural form of "the game then ends" (no bit-dependent continuation
-exists to observe; MC15).
+exists to observe; MC15). GATE-NOTE: Spec.md types the vector `q ≥ 1`;
+an empty vector is answered `⊥` (checked on both candidates' behalf
+before `b` is consulted, so it is `b`-independent like every other
+`⊥`-path).
 
-GATE-OBLIGATION (Mi3, per instance): if both checks pass but the
-abstract `S.spend` still returns `none`, the adversary receives `⊥`.
-The branch exists because the abstract interface cannot forbid it; each
-instance's T4 proof must either show the branch is dead
-(`capable (g.cand b) = true` implies `S.spend` succeeds — the faithful
-reading: capable means solvent for one more spend) or account for its
-probability explicitly in the advantage bound. -/
-def challengeResp (S : UnlinkScheme) (g : GSt S) (b : Bool) (mstar : S.M) :
-    ProbComp (Option S.View) :=
-  if epochFresh S g && challengeCapable S g then
-    (Option.map Prod.fst) <$> S.spend g.epoch (g.cand b) mstar
+GATE-OBLIGATION (Mi3, per instance, session form): if the checks pass
+but some spend of the batch still returns `none`, the adversary receives
+`⊥`. The branch exists because the abstract interface cannot forbid it;
+each instance's T4 proof must either show the branch is dead
+(`capableFor q (g.cand b) = true` implies all `q` spends of the batch
+succeed — the faithful reading: solvent for `q` more spends) or account
+for its probability explicitly in the advantage bound. -/
+def challengeResp (S : UnlinkScheme) (g : GSt S) (b : Bool)
+    (mstars : List S.M) : ProbComp (Option (List S.View)) :=
+  if !mstars.isEmpty && epochFresh S g &&
+      challengeCapable S g mstars.length then
+    spendBatch S g.epoch (g.cand b) mstars
   else
     pure none
 
@@ -335,17 +376,19 @@ def challengeResp (S : UnlinkScheme) (g : GSt S) (b : Bool) (mstar : S.M) :
   trivial there.
 * `main`: the challenge-terminated core (`Zkpc.Games.ChalAdversary`):
   the interactive pre-challenge phase receives `Aux0` and the public
-  open transcripts, ends by emitting the challenge message `m*`; the
-  final guess is a pure function of retained memory and the
-  (`⊥`-capable) challenge response. -/
+  open transcripts, ends by emitting the challenge message **vector**
+  `m*₁..m*_q` (session form, rev-9); the final guess is a pure function
+  of retained memory and the (`⊥`-capable) session response. -/
 structure UnlinkAdversary (S : UnlinkScheme) : Type 1 where
   /-- memory carried from the genesis stage into the interactive phase -/
   Aux0 : Type
   /-- genesis stage: the adversary-payee's `Open` inputs for `P₀, P₁` -/
   phase0 : ProbComp ((S.GenesisInput × S.GenesisInput) × Aux0)
-  /-- interactive phase + pure guess (post-challenge silence by type) -/
+  /-- interactive phase + pure guess (post-challenge silence by type);
+  the challenge submission is the session vector, the response the
+  session's ticket list (or `⊥`) -/
   main : ChalAdversary (unlinkSpec S) (Aux0 × S.OpenView × S.OpenView)
-    S.M (Option S.View)
+    (List S.M) (Option (List S.View))
 
 /-- **The UNLINK game** (Spec.md §7 T4, challenge-terminated). In order:
 
@@ -357,9 +400,10 @@ structure UnlinkAdversary (S : UnlinkScheme) : Type 1 where
    interactive phase gets its genesis memory and the public open
    transcripts.
 3. The interactive phase runs against the pre-challenge oracles
-   (`unlinkImpl`), ending with the challenge message `m*`.
-4. The challenge move (`challengeResp`): freshness + capability checks,
-   then `P_b`'s ticket view or `⊥`.
+   (`unlinkImpl`), ending with the challenge message vector `m*₁..m*_q`
+   (session form, rev-9).
+4. The challenge move (`challengeResp`): freshness + capability-for-`q`
+   checks, then `P_b`'s session of `q` ticket views or `⊥`.
 5. The game ends; the adversary's pure `guess` produces `b'`, and the
    game outputs the win indicator `b = b'`. -/
 def unlinkGame (S : UnlinkScheme) (A : UnlinkAdversary S) : ProbComp Bool := do
@@ -367,9 +411,9 @@ def unlinkGame (S : UnlinkScheme) (A : UnlinkAdversary S) : ProbComp Bool := do
   let ((g₀, g₁), a₀) ← A.phase0
   let (p₀, v₀) ← S.openCh g₀
   let (p₁, v₁) ← S.openCh g₁
-  let ((mstar, aux), g) ←
+  let ((mstars, aux), g) ←
     (unlinkImpl S).runState (GSt.init S p₀ p₁) (A.main.phase1 (a₀, v₀, v₁))
-  let resp ← challengeResp S g b mstar
+  let resp ← challengeResp S g b mstars
   pure (b == A.main.guess aux resp)
 
 /-- UNLINK advantage, exactly Spec.md T4's
@@ -404,5 +448,33 @@ exists for) and must remain in `Sfree.View`. -/
 def zkBridgeObligation (Sfull Sfree : UnlinkScheme) (εZK : ℝ) : Prop :=
   ∀ A : UnlinkAdversary Sfull, ∃ A' : UnlinkAdversary Sfree,
     unlinkAdvantage Sfull A ≤ unlinkAdvantage Sfree A' + εZK
+
+/-! ## The CloseView-simulatability obligation (O4) -/
+
+/-- **GATE-OBLIGATION (O4, rev-9 — K4 Concern 2, MC15): CloseView is
+simulatable from `(cm, spend count)` alone.** Because the UNLINK game
+terminates at the challenge, close-time content is outside its view; the
+theorem is honest about that scope only if the close cannot leak more
+than the game's stated residue — the identity `cm` and the spend count
+(the MC15 side channel). The obligation: the instance names how its
+payer state determines the close's public summary (`Cm`, `cm`, `count` —
+supplied by the instance, since the abstract interface does not expose
+them) and exhibits a simulator producing the close-output distribution
+from that summary and the public epoch alone.
+
+Both in-scope closes satisfy it (Spec.md MC15): A's `U` and B's `nf_j`
+are PRF-fresh values determined in distribution by the count (and `cm`);
+a hypothetical close publishing *used* nullifiers — total retroactive
+deanonymization — is exactly what no simulator can produce, so this
+obligation excludes it.
+
+Stated over **all** payer states for simplicity; an instance may
+discharge it over game-reachable states only, recording that weakening
+at its own gate entry. -/
+def closeViewSimulatable (S : UnlinkScheme) (Cm : Type)
+    (cm : S.PSt → Cm) (count : S.PSt → ℕ) : Prop :=
+  ∃ sim : Cm → ℕ → ℕ → ProbComp S.CloseView,
+    ∀ (e : ℕ) (st : S.PSt),
+      𝒟[Prod.fst <$> S.close e st] = 𝒟[sim (cm st) (count st) e]
 
 end Zkpc.Games

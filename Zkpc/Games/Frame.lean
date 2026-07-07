@@ -13,7 +13,10 @@ clause by clause; deviations are marked `GATE-NOTE:`.
 ## Game shape (Spec.md T7, clause by clause)
 
 1. Challenger runs `Setup` and creates one honest member with secret
-   `k ← F` uniform (`frameGame` samples `k` first), open deposit `D`.
+   `k ← F` uniform (`frameGame` samples `k` first), open deposit `D`;
+   the public commitment `cm = H_id(k)` is delivered to the adversary at
+   game start (rev-9, K1 finding D1 — the deployed adversary reads `cm`
+   off the ledger from `Open` onward).
 2. The adversary controls `N − 1` gateways, arbitrarily many corrupt
    members, and the scheduler. The honest `N`-th gateway's accepted
    tuples reach the adversary through reconciliation anyway, so the
@@ -21,9 +24,9 @@ clause by clause; deviations are marked `GATE-NOTE:`.
    encoded here by delivering every emitted signal directly as an oracle
    response. GATE-NOTE: corrupt members are not separate oracles — the
    adversary holds their secrets and has direct access to the random
-   oracles (`roA`/`roX`/`roNf` queries), so it can compute any corrupt
-   member's signals itself. GATE-NOTE: scheduler control is the
-   adversary's free interleaving of queries.
+   oracles (`roA`/`roX`/`roNf`/`roE`/`roId` queries), so it can compute
+   any corrupt member's signals itself. GATE-NOTE: scheduler control is
+   the adversary's free interleaving of queries.
 3. Oracles: `Ospend(m)` — the honest member emits its next-index ticket
    on a gateway-bound message `m` of the adversary's choice. `Oclose`,
    under MC20 (rev-6/7), emits **no signal** in the real protocol: the
@@ -58,10 +61,11 @@ clause by clause; deviations are marked `GATE-NOTE:`.
 
 ## Random-oracle model
 
-The four domain-separated hashes are lazily sampled random oracles with
+The five domain-separated hashes are lazily sampled random oracles with
 caches inside the game state: `H_a(·,·)` (`roA`), `H_x(·)` (`roX`),
-`H_nf(·)` (`roNf`), and `H_e(·,·)` (`roE`, Mi1). The adversary gets
-*direct* query access to all four (clause 2), and the honest member's
+`H_nf(·)` (`roNf`), `H_e(·,·)` (`roE`, Mi1), and `H_id(·)` (`roId`,
+rev-9 — sources the `cm` handed to the adversary at game start). The
+adversary gets *direct* query access to all five (clause 2), and the honest member's
 emissions draw from the **same** caches, so adversary queries and honest
 signals are ROM-consistent (an adversary that guesses `k` can verify it
 against observed signals). Simulation note (Mi1): the game still has no
@@ -118,8 +122,9 @@ def lazyRO {α : Type} [DecidableEq α] (cache : α → Option F) (q : α) :
       pure (v, Function.update cache q (some v))
 
 /-- FRAME game state: the honest member's next unused index, whether it
-has closed, and the four random-oracle caches (shared between the honest
-member's emissions and the adversary's direct queries). -/
+has closed, and the five random-oracle caches (shared between the honest
+member's emissions, the game-start `cm` delivery, and the adversary's
+direct queries). -/
 structure FrameSt (F M : Type) : Type where
   /-- honest member's next unused index (emission consumes, MC2) -/
   idx : ℕ
@@ -133,6 +138,10 @@ structure FrameSt (F M : Type) : Type where
   roNf : F → Option F
   /-- cache of `H_e : F × ℕ → F` (epoch pseudonym family, Mi1) -/
   roE : F × ℕ → Option F
+  /-- cache of `H_id : F → F` (identity commitment; rev-9, K1 drift
+  finding D1 — the honest `cm = H_id(k)` is delivered to the adversary
+  at game start through this cache) -/
+  roId : F → Option F
 
 /-- Initial FRAME state: index 0, unclosed, empty oracle caches. -/
 def FrameSt.init (F M : Type) : FrameSt F M where
@@ -142,6 +151,7 @@ def FrameSt.init (F M : Type) : FrameSt F M where
   roX := fun _ => none
   roNf := fun _ => none
   roE := fun _ => none
+  roId := fun _ => none
 
 /-- The honest member emits its signal for message `m` at its next unused
 index and advances the index: `x = H_x(m)`, `a = H_a(k, idx)`,
@@ -159,7 +169,7 @@ def emitSignal (k : F) (m : M) (s : FrameSt F M) :
 /-! ## Oracle surface -/
 
 /-- FRAME oracle queries: the honest-member oracles of Spec.md T7, the
-MC20 close-reveal surface (`nfAt`), and direct access to the four random
+MC20 close-reveal surface (`nfAt`), and direct access to the five random
 oracles (the adversary holds `N − 1` gateways' keys and all corrupt
 members' secrets; the hash functions are public). -/
 inductive FrameOp (F M : Type) : Type
@@ -191,6 +201,12 @@ inductive FrameOp (F M : Type) : Type
   /-- direct `H_e` query (epoch pseudonym family; Mi1, see the module
   simulation note) -/
   | roE (kq : F) (e : ℕ)
+  /-- direct `H_id` query (rev-9, K1 finding D1): lets the adversary
+  test guessed preimages of the honest `cm` it holds from game start.
+  Confirming `k` through this channel is the same `q/|F|` ROM mass as
+  hitting `(k, ·)` through the `roA` channel — the T7 bound treats them
+  together. -/
+  | roId (kq : F)
 
 /-- Response types: honest-member signal oracles answer
 `Option (Signal F)` — `none` once the member has closed (it is honest: it
@@ -203,6 +219,7 @@ stops emitting) — and reveal/RO queries answer `F`. -/
   | .roX _ => F
   | .roNf _ => F
   | .roE _ _ => F
+  | .roId _ => F
 
 /-- The FRAME oracle handler for honest member secret `k` and distinguished
 close message `mclose`. `spend`/`close` answer `⊥` after the member has
@@ -240,6 +257,9 @@ def frameImpl (k : F) (mclose : M) :
   | .roE kq e => StateT.mk fun s => do
       let (v, c) ← lazyRO s.roE (kq, e)
       pure (v, { s with roE := c })
+  | .roId kq => StateT.mk fun s => do
+      let (v, c) ← lazyRO s.roId kq
+      pure (v, { s with roId := c })
 
 /-! ## Dispute evidence and the recovery algebra -/
 
@@ -288,20 +308,31 @@ theorem recoverSecret_line (nf k a x x' : F) (hx : x ≠ x') :
 
 1. `k ← F` uniform — the honest member's secret (`Setup` + one honest
    member; the membership tree and deposit are not needed by the win
-   condition, see the module GATE-NOTEs).
+   condition, see the module GATE-NOTEs) — and the public commitment
+   `cm := H_id(k)` is materialized through the shared `roId` cache and
+   **delivered to the adversary as its input** (rev-9, K1 drift finding
+   D1: the deployed adversary reads `cm` off the ledger from `Open`
+   onward; without it the game's adversary would hold strictly less
+   information, unacknowledged). Confirming a guessed `H_id`-preimage of
+   `cm` via `roId` queries is the same `q/|F|` ROM mass as guessing `k`
+   through the `roA` channel.
 2. The adversary (an arbitrary strategy
-   `A : OracleComp (frameSpec F M) (Evidence F)` — it *is* the `N − 1`
-   corrupt gateways, all corrupt members, and the scheduler) interacts
-   with the honest member through `Ospend`/`Oclose` (legacy surplus) /
-   `nfAt` (the MC20 close-reveal superset) and with the public random
-   oracles directly; every honest signal is delivered to it as an oracle
-   response (the `N − 1`-gateway view).
+   `A : F → OracleComp (frameSpec F M) (Evidence F)`, applied to `cm` —
+   it *is* the `N − 1` corrupt gateways, all corrupt members, and the
+   scheduler) interacts with the honest member through
+   `Ospend`/`Oclose` (legacy surplus) / `nfAt` (the MC20 close-reveal
+   superset) and with the public random oracles directly; every honest
+   signal is delivered to it as an oracle response (the
+   `N − 1`-gateway view).
 3. The adversary outputs `ev* = (nf, (x, y), (x', y'))`, and the game
    outputs whether `Dispute` slashes the honest member (`Slashes`). -/
-def frameGame (mclose : M) (A : OracleComp (frameSpec F M) (Evidence F)) :
+def frameGame (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) :
     ProbComp Bool := do
   let k ← ($ᵗ F)
-  let ev ← (frameImpl k mclose).run (FrameSt.init F M) A
+  let (cm, cId) ← lazyRO (FrameSt.init F M).roId k
+  let ev ← (frameImpl k mclose).run
+    { FrameSt.init F M with roId := cId } (A cm)
   pure (decide (Slashes k ev))
 
 /-- FRAME winning probability: T7 states
@@ -310,7 +341,7 @@ def frameGame (mclose : M) (A : OracleComp (frameSpec F M) (Evidence F)) :
 uniform) — a probability of a bad event, not a distinguishing bias, hence
 `ℝ≥0∞`-valued `Pr[= true | ·]` rather than `guessGap`. -/
 noncomputable def frameWinProb (mclose : M)
-    (A : OracleComp (frameSpec F M) (Evidence F)) : ENNReal :=
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) : ENNReal :=
   Pr[= true | frameGame mclose A]
 
 end Zkpc.Games

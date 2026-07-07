@@ -18,7 +18,7 @@ mint signals for honest secrets) is `single_signal_hiding`, proved in the
 game layer (T7).
 
 `honest_close_undisputable` is the MC20 facet of exculpability: an honest
-closer's window admits no valid close-dispute (Spec.md T5, rev-7: its
+closer's window allows no valid close-dispute (Spec.md T5, rev-7: its
 claimed-unused indices were genuinely never used, so no acceptance can
 bit-match against them). Symbolically: every accepted ticket of an honest
 `k` sits strictly below its emission counter, while its claimed set `U`
@@ -283,7 +283,7 @@ theorem honest_close_claims_unused {s : St K M}
   exact (Finset.mem_filter.mp hiU).2
 
 /-- **MC20 exculpability facet (Spec.md §7 T5 "an honest closer's window
-admits no valid dispute"; §2 Close A honest-closer protection).** No
+allows no valid dispute"; §2 Close A honest-closer protection).** No
 accepted ticket of an honest payer bit-matches its claimed-unused set:
 for honest `k` with recorded close `(U, t)` and any `i ∈ U`, no
 `(k, i, m)` is in the accepted set — so the `closeDispute` action is

@@ -15,7 +15,7 @@ Decomposition (matching Spec.md's statement):
   `honest_never_slashed` (T3's exculpability clause, exactly as Spec.md
   T5 cites it) and the rev-8 settlement-time bar check is
   `honest_settleVoid_never`.
-* "An honest closer's window admits no valid dispute" (Spec.md T5,
+* "An honest closer's window allows no valid dispute" (Spec.md T5,
   rev-7): neither voiding branch can fire against an honest closer —
   `honest_closeDispute_never_fires` (no acceptance bit-matches its
   claimed-unused set; cites `honest_close_undisputable`) and
@@ -100,7 +100,7 @@ theorem tick_progress {s : St K M} (h : Reach C D τ honest s)
   omega
 
 /-- **MC20 dispute branch never fires against an honest closer (Spec.md
-§7 T5, rev-7: "an honest closer's window admits no valid dispute").**
+§7 T5, rev-7: "an honest closer's window allows no valid dispute").**
 No `closeDispute` step against an honest payer exists from any reachable
 state: its guards demand an acceptance bit-matching the claimed-unused
 set, which `honest_close_undisputable` (Zkpc.Core.T1) excludes. -/
@@ -190,7 +190,7 @@ theorem T5_payer_close_liveness {s : St K M}
     (h : Reach C D τ honest s) (k : K) (hk : honest k)
     {U : Finset ℕ} {t : ℕ} (hc : s.closedAt k = some (U, t))
     (hnotYet : s.closeSettled k = false) :
-    ∃ s', Reach C D τ honest s' ∧
+    ∃ s' : St K M, Reach C D τ honest s' ∧
       s'.clock = max s.clock (t + τ) ∧
       s'.closeSettled k = true ∧
       s'.paidPayer k = D - s.emittedCnt k * C ∧
