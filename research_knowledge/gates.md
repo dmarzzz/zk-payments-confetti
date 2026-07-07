@@ -202,6 +202,120 @@ Also folded into rev-6 from the Lean G4 workstream (gate-note): H_x maps
 into F_p \ {0} — at x = 0 the signal is y = k, the secret outright;
 single_signal_hiding is conditioned on x ≠ 0 (§1, §5.3).
 
-### Round 6 — pending
+### Round 6 — 2026-07-07, fresh reviewer vs Spec.md rev-6: REVISE (two blocking)
 
-Rev-6 (MC20 + carve-outs + x ≠ 0) submitted for verification.
+MC20-A's core verified (gap-index closed, checkpoint disputes work,
+privacy clean, honest-path conservation exact); MC20-B's contiguity
+verified. Two blockings in the periphery:
+
+- **B stale-receipt close (blocking):** the circuit proves j equals the
+  count of *some* signed receipt, so a payer with 5 spends closes on its
+  n=2 receipt and recovers the later spends' value; the payee cannot
+  rebut without attribution. **Fix (rev-7):** B's close also reveals
+  $nf_j$ (in-circuit: the nullifier of the first index beyond the
+  declared count). Contiguity (MC20-B) makes the reveal decisive: a stale
+  receipt's nf_j is an already-used nullifier sitting in a pre-close
+  checkpoint → bit-match dispute → void + slash. An honest closer's nf_j
+  is PRF-hidden pre-close → unforgeable dispute. The rev-1
+  close-as-final-spend self-conviction idea, resurrected soundly on top
+  of certified contiguity.
+- **A used-but-uncheckpointed claim + sweep double-pay (blocking):** a
+  false unused-claim uncaught (stale checkpoint) was paid as refund AND
+  remained sweepable — pool paid D + j·C. **Fix (rev-7):** the ledger
+  records U at settlement and bars sweeps of nf ∈ U; the pool conserves
+  and the tardy gateway bears exactly its un-checkpointed tickets
+  (cadence as that gateway's own lever); T2-A conditioned accordingly;
+  A gets the symmetric in-flight honest-limits note.
+- **Majors fixed in rev-7:** checkpoint pinned as a binding Merkle set
+  commitment with membership-witness openings (the honest-closer
+  protection argument now has something to bite on); T2-B scoped to
+  spends accepted before close inclusion (racing) and the inverted rev-3
+  "stale receipt only overpays" parenthetical retracted; §2 Open / §4
+  triple formulas (tag, R, n) aligned; R_spend^B gains the index = n
+  conjunct in §4's authoritative text; T7/T3/MC16 close-signal dangles
+  rewritten to MC20 semantics; MC18 restates both caps + MC20 xref;
+  §6 duties include checkpointing; header rewritten (was two revisions
+  stale — same class as R3-6, twice; noted for the K-phase process log).
+
+### Round 7 — 2026-07-07, fresh reviewer vs Spec.md rev-7: REVISE
+
+All 19 round-6 checklist items verified present (nf_j reveal, sweep bar,
+checkpoint binding, every dangle, header). Two residuals:
+
+- **F7-1 (blocking): the nf_j reveal weaponized by receipt withholding.**
+  Receipt supply is adversary-controlled: a payee that accepts-but-
+  withholds ρ wedges the honest payer's certified count one behind its
+  true count; its only possible close reveals an accepted, checkpointed
+  nullifier → disputed → slashed (or forfeited under ForceClose). Worse,
+  checkpoints were self-declared, so a payee could checkpoint a merely-
+  seen (aborted) ticket; and genesis withholding made j=0 closes
+  impossible outright. **Fix (rev-8):** receipt-bearing checkpoint
+  entries (full tuple: presented ct*, c, r′, ct′, σ_S(ct′), publicly
+  cross-checkable — binds the entry to a payer-produced ticket); a
+  stale-close dispute must open the full tuple; a valid dispute does NOT
+  slash but opens an upgrade sub-window — the dispute publishes the
+  withheld receipt, the closer re-closes one count higher; only failure
+  to upgrade slashes; escalation converges at the true count (one count
+  per round, by contiguity); honest gap ≤ 1 so honest cost ≤ one C_max
+  (already priced by T3 note (i)); j=0 closes carry no receipt conjunct
+  (kills the genesis-withholding forfeit).
+- **F7-2 (major): sweep bar was one-directional** — sweep-first then
+  false-claim still double-paid the pool. **Fix (rev-8):** two-sided:
+  settlement checks U against RedeemedNF (on-ledger disproof → void +
+  slash, no checkpoint needed) before recording U and barring forward
+  sweeps; pool conserves in every ordering.
+- Minors: MC20 B-entry now carries the reveal + discipline; MC19 notes
+  receipt-bearing B checkpoints; provenance row added; T3/T5 carry the
+  close-dispute exculpability and upgrade-round bounds; MC2 B scope
+  note; header rewritten as rev-8.
+
+### Round 8 — 2026-07-07, fresh reviewer vs Spec.md rev-8: **SIGN-OFF**
+
+Both round-7 repairs verified with full attack walks: the
+receipt-withholding wedge is dead in all three variants (withholding,
+fabricated acceptance of a rejected ticket — walked to a zero marginal
+delta over accept-and-withhold, inside T3's priced-abort allowance —
+and genesis withholding); the upgrade cascade converges at the true
+count with each dispute publishing the next round's receipt; the
+two-sided sweep bar conserves the pool in every ordering with the
+loss-bearer correctly named; no deadlock or double-settlement among the
+upgrade sub-window, ForceClose, and the slash freeze. Five ride-along
+minors, all applied in the signed text (F8-m1 opening-homomorphism
+stated in assumption 5 + Used-by list; F8-m2 T5-B off-by-Δ; F8-m3 T2-B
+deadline anchored to the final re-close; F8-m4 settlement-detected
+slash remainder stays in the pool; F8-m5 header dangle).
+
+**B1 GATE: SIGN-OFF on Spec.md rev-8.** The M0 definitions are frozen.
+Any future change to §2/§7/§8 re-opens this gate.
+
+## Gate B3 — security-game definitions in Lean (Zkpc/Games/)
+
+### Round 1 — 2026-07-07, fresh reviewer vs Framework/Unlink/Frame.lean: REVISE
+
+Verified sound (the cores this gate exists to check): advantage
+normalization exactly |Pr[b'=b] − 1/2| with the VCVio factor-of-2 bridge
+correct; b sampled before the adversary runs, ⊥-paths contribute exactly
+1/2; challenge termination STRUCTURAL (post-challenge guess is a pure
+function; all three rev-1 leak channels pre-challenge-only; no residual
+channel found); the roA cache-keying question — the adversary querying
+the shared random oracle at (k', i) hits an independent slot, so reading
+the honest a-values requires already knowing k — clean; FRAME's win
+predicate omitting Dispute's side checks is a genuine strengthening; RLN
+cross-file algebra consistent; x = 0 handling conservative.
+
+Required before T4/T7 proofs (fix list): **M1** — UnlinkScheme.View drops
+π at the definition level, so NIZK-ZK is never exercised and the theorem
+would be about a proof-stripped protocol (the exact K2 smell §5 bans);
+fix: full ticket in View or a named ZK-bridging lemma obligation, with
+root/e disposition stated. **M2** — B's genesis receipt is
+challenger-sampled but the payee (= adversary) issues it in the real
+protocol; extend the interface or record the WLOG-honest-genesis
+obligation; T4-A unaffected. **D1** — Frame's close still emits the
+rev-4 close signal (harmless surplus, subsumed by one spend query) but
+does NOT expose the MC20 unused-nullifier reveals, which the deployed
+adversary sees and cannot derive from any oracle — add an nfAt oracle
+(strict superset of any close's reveal). **D2** — Unlink close docstrings
+rewritten to MC20 (behavior provably immaterial: closed ⇒
+challenge-incapable). **D3** — spec-side dangles: fixed in rev-7.
+Minors Mi1–Mi4 recorded (nf_e omission in FRAME + named proof
+obligations), recommended not gating.
