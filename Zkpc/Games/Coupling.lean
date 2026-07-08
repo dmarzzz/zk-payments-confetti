@@ -3,16 +3,20 @@ import Zkpc.Games.Unlink
 /-!
 # UNLINK coupling infrastructure (task H3 support; Spec.md §7 T4)
 
-Generic lemmas for computing `unlinkAdvantage` of concrete instances:
+Generic lemmas for computing `unlinkAdvantage` of concrete instances. The
+UNLINK game (`Zkpc.Games.Unlink`) is built so that the *only* place the
+hidden bit `b` is consulted is the challenge move `challengeResp … b …`; the
+entire pre-challenge world handler (`unlinkImpl`) is one and the same for
+both bits. This file exploits that structure:
 
-* `unlinkRun` — the UNLINK game with the hidden bit factored out: the whole
-  b-independent prefix (genesis stage, batch open, pre-challenge phase),
-  the challenge move at a given bit, and the adversary's guess as output.
-  `unlinkGame_eq_decide_unlinkRun` re-expresses `unlinkGame` as the
-  canonical guess-the-bit shape `b ← $ᵗ Bool; b' ← unlinkRun S A b;
-  pure (decide (b = b'))`, which is what the VCV-io hidden-bit lemmas
-  (`probOutput_bind_uniformBool`, `probOutput_decide_eq_uniformBool_half`)
-  consume.
+* `unlinkRun` — the UNLINK game body with the hidden bit factored out: the
+  whole `b`-independent prefix (genesis stage, batch open, pre-challenge
+  interactive phase), the challenge move at a *given* bit, and the
+  adversary's guess as output. `unlinkGame_eq_decide_unlinkRun` re-expresses
+  `unlinkGame` as the canonical guess-the-bit shape
+  `b ← $ᵗ Bool; b' ← unlinkRun S A b; pure (decide (b = b'))`, which is what
+  the VCV-io hidden-bit lemmas (`probOutput_bind_uniformBool`,
+  `probOutput_decide_eq_uniformBool_half`) consume.
 * `unlinkAdvantage_eq_zero_of_challenge_bitfree` — **the flat-instance
   coupling technique**: if an instance's challenge response is
   distributionally independent of the hidden bit *at every game state*
@@ -21,20 +25,25 @@ Generic lemmas for computing `unlinkAdvantage` of concrete instances:
   samples `b` first (rev-1 repair) and nothing before the challenge ever
   reads it, so the whole transcript factors as (b-independent prefix) ×
   (challenge); the per-state coupling then makes the guess independent of
-  `b`. The T4 must-pass proofs (B-rerand here; instantiation A in the
-  F-phase T4 workstream) discharge exactly the per-state hypothesis.
+  `b`. This is the ideal-model, per-query coupling of the OTP-HeapBasic
+  template specialised to UNLINK: because the world handler is already
+  bit-independent by construction, the full `DistEquiv.of_step` obligation
+  collapses to the single obligation on `challengeResp`, discharged by the
+  T4-A flat instance (`Zkpc.Games.FlatInstance`) and B-rerand
+  (`Zkpc.Games.BInstances`).
 * `unlinkAdvantage_eq_half_of_run_determined` — the must-lose closer: if a
   concrete adversary's run deterministically recovers the bit
-  (`unlinkRun S A b ≡ pure b` in distribution), its advantage is exactly
-  `1/2`, the maximum. The calibration distinguishers (B-static and the
-  rev-11 battery) are proved through this.
+  (`unlinkRun S A b` outputs `b` with probability 1 for both bits), its
+  advantage is exactly `1/2`, the maximum. The calibration distinguishers
+  (B-static and the rev-11 battery) are proved through this.
+* `unlinkAdvantage_eq_of_probOutput` — advantage from win probability, for
+  inexact winners whose loss is a fixed collision mass.
 
 GATE-NOTE (encoding): `unlinkRun` is definitionally the body of
-`unlinkGame` with the final win-indicator comparison stripped; the proof
-of `unlinkGame_eq_decide_unlinkRun` is pure monad-law reassociation, no
+`unlinkGame` with the final win-indicator comparison stripped; the proof of
+`unlinkGame_eq_decide_unlinkRun` is pure monad-law reassociation, no
 probabilistic content. `b == b'` is replaced by `decide (b = b')`
-(`Bool.beq_eq_decide_eq`-style, proved by cases) to match the VCV-io
-lemma shapes.
+(`beq_eq_decide_eq`, proved by cases) to match the VCV-io lemma shapes.
 -/
 
 open OracleSpec OracleComp
@@ -60,13 +69,11 @@ private lemma beq_eq_decide_eq (b b' : Bool) :
     (b == b') = decide (b = b') := by cases b <;> cases b' <;> rfl
 
 /-- `unlinkGame` in canonical guess-the-bit shape: sample the bit, run the
-b-parameterized body, compare. Monad-law reassociation only. -/
+`b`-parameterized body, compare. Monad-law reassociation only. -/
 lemma unlinkGame_eq_decide_unlinkRun (S : UnlinkScheme)
     (A : UnlinkAdversary S) :
-    unlinkGame S A = do
-      let b ← ($ᵗ Bool)
-      let b' ← unlinkRun S A b
-      pure (decide (b = b')) := by
+    unlinkGame S A =
+      (do let b ← ($ᵗ Bool); let b' ← unlinkRun S A b; pure (decide (b = b'))) := by
   unfold unlinkGame unlinkRun
   refine bind_congr fun b => ?_
   simp only [bind_assoc]
@@ -82,9 +89,8 @@ lemma unlinkGame_eq_decide_unlinkRun (S : UnlinkScheme)
   simp [beq_eq_decide_eq]
 
 /-- **The flat-instance coupling technique.** If the challenge response
-distribution is independent of the hidden bit at every reachable (indeed,
-every) game state, then the whole run's output distribution is
-b-independent. -/
+distribution is independent of the hidden bit at every (indeed, every) game
+state, then the whole run's output distribution is `b`-independent. -/
 lemma evalDist_unlinkRun_eq_of_challenge_bitfree (S : UnlinkScheme)
     (A : UnlinkAdversary S)
     (h : ∀ (g : GSt S) (ms : List S.M) (b b' : Bool),
@@ -95,16 +101,12 @@ lemma evalDist_unlinkRun_eq_of_challenge_bitfree (S : UnlinkScheme)
   simp only [evalDist_bind]
   refine bind_congr fun x => ?_
   obtain ⟨⟨g₀, g₁⟩, a₀⟩ := x
-  simp only [evalDist_bind]
   refine bind_congr fun y => ?_
   obtain ⟨p₀, v₀⟩ := y
-  simp only [evalDist_bind]
   refine bind_congr fun z => ?_
   obtain ⟨p₁, v₁⟩ := z
-  simp only [evalDist_bind]
   refine bind_congr fun w => ?_
   obtain ⟨⟨mstars, aux⟩, g⟩ := w
-  simp only [evalDist_bind]
   rw [h g mstars b b']
 
 /-- **Must-pass closer (T4 secure direction).** An instance whose challenge
@@ -123,12 +125,12 @@ theorem unlinkAdvantage_eq_zero_of_challenge_bitfree (S : UnlinkScheme)
   rw [hhalf]
   norm_num
 
-/-- **Must-lose closer (calibration direction).** A concrete adversary
-whose run deterministically recovers the hidden bit — `unlinkRun S A b`
-outputs `b` with probability `1` for both bits — has advantage exactly
-`1/2`, the information-theoretic maximum. The calibration distinguishers
-are all proved through this (their runs are deterministic, so the
-probability-1 hypotheses reduce by `simp`). -/
+/-- **Must-lose closer (calibration direction).** A concrete adversary whose
+run deterministically recovers the hidden bit — `unlinkRun S A b` outputs
+`b` with probability `1` for both bits — has advantage exactly `1/2`, the
+information-theoretic maximum. The calibration distinguishers are all proved
+through this (their runs are deterministic, so the probability-`1`
+hypotheses reduce by `simp`). -/
 theorem unlinkAdvantage_eq_half_of_run_determined (S : UnlinkScheme)
     (A : UnlinkAdversary S)
     (htrue : Pr[= true | unlinkRun S A true] = 1)
@@ -138,29 +140,30 @@ theorem unlinkAdvantage_eq_half_of_run_determined (S : UnlinkScheme)
     rw [unlinkGame_eq_decide_unlinkRun, probOutput_bind_uniformBool]
     have ht : Pr[= true | unlinkRun S A true >>= fun b' =>
         (pure (decide (true = b')) : ProbComp Bool)] = 1 := by
-      rw [show (fun b' => (pure (decide (true = b')) : ProbComp Bool)) =
-          fun b' => pure b' from funext fun b' => by cases b' <;> simp]
+      have hfun : (fun b' => (pure (decide (true = b')) : ProbComp Bool))
+          = fun b' => pure b' := funext fun b' => by cases b' <;> rfl
+      rw [hfun]
       simpa using htrue
     have hf : Pr[= true | unlinkRun S A false >>= fun b' =>
         (pure (decide (false = b')) : ProbComp Bool)] = 1 := by
-      rw [show (fun b' => (pure (decide (false = b')) : ProbComp Bool)) =
-          fun b' => pure (!b') from funext fun b' => by cases b' <;> simp]
-      have : Pr[= true | (! ·) <$> unlinkRun S A false] = 1 := by
+      have hfun : (fun b' => (pure (decide (false = b')) : ProbComp Bool))
+          = fun b' => pure (!b') := funext fun b' => by cases b' <;> rfl
+      rw [hfun]
+      have h2 : Pr[= true | (! ·) <$> unlinkRun S A false] = 1 := by
         rw [probOutput_not_map]; exact hfalse
-      simpa [map_eq_bind_pure_comp, Function.comp] using this
-    rw [ht, hf]
-    norm_num
+      simpa [map_eq_bind_pure_comp, Function.comp] using h2
+    rw [ht, hf, show (1 : ENNReal) + 1 = 2 from by norm_num,
+      ENNReal.div_self (by simp) (by simp)]
   unfold unlinkAdvantage guessGap
   rw [hone]
   norm_num
 
-/-- **Advantage from win probability, general form** — for the battery's
-inexact winners (harvest-and-match distinguishers whose loss is exactly
-the pseudonym-collision mass): if the game wins with probability `p`,
-the advantage is `|p.toReal − 1/2|`. Trivial unfolding, stated for
-reuse. -/
+/-- **Advantage from win probability, general form** — for inexact winners
+(harvest-and-match distinguishers whose loss is exactly a fixed collision
+mass): if the game wins with probability `p`, the advantage is
+`|p.toReal − 1/2|`. Trivial unfolding, stated for reuse. -/
 lemma unlinkAdvantage_eq_of_probOutput (S : UnlinkScheme)
-    (A : UnlinkAdversary S) {p : ℝ≥0∞}
+    (A : UnlinkAdversary S) {p : ENNReal}
     (h : Pr[= true | unlinkGame S A] = p) :
     unlinkAdvantage S A = |p.toReal - 1 / 2| := by
   unfold unlinkAdvantage guessGap

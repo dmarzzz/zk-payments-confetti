@@ -13,3 +13,7 @@ import Zkpc.Fleet.T6
 import Zkpc.Games.Framework
 import Zkpc.Games.Unlink
 import Zkpc.Games.Frame
+import Zkpc.Games.Coupling
+import Zkpc.Games.FlatInstance
+import Zkpc.Games.T4
+import Zkpc.Games.T7
