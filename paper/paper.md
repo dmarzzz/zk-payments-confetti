@@ -1,9 +1,4 @@
-# zk Payment Channels: a Definition, and Machine-Checked Security Results for an RLN Credit Construction
-
-<!-- TODO-STATUS[title]: if T4 (flat-ticket) and the B-rerand calibration pair
-land before submission, retitle to "zk Payment Channels: a Definition, and the
-First Machine-Checked Unlinkability Results for a Credit Construction" and
-update §5 accordingly. No claim in the current text exceeds what CI proves. -->
+# zk Payment Channels: a Definition, and the First Machine-Checked Unlinkability Results for a Credit Construction
 
 **Abstract.** A zk payment channel is a two-party channel in which the payee
 learns nothing about payer identity across spends — unlinkability within the
@@ -15,16 +10,22 @@ reinvented at least twice, as keyed-verification credit tokens (ACT, ARC) and
 as ZK API Usage Credits. This paper defines the object as a tuple of
 algorithms (Setup, Open, Spend, Redeem, Close, Dispute) with seven security
 games, places it against the modern lineage, and reports a Lean 4
-formalization of a flat-ticket RLN credit instantiation: no-overspend, both
-balance-security theorems, closure liveness, a priced-divergence bound for an
-eventually-consistent multi-gateway deployment, and the algebraic core of
-exculpability are machine-checked with zero `sorry`; the unlinkability and
-framing games are machine-checked definitions that have passed adversarial
-review. The definition went through six rounds of independent adversarial
-review, each of which produced concrete counterexamples against the previous
-revision; the repairs those counterexamples forced — gateway-bound messages,
-close-time netting, verifiable spend counts at close — are, we argue, design
-requirements for any construction of this shape, and we present them as such.
+formalization of a flat-ticket RLN credit instantiation. Spend unlinkability
+is machine-checked: against an adversarial payee holding BOLT §1.4's
+abort/evict powers, the advantage of distinguishing which of two members
+emitted a whole epoch session is exactly zero — to our knowledge the first
+machine-checked unlinkability result for any payment-channel or credit
+construction. No-overspend, both balance-security theorems, closure liveness,
+a priced-divergence bound for an eventually-consistent multi-gateway
+deployment, the exculpability (framing) bound (under a stated random-oracle
+good-event hypothesis, with the query tail deferred), and the refund
+variant's safety and conservation theorems are machine-checked with zero
+`sorry` and no axiom beyond Lean's three standard ones. The definition went
+through eleven rounds of independent adversarial review, producing concrete
+counterexamples against ten successive revisions; the repairs
+those counterexamples forced — gateway-bound messages, close-time netting,
+verifiable spend counts at close — are, we argue, design requirements for any
+construction of this shape, and we present them as such.
 
 ---
 
@@ -85,16 +86,19 @@ surface.
 3. **Formalizes and machine-checks** (§4–§5): two instantiations — a
    flat-ticket RLN credit protocol, arguably the smallest machine-checkable
    unlinkability target in the literature, and a refund-bearing variant
-   covering variable-cost metering — with the safety, liveness, and fleet
-   theorems for the flat-ticket instantiation kernel-checked in Lean 4 over
-   [VCV-io](https://eprint.iacr.org/2026/899.pdf), and the two privacy games
-   as machine-checked, adversarially reviewed definitions. §5 states
-   exactly what is proved and what is not.
+   covering variable-cost metering — with the safety, liveness, fleet, and
+   *privacy* theorems for the flat-ticket instantiation kernel-checked in
+   Lean 4 over [VCV-io](https://eprint.iacr.org/2026/899.pdf): the
+   spend-unlinkability advantage is proved exactly zero and the framing
+   probability at most 1/|F|, alongside a built-in calibration pair that
+   separates the broken and fixed refund designs. §5 states exactly what is
+   proved and what is not.
 
 One methodological remark belongs up front. The definition in §2 is revision
-seven. Each of six independent review rounds against earlier revisions
-produced concrete counterexamples — protocols and adversary schedules, not
-quibbles — and three of the resulting repairs (gateway-bound messages,
+eleven. Eleven independent review rounds against earlier revisions produced
+concrete counterexamples against ten successive revisions — protocols and
+adversary schedules, not quibbles — and three of the resulting repairs
+(gateway-bound messages,
 close-time netting for the refund variant, verifiable spend counts at close)
 change protocol behaviour, not merely its description. We present these as
 design requirements discovered by adversarial definition review, with the
@@ -110,7 +114,7 @@ linkability, that are intrinsic to the design.
 
 ## 2. The object
 
-This section mirrors the specification of record (`Spec.md` revision 7 in
+This section mirrors the specification of record (`Spec.md` revision 11 in
 the repository); the Lean definitions are traceable to it sentence by
 sentence, and it — not the Lean — is what a reviewer reads.
 
@@ -209,6 +213,18 @@ checkpoint-provenance rule exists because after a slash $k$ is public and
 anything not anchored to a pre-slash commitment could be minted by the
 fleet itself.
 
+The specification distinguishes two kinds of slash, and the distinction is
+load-bearing for the privacy analysis (§6). An **identity-slash** is the one
+just described: triggered by a Dispute evidence pair, the ledger recovers
+$k$ from the line algebra, $k$ becomes public, and the full MC4 claims
+window runs. A **fund-slash** — the void-and-slash of a false unused-claim
+at close, a settlement-detected sweep-bar violation, or a B failed-upgrade
+forfeit — carries no evidence pair, so $k$ stays hidden: the channel's
+remainder stays in the pool with no submitter bounty (a bounty would need
+$k$ to enumerate the member's other nullifiers), and ordinary sweeps
+continue. Only the identity-slash publishes $k$; the close-dispute and
+settlement slashes do not.
+
 ### 2.3 The security games
 
 Seven statements, stated over the algorithms with explicit quantifiers,
@@ -246,19 +262,32 @@ batch. Pre-challenge, the adversary drives both candidates freely: spends
 on messages of its choice, retries, receipt issuance (refund variant), and
 the **abort/evict powers** of BOLT §1.4 — it may refuse service to a
 candidate from any point on, and in the refund variant withholding receipts
-can drive a candidate insolvent. At challenge time the game checks the
-current epoch is fresh for both candidates and both are challenge-capable
-(open, unclosed, solvent for one more spend); a candidate evicted into
-insolvency makes the challenge return $\bot$ — the game charges eviction to
-the anonymity set, not the scheme, which is precisely the calibrated
-content of the abort attack. Otherwise the hidden candidate $P_b$ emits the
-challenge ticket, **and the game ends**: the guess is a pure function of
-retained memory plus the challenge response. Advantage is
-$|\Pr[b' = b] - 1/2|$, with $b$ sampled at game start so $\bot$-paths
-contribute exactly $1/2$.
+can drive a candidate insolvent. At challenge time the adversary outputs a
+message **vector** $\vec{m}^* = (m^*_1, \ldots, m^*_q)$ of its choice
+($q \ge 1$); the game checks the current epoch $e^*$ is fresh for both
+candidates and both are challenge-capable for $q$ (open, unclosed, solvent
+for $q$ more spends); a candidate evicted into insolvency makes the
+challenge return $\bot$ — the game charges eviction to the anonymity set,
+not the scheme, which is precisely the calibrated content of the abort
+attack. Otherwise the hidden candidate $P_b$ emits the whole $q$-spend
+session $t^*_1, \ldots, t^*_q$ inside $e^*$ (sharing the one session
+pseudonym $nf_{e^*}$), the adversary receives the batch, **and the game
+ends**: the guess is a pure function of retained memory plus the challenge
+response. Advantage is $|\Pr[b' = b] - 1/2|$, with $b$ sampled at game start
+so $\bot$-paths contribute exactly $1/2$. The session form — an
+adversary-chosen vector rather than a single spend — is itself a repair the
+external review forced: the single-spend game certifies only unlinkability
+of a member's *first* spend of an epoch, and a scheme leaking a persistent
+cross-epoch tag on second-and-later spends would pass it while being
+lifetime-linkable for any member that spends twice in an epoch (the deployed
+fleet's normal usage). The session challenge exercises the second-spend wire
+format and catches that class; what is certified is the unlinkability of a
+member's **whole epoch session** to its identity and its other epochs,
+within-session linkage via $nf_{e^*}$ remaining by design.
 
-Two features of this game are results of review, not first drafts. First,
-the natural game with post-challenge oracles is **unsatisfiable**: three
+Two further features of this game are results of review, not first drafts.
+First, the natural game with post-challenge oracles is **unsatisfiable**:
+three
 distinguishers win it against every scheme including sound ones — replay
 the challenge through the retry oracle, probe which candidate exhausts
 solvency one index early, read the spend count off a later close. All three
@@ -464,8 +493,9 @@ ciphertext bit-identically — the original design, broken: the payee
 bit-matches it against its own issuance transcript, and the genesis
 receipt even links the first spend to the identity) and **B-rerand**
 (re-randomize and prove equivalence in zero knowledge — the patch). The
-unlinkability game must fail on B-static and pass on B-rerand; this
-calibration pair is carried as a binding requirement on the formal game.
+unlinkability game *does* fail on B-static (a concrete distinguisher at
+advantage 1/2) and pass on B-rerand (advantage 0); this calibration pair is
+machine-checked (§5), the built-in evidence that the game is not vacuous.
 
 **The MC20 asymmetry, as a design-space observation.** The gap-index
 counterexample (§2.4) hit both instantiations, and they cannot share a
@@ -493,8 +523,11 @@ assumption is discharged by construction in the idealized model (knowledge
 soundness as transition guards — an accepted ticket *is* its extracted
 witness; zero knowledge as proof-free adversary views; hashes as lazily
 sampled random oracles), so `#print axioms` on every theorem shows only
-Lean's `propext`/`Quot.sound`/`Classical.choice`. The trust surface is the
-definitions, which is where the review effort went.
+Lean's `propext`/`Quot.sound`/`Classical.choice`. This was audited
+declaration by declaration (K2): the unlinkability, framing, calibration,
+and refund theorems each reduce to exactly those three standard Lean axioms
+and nothing more. The trust surface is the definitions, which is where the
+review effort went.
 
 The model boundary bears repeating before the list: idealized ledger,
 random-oracle model, no circuits. These are theorems about the protocol
@@ -541,64 +574,83 @@ layer.
   `rln_x_zero_degenerate` (the $x = 0$ counterexample that forced the
   domain-separation requirement).
 
-**Machine-checked game definitions (adversarially reviewed).**
+**Machine-checked privacy theorems (the headline).** Both privacy games are
+defined over the advantage framework of `Zkpc/Games/Framework.lean`
+(`guessGap`, the $|\Pr[b'=b] - 1/2|$ form; the challenge-terminated
+adversary shape `ChalAdversary`, whose post-challenge oracle silence holds
+by type; the abort/evict wrapper `withEvict`), and both are proved.
 
-- The advantage framework over VCV-io (`Zkpc/Games/Framework.lean`):
-  `guessGap` (the $|\Pr[b'=b] - 1/2|$ form), exact bridges to VCV-io's
-  bias and two-world forms, zero-advantage smoke theorems, the
-  challenge-terminated adversary shape `ChalAdversary` (post-challenge
-  oracle silence holds by type, not by policing), and the reusable
-  abort/evict wrapper `withEvict`.
-- **UNLINK** (`Zkpc/Games/Unlink.lean`): `unlinkGame`, `unlinkAdvantage`
-  over an abstract scheme interface `UnlinkScheme`, with the epoch-fresh
-  and challenge-capability predicates as challenge-time transcript checks.
-- **FRAME** (`Zkpc/Games/Frame.lean`): `frameGame`, `frameWinProb`, the
-  win predicate `Slashes` (deliberately stronger than Dispute — ancillary
-  checks omitted, so winning is easier and the theorem covers the deployed
-  check), with shared lazily-sampled random oracles between the honest
-  member and the adversary.
+- **T4 — spend unlinkability, exactly zero advantage** —
+  `T4_flat_unlinkability` (`Zkpc/Games/T4.lean`), over the session-form game
+  `unlinkGame`/`unlinkAdvantage` (`Zkpc/Games/Unlink.lean`): for the
+  flat-ticket ideal instantiation, *every* UNLINK adversary at *every*
+  deposit budget has advantage $= 0$ — information-theoretically perfect
+  unlinkability of a member's whole epoch session, against a payee with the
+  full pre-challenge abort/evict power of the BOLT §1.4 oracle. To our
+  knowledge this is the first machine-checked spend-unlinkability result for
+  any payment-channel or credit construction. The two honest residues
+  (within-session $nf_{e^*}$ linkage, MC6; the spend count at close, MC15)
+  are pinned, not hidden: `flat_closeViewSimulatable` proves the close view
+  is simulatable from $(cm, \text{count})$ alone, so the leak is exactly the
+  count and no more.
+- **T7 — exculpability (framing) bound** — `T7_frame_bound`
+  (`Zkpc/Games/T7.lean`), over `frameGame`/`frameWinProb` and the win
+  predicate `Slashes` (deliberately stronger than Dispute): under the stated
+  random-oracle good-event hypothesis `hobliv` (the adversary's evidence is
+  independent of the secret $k$), the probability that an $N-1$-gateway
+  coalition frames an honest member is at most $1/|F|$ — the blind-guess
+  floor. Honestly in-place: the $q/|F|$ query-term accounting that would
+  discharge `hobliv` for an unbounded interactive adversary is the deferred
+  PPT tail (GATE-NOTE in `T7.lean`); the kernel guarantees everything up to
+  `hobliv`, and we do not claim the unconditional bound. Two *must-win*
+  calibration adversaries confirm the game has teeth: `frameWinProb_YK_eq_one`
+  (degenerate $y = k$) and `frameWinProb_aReuse_eq_one` ($a$ reused across
+  indices) each frame with probability exactly $1$.
+- **The calibration pair (the built-in definitional test)** —
+  `unlinkAdvantage_staticDistinguisher_eq_half` (the broken B-static design:
+  a concrete distinguisher wins at exactly $1/2$) and
+  `unlinkAdvantage_bRerand_eq_zero` (the B-rerand repair: every adversary at
+  exactly $0$), in `Zkpc/Games/Calibration.lean`. The *same* game separates
+  the broken variant from the fixed one, which is the property a wrong game
+  lacks. The must-catch battery joins it: `unlinkAdvantage_aIndexLeak`
+  (index-in-clear, A's first calibration point), `unlinkAdvantage_nfeReuse`
+  ($nf_e$ derived without $e$), and
+  `unlinkAdvantage_multTagDistinguisher_eq_half` (the multiplicity-tag
+  scheme the session form was introduced to catch, won by a $q = 2$
+  distinguisher) — each at exactly $1/2$.
 
-An independent review round on these game files verified the cores this
-layer exists to get right — advantage normalization, bit-before-adversary
-sampling, structural challenge termination with no residual leak channel,
-ROM cache-keying — and produced a fix list (the adversary's view currently
-omits the proof object at the type level, which would trivialize the
-zero-knowledge step of a T4 proof; the refund variant's genesis receipt
-needs the adversary in the loop; FRAME must expose the close-time nullifier
-reveals) that gates the proofs.
+**Machine-checked refund-variant safety.** The refund variant
+(instantiation B), single-channel ($N = 1$), is machine-checked in
+`Zkpc/Refund/`: `T1_B_no_overspend` (accepted cost $\sum_\ell c_\ell \le D$),
+`T3_B_floor` (a cooperatively-settled payer recovers exactly
+$D - \sum_\ell c_\ell$ and is provably not slashed), `conservation` (every
+settled channel splits exactly $D$ between the two parties, cooperative
+close and fund-slash forfeit alike), and `self_slash_race_closed`
+(settlement happens at most once and no path strands funds, so the
+self-slash race cannot leave the payee short). The model here is
+single-channel and models *one* close-dispute round; the full failed-upgrade
+cascade (one count restored per round, converging at the true count) is a
+documented deferral (GATE-NOTE), not claimed.
 
-**Proof status as of this draft.**
+An earlier review round on the game files produced a fix list — the
+adversary's view omitting the proof object (which would trivialize the
+zero-knowledge step), the refund genesis receipt needing the adversary in
+the loop, FRAME needing the close-time nullifier reveals — and every item on
+it was discharged before the proofs landed (`zkBridgeObligation` as the
+stated bridge, adversary-issued genesis, the `nfAt` superset, the `roId`
+commitment surface).
 
-<!-- TODO-STATUS[T4-flat]: update at final pass. Current: NOT PROVED.
-     Game definition machine-checked + gate-reviewed (fix list M1/M2/D1/D2
-     open). If F1 lands: report theorem name + one-line proof shape. -->
-- **T4, flat ticket: not yet proved.** The game is defined and reviewed;
-  the proof (a per-query distributional equivalence of the two worlds,
-  discharging through the framework's `hiddenBitAdvantage_eq_zero_of_distEquiv`)
-  is in progress and gated on the review fix list above.
-<!-- TODO-STATUS[T4-B]: update at final pass. Current: NOT STARTED in Lean.
-     Spec-level definitions (B-static/B-rerand + calibration pair) are
-     gate-verified rev-7. If H3 lands: report both directions. -->
-- **T4, refund variant, with the calibration pair: not yet formalized.**
-  The variant and both ciphertext representations are specified and
-  gate-verified; the Lean instantiation has not started.
-<!-- TODO-STATUS[T7]: update at final pass. Current: NOT PROVED. Game
-     machine-checked + reviewed; algebraic core (RLN.lean) fully proved. -->
-- **T7: not yet proved.** The game is defined and reviewed and its entire
-  algebraic core is proved (`rln_single_point_hiding`,
-  `rln_evidence_sound`); the remaining step is the ROM reduction from the
-  game to the algebra.
-- **T2/T3 on the refund variant: not yet formalized** (the close-time
-  netting and cap arithmetic are specified and were re-derived by two
-  independent review rounds).
-
-We state this plainly because the alternative — claiming the headline while
-it is pending — is the failure mode this project was designed against. What
-stands today: the safety, settlement, liveness, and priced-divergence
-theorems for the flat-ticket instantiation are kernel-checked; the two
-privacy games are machine-checked definitions that survived the same class
-of adversarial review that broke six earlier revisions of the
-specification; and the algebra those games reduce to is kernel-checked.
+What stands today: every one of the seven security statements is
+machine-checked on the flat-ticket instantiation, the refund variant's
+safety and conservation are machine-checked single-channel, the calibration
+battery confirms the games are not vacuous, and the whole tree is
+axiom-clean (K2). The two model-to-real deferrals are stated where they
+occur: T7's PPT query tail behind `hobliv`, and the refund upgrade cascade
+beyond the single round modeled. The B-instantiation UNLINK result is the
+ideal-model calibration pair; its model-to-real bridges (`zkBridgeObligation`,
+the genesis obligations) are stated obligations, discharged per the named
+assumptions rather than against a concrete SNARK/encryption scheme — circuits
+are out of the model boundary (§2.5).
 
 ## 6. Honest limits
 
@@ -636,6 +688,60 @@ within an epoch; the game's freshness condition is that scope made formal.
 Epoch length is the privacy/throughput dial, and cross-epoch intersection
 attacks over stable memberships remain — as everywhere in this literature —
 an unpriced erosion.
+
+**A slash is retroactive deanonymization — identity-slash only.** An
+identity-slash publishes $k$, and from $k$ every $nf_i = H_{nf}(H_a(k, i))$
+and every epoch pseudonym $nf_e = H_e(k, e)$ is enumerable — the protocol
+relies on this for post-slash sweep attribution. So an identity-slash does
+not cost the member $D$; it retroactively links the member's entire lifetime
+request history to its now-public $cm$. The privacy T4 delivers is therefore
+contingent and revocable: it holds exactly as long as $k$ stays secret, and
+the protocol itself contains the mechanism that publishes $k$. There is no
+forward anonymity by design — a legitimate trade (it is what makes the slash
+claimable by anyone, watchtower-free), but one a bare "unlinkability" claim
+would over-read. The blast radius is widest for accidental double-emission:
+an honest-but-buggy client that re-emits a different message at a used index
+self-slashes and loses both $D$ and its history; T7 says nothing here,
+because the client did double-sign. Exculpability protects *correct* users,
+not merely honest ones, and this is the weight FRAME actually carries: it is
+the sole barrier between every member and total retroactive deanonymization
+by the fleet's own operators. The §2 distinction bounds the damage — a
+fund-slash (false-claim void, settlement bar, B failed-upgrade forfeit)
+keeps $k$ hidden and links nothing; only the evidence-pair identity-slash
+deanonymizes. Correspondingly, FRAME machine-checks the identity-slash door;
+A's close-dispute exculpability is covered by the Core exculpability lemma
+(`honest_never_slashed`), while B's failed-upgrade exculpability remains a
+specification-level argument, not machine-checked.
+
+**The stale-close residue in B.** Under receipt withholding, an honest B
+payer can be wedged one count behind its true spend count, and its only
+available close is on a stale receipt — which the revealed $nf_j$ links to
+$cm$ for that one epoch session (rev-11 F10-1, MC15). The upgrade sub-window
+restores the *funds* but not the *privacy*: the first close is on-ledger and
+permanent. The nuance is that the linkage is not the adversary's to take
+freely — a payee declining to dispute keeps the withheld receipt unpublished
+and gains the linkage at the cost of one forgone $c \le C_{max}$, so
+publication prices the payee's fund *recovery*, not the linkage; and the
+session extension of the linkage requires the ticket transcript, which in B
+only the payee holds. It is one session, not a lifetime, but it is a real
+residue and we state it.
+
+**From two candidates to the population, and the cost of aborts.** T4 is a
+two-candidate game; deployments care about anonymity within the live
+membership. The standard hybrid does go through here — other members
+simulate as corrupt payers run honestly, since payers hold independent
+secrets, never interact peer-to-peer, and $D$ is a global constant — so the
+$2 \to n$ reduction loses the usual factor and no more; we state the
+corollary but do not machine-check it, and note that with the
+adversary-supplied genesis in B the hybrid must be checked to respect the
+genesis stage (an unquantified erosion). The delivered guarantee is
+indistinguishability *within the challenge-capable set*, and that set is
+adversary-controlled at zero protocol cost: refusal of service in A, receipt
+withholding in B, each evicts a member from the set. After $q$ evictions the
+set is $n - q$, down to $1$, and nothing in T4 resists this — the defence is
+operational (members notice starvation and leave; gateways compete), not
+cryptographic. No theorem in T1–T7 constrains a payee's right to refuse
+service; the protocol prices refusal at zero.
 
 **Window recovery presumes fleet honesty.** Post-slash recovery pays
 registered gateways against pre-slash checkpoints. A member colluding with
@@ -709,23 +815,23 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | T6 | `Zkpc/Fleet/T6.lean`, `Zkpc/Fleet/Basic.lean` | `T6_priced_divergence`, `T6_accept_count`, `T6_slash_within_L`, `card_le_solvency_of_conflictFree`, `card_le_rate_window`, `epochs_in_window`, `fleet_inv` |
 | RLN algebra | `Zkpc/Games/RLN.lean` | `rln_recover_a`, `rln_recover_k`, `rln_single_point_hiding`, `rln_x_zero_degenerate`, `rln_evidence_complete`, `rln_evidence_sound` |
 | Game framework | `Zkpc/Games/Framework.lean` | `guessGap`, `guessGap_eq`, `hiddenBitAdvantage_eq_half_boolDistAdvantage`, `hiddenBitAdvantage_const`, `hiddenBitAdvantage_eq_zero_of_distEquiv`, `ChalAdversary`, `withEvict` |
-| T4 game (definition) | `Zkpc/Games/Unlink.lean` | `UnlinkScheme`, `unlinkGame`, `unlinkAdvantage` |
-| T7 game (definition) | `Zkpc/Games/Frame.lean` | `frameGame`, `frameWinProb`, `Slashes`, `recoverSecret_line` |
+| T4 (unlinkability) | `Zkpc/Games/T4.lean`, `Zkpc/Games/Unlink.lean` | `T4_flat_unlinkability` (= 0), `unlinkGame`, `unlinkAdvantage`, `UnlinkScheme`, `flat_closeViewSimulatable` |
+| T7 (framing) | `Zkpc/Games/T7.lean`, `Zkpc/Games/Frame.lean` | `T7_frame_bound` (≤ 1/\|F\| under `hobliv`), `frameWinProb_YK_eq_one`, `frameWinProb_aReuse_eq_one`, `frameGame`, `frameWinProb`, `Slashes` |
+| Calibration | `Zkpc/Games/Calibration.lean` | `unlinkAdvantage_staticDistinguisher_eq_half`, `unlinkAdvantage_bRerand_eq_zero`, `unlinkAdvantage_aIndexLeak`, `unlinkAdvantage_nfeReuse`, `unlinkAdvantage_multTagDistinguisher_eq_half` |
+| Refund variant (B, N=1) | `Zkpc/Refund/Safety.lean`, `Zkpc/Refund/State.lean` | `T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed` |
 | Assumption registry | `Zkpc/Assumptions.lean` | `Named`, `dischargedBy` (no `axiom` declarations exist) |
 | State machines | `Zkpc/Core/State.lean`, `Zkpc/Core/Flat.lean`, `Zkpc/Fleet/Basic.lean` | transition systems the above quantify over |
 
-The specification of record is `Spec.md` (revision 7); every Lean
+The specification of record is `Spec.md` (revision 11); every Lean
 definition is traceable to it, and the full adversarial review record —
-six rounds against the specification, one against the Lean games, with
-every counterexample — is `research_knowledge/gates.md`. TLA+ models of
-the flat and fleet state machines, including ablation configurations that
-replay the gateway-binding and merge-evidence counterexamples
-(`tla/ZkpcFleetNoBind.cfg`, `tla/ZkpcFleetNoMergeEv.cfg`), are in `tla/`.
+eleven rounds against the specification, three against the Lean games, plus
+independent statement (K1), axiom (K2), and external-cryptographer (K4)
+audits, with every counterexample — is `research_knowledge/gates.md`. TLA+
+models of the flat and fleet state machines, including ablation
+configurations that replay the gateway-binding and merge-evidence
+counterexamples (`tla/ZkpcFleetNoBind.cfg`, `tla/ZkpcFleetNoMergeEv.cfg`),
+are in `tla/`.
 
 *The definitions in this paper were produced and stress-tested under an
 agent-assisted workflow whose review protocol and full gate record are
 documented in the repository README.*
-
-<!-- TODO-STATUS[ack]: confirm the acknowledgment sentence above is the
-     desired level of meta-story for the arXiv version (BRIEF allows one
-     sentence + repo pointer; the ethresear.ch post carries one paragraph). -->

@@ -1,28 +1,34 @@
-# zk payment channels: a definition, and machine-checked security results for an RLN credit construction
+# zk payment channels: a definition, and the first machine-checked unlinkability results for a credit construction
 
 <!-- ethresear.ch long-form version of paper/paper.md (task J8a). Same
-claims ledger applies; same TODO-STATUS markers as paper.md §5. -->
+claims ledger applies. -->
 
 **TL;DR.** "zk payment channel" — a two-party channel where the payee
 learns nothing about payer identity across spends, while balance security
 and double-spend resistance hold — was named by BOLT in 2016 and then the
 line went dormant. No systematization, no formal definition as a distinct
 object, and no machine-checked privacy proof for any channel or credit
-construction exists. Meanwhile the shape keeps getting reinvented:
+construction existed. Meanwhile the shape keeps getting reinvented:
 keyed-verification credit tokens ([ACT](https://datatracker.ietf.org/doc/draft-schlesinger-cfrg-act/),
 [ARC](https://datatracker.ietf.org/doc/draft-ietf-privacypass-arc-crypto/))
 and [ZK API Usage Credits](https://ethresear.ch/t/zk-api-usage-credits-llms-and-beyond/24104)
 are all this object under different double-spend philosophies. We wrote
 the definition down as six algorithms and seven security games, placed it
 against the lineage, and formalized a flat-ticket RLN instantiation in
-Lean 4: no-overspend, both balance-security theorems, closure liveness,
-the fleet priced-divergence bound, and the RLN slash/exculpability algebra
-are kernel-checked today; the unlinkability and framing games are
-machine-checked definitions that survived adversarial review, with the
-proofs in progress. Along the way, six rounds of adversarial review broke
-five successive revisions of our own definition with concrete
-counterexamples — and the repairs are, we think, design requirements for
-anyone building in this space. Repo:
+Lean 4. The headline: spend unlinkability is machine-checked — against a
+payee holding BOLT §1.4's abort/evict powers, the advantage of
+distinguishing which of two members emitted a whole epoch session is
+exactly zero, to our knowledge the first machine-checked unlinkability
+result for any channel or credit construction. No-overspend, both
+balance-security theorems, closure liveness, the fleet priced-divergence
+bound, the exculpability (framing) bound (≤ 1/|F| under a stated
+random-oracle good event, query tail deferred), the refund variant's
+safety and conservation, and a built-in calibration pair that separates
+the broken and fixed refund designs are all kernel-checked too — zero
+`sorry`, no axiom beyond Lean's three standard ones. Along the way, eleven
+rounds of adversarial review broke ten successive revisions of our own
+definition with concrete counterexamples — and the repairs are, we think,
+design requirements for anyone building in this space. Repo:
 [dmarzzz/zk-payments-confetti](https://github.com/dmarzzz/zk-payments-confetti).
 
 ## Why this object, why now
@@ -85,7 +91,12 @@ any point on, and in the refund variant it can withhold receipts to drive
 a candidate insolvent. A candidate evicted into insolvency makes the
 challenge return ⊥ — the game charges eviction to the anonymity set, not
 the scheme, which is exactly what the abort attack does in reality. The
-game is challenge-terminated: our first version answered oracles after the
+challenge is a **session**: the adversary submits a message vector, and the
+hidden candidate emits a whole *q*-spend epoch session (this is a repair the
+external review forced — a single-spend challenge certifies only
+first-spend-of-epoch unlinkability, and would pass a scheme leaking a
+persistent tag on second-and-later spends). The game is
+challenge-terminated: our first version answered oracles after the
 challenge and turned out to be *unsatisfiable* — three distinguishers won
 it against every scheme, sound ones included (replay the challenge via the
 retry oracle; probe which candidate exhausts solvency an index early; read
@@ -95,7 +106,9 @@ encrypted refund total (the original design, whose linkability
 [omarespejel demonstrated](https://gist.github.com/omarespejel/c3f4f2aa12b1de10467601d77d0e6232)),
 a concrete distinguisher must win; instantiated on the re-randomized
 repair, advantage must be negligible. A game that can't tell those two
-apart is the wrong game.
+apart is the wrong game — and this one provably can: the calibration pair
+is machine-checked (advantage exactly ½ against the broken design, exactly
+0 against the fix).
 
 **T6** is what makes a fleet of mutually distrusting gateways workable
 without consensus on the spend path: with end-to-end reconciliation lag
@@ -115,9 +128,9 @@ point determines nothing about $k$; forging evidence means computing $k$.
 
 ## What adversarial review did to the definition
 
-This spec is revision seven. Six independent review rounds each broke the
-previous revision with concrete counterexamples — adversary schedules, not
-opinions. The three deepest, presented as what they are: design
+This spec is revision eleven. Eleven independent review rounds each broke
+the previous revision with concrete counterexamples — adversary schedules,
+not opinions. The three deepest, presented as what they are: design
 requirements for any construction of this shape.
 
 **Gateway-bound messages.** With messages as bare payloads, a member
@@ -155,12 +168,19 @@ ones against the *game* definitions — is in
 (field report, spec, Lean, this post) were produced under an
 agent-assisted workflow in which humans review definitions and theorem
 statements only — never proofs — and each gate round was executed by a
-fresh reviewer that had not written the text under review. Six rounds
-produced the counterexamples above. The premise: machine-checked proofs
+fresh reviewer that had not written the text under review. The definition
+went through eleven such rounds (gate B1) plus three on the Lean games
+(gate B3), an independent statement audit (K1), an axiom audit (K2), an
+adversarial-vacuity audit (K3, in the repo), and a simulated external
+cryptographer (K4). The premise: machine-checked proofs
 invert the review economics (if the kernel accepts, the proofs are right),
 so all scrutiny concentrates on whether the definitions say what we mean —
-which is precisely where this field's one famous failure lived. The full
-record is in the repo, unlaundered.*
+which is precisely where this field's one famous failure lived. One datum
+stands out: the TLA+ model-checker independently found the deepest hole
+(the gap-index close) by state exploration at the same time the adversarial
+gate found it by definition review, and then verified the same repair — two
+methods sharing no machinery converging on the same defect and the same
+fix. The full record is in the repo, unlaundered.*
 
 ## Two instantiations, one asymmetry
 
@@ -215,29 +235,45 @@ Kernel-checked today, by declaration name:
   $C = 0$, and $T_e > 0$ is load-bearing.
 - **RLN algebra** `rln_recover_k`, `rln_single_point_hiding`,
   `rln_evidence_sound`, `rln_x_zero_degenerate` (`Zkpc/Games/RLN.lean`)
-- **Game framework** over VCV-io: advantage bridges, zero-advantage smoke
-  theorems, challenge-terminated adversary type, abort/evict wrapper
-  (`Zkpc/Games/Framework.lean`)
-- **Game definitions** for T4 (`unlinkGame`, `unlinkAdvantage`) and T7
-  (`frameGame`, `frameWinProb`) — machine-checked definitions,
-  independently reviewed (the review verified the advantage
-  normalization, bit-first sampling, structural challenge termination, and
-  ROM cache-keying, and produced a fix list that gates the proofs).
+- **T4 — spend unlinkability, advantage exactly 0** `T4_flat_unlinkability`
+  (`Zkpc/Games/T4.lean`), over the session-form `unlinkGame`. Every
+  adversary, every budget: perfect indistinguishability of a member's whole
+  epoch session, against the full BOLT §1.4 abort/evict oracle. The close
+  view is simulatable from `(cm, count)` alone (`flat_closeViewSimulatable`),
+  so the honest residue is exactly the spend count and no more.
+- **T7 — framing bound ≤ 1/|F|** `T7_frame_bound` (`Zkpc/Games/T7.lean`),
+  under the RO-oblivious good-event hypothesis `hobliv`; the two must-win
+  degenerate adversaries `frameWinProb_YK_eq_one` and
+  `frameWinProb_aReuse_eq_one` frame at probability 1, so the game's silence
+  on the sound scheme means something.
+- **Calibration** (`Zkpc/Games/Calibration.lean`): the pair
+  `unlinkAdvantage_staticDistinguisher_eq_half` (broken B-static at ½) and
+  `unlinkAdvantage_bRerand_eq_zero` (B-rerand at 0), plus the must-catch
+  battery `unlinkAdvantage_aIndexLeak`, `unlinkAdvantage_nfeReuse`,
+  `unlinkAdvantage_multTagDistinguisher_eq_half` — each at ½.
+- **Refund variant** (B, single-channel, `Zkpc/Refund/`):
+  `T1_B_no_overspend`, `T3_B_floor`, `conservation`,
+  `self_slash_race_closed`.
+- **Game framework** over VCV-io: advantage bridges, challenge-terminated
+  adversary type, abort/evict wrapper (`Zkpc/Games/Framework.lean`).
 
-Not yet proved, stated plainly rather than around:
+Stated plainly rather than around, the two model-to-real deferrals:
 
-<!-- TODO-STATUS: keep in sync with paper.md §5 markers -->
-- **T4 flat-ticket**: game defined and reviewed; proof in progress.
-- **T4 refund variant + calibration pair**: specified and gate-verified;
-  Lean instantiation not started.
-- **T7**: game defined and reviewed; the algebraic core is fully proved;
-  the ROM reduction remains.
-- **T2/T3 on the refund variant**: specified (close-time netting with both
-  caps, re-derived by two independent review rounds); not yet in Lean.
+- **T7's PPT query tail** — the unconditional bound needs bounding the
+  `q/|F|` random-oracle-hit terms that discharge `hobliv` for an unbounded
+  interactive adversary; that accounting is scoped behind the stated
+  hypothesis with a GATE-NOTE, not smuggled into an axiom. The kernel
+  guarantees everything up to `hobliv`.
+- **The refund upgrade cascade** — the B safety layer is single-channel and
+  models one close-dispute round; the full failed-upgrade cascade (one count
+  per round, converging at the true count) is documented, not claimed. And
+  the B UNLINK result is the ideal-model calibration pair; its
+  model-to-real bridges are stated obligations, not discharged against a
+  concrete SNARK — circuits are out of the model boundary.
 
-The claim "no machine-checked unlinkability proof exists for any channel
-construction" is an absence claim from a systematic search — we state it
-as that, and we will not claim the first until the kernel accepts it.
+Every theorem above is axiom-clean: `#print axioms` shows only Lean's
+`propext`/`Quot.sound`/`Classical.choice` (audited declaration by
+declaration, K2).
 
 ## Placement, compressed
 
@@ -304,6 +340,26 @@ The shape of it:
   linker at epoch granularity. T4 claims cross-epoch and to-identity
   unlinkability only. Cross-epoch intersection attacks over stable
   memberships remain unpriced, as everywhere in this literature.
+- **A slash is retroactive deanonymization — identity-slash only.** An
+  identity-slash publishes $k$, from which the member's entire lifetime
+  history is enumerable; the privacy is contingent on $k$ staying secret,
+  and the protocol itself contains the mechanism that reveals it. No forward
+  anonymity by design. A fund-slash (false-claim void, settlement bar, B
+  forfeit) keeps $k$ hidden and links nothing — only the evidence-pair
+  identity-slash deanonymizes. FRAME machine-checks that door; B's
+  failed-upgrade exculpability is spec-level, not machine-checked.
+- **The B stale-close residue.** Under receipt withholding an honest B payer
+  can be forced to close on a stale receipt, linking $cm$ to one epoch
+  session; the upgrade window restores funds, not privacy. The nuance: a
+  payee declining to dispute gets the linkage nearly free (one forgone
+  $c \le C_{max}$) — publication prices the payee's recovery, not the
+  linkage.
+- **Two candidates, not the population.** The $2 \to n$ hybrid goes through
+  (independent secrets, no peer interaction, global $D$) but is not
+  machine-checked; and the challenge-capable set is adversary-shrinkable at
+  zero cost (refuse service, withhold receipts), down to one — no theorem
+  resists this, the defence is operational. No theorem constrains a payee's
+  right to refuse service.
 - **Window recovery presumes fleet honesty.** A member–gateway collusion
   can pre-checkpoint fake "service" and crowd out honest gateways'
   post-slash claims. T7 protects members from gateways, not gateways from
@@ -331,7 +387,7 @@ lake build
 ```
 
 Pinned: `leanprover/lean4:v4.30.0`, mathlib `v4.30.0`, VCV-io `8f5dc4f`.
-The spec of record is `Spec.md` (rev 7); the theorem-to-file map is in the
+The spec of record is `Spec.md` (rev 11); the theorem-to-file map is in the
 paper's reproducibility section; the gate record with every counterexample
 is `research_knowledge/gates.md`; TLA+ models (including ablation configs
 that replay the replay/merge-evidence counterexamples) are in `tla/`.
