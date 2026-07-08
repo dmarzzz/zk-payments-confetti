@@ -75,10 +75,20 @@ Toolchain pinned: `leanprover/lean4:v4.30.0`, mathlib v4.30.0, VCV-io
 `8f5dc4f`. CI (`.github/workflows/ci.yml`) runs the build plus the
 zero-escape-hatch guardrail on every push.
 
+## K5 clean-room rebuild — PASS
+
+A fresh `git clone` of `main` from origin into a clean directory,
+`lake exe cache get`, then `lake build` (capped, `LEAN_NUM_THREADS=4`):
+**3294 jobs green from scratch**, no local state, no cached build reused
+beyond the standard mathlib olean cache. The axiom audit prints inline
+during the build (every theorem: `[propext, Classical.choice,
+Quot.sound]`). What is pushed to `main` builds and kernel-checks on a
+clean machine.
+
 ## Operator to-do (not automated)
 
 - Decide repo visibility (currently private) and whether to invite / post.
-- Final-pass the paper's status markers if anything changed since the last
-  proof landed (the paper's TODO-STATUS markers track this).
-- The K5 clean-room rebuild note (fresh-checkout green) attaches here once
-  run.
+  (README + `OPEN-PROOFS.md` are already written for an external proof
+  swarm; the Shaw handoff summary was sent to the Hermes agent.)
+- The paper PDF (`paper/paper.pdf`, 14pp) is final; rebuild only if you
+  edit `paper/paper.tex`.
