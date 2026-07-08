@@ -8,7 +8,7 @@ the paper is written against this ledger and no claim may appear in
   cites a primary source, the primary URL is repeated here — the paper
   cites the primary, per BRIEF.md ("every claim about prior work cites the
   primary source").
-- **S** = `Spec.md` revision 7 (section named). The definition section
+- **S** = `Spec.md` revision 11 (section named). The definition section
   mirrors S; S is the trust surface.
 - **G** = `research_knowledge/gates.md` (gate round named).
 - **L** = Lean declaration (file + name; machine-checked at the pinned
@@ -35,7 +35,7 @@ the end.
 | 1.8 | Application context: reputation-gated Tor onion-service egress fleet; N mutually distrusting gateways; the adversary is the payee | R header + Application section. Primary: https://reputation-gated-egress.vercel.app |
 | 1.9 | The definitions, not the proofs, are the risk surface (the A2L process lesson) | R deep dive 6 "Process lesson"; BRIEF.md engineering notes |
 
-## §2 The object (definition; mirrors Spec.md rev 7 exactly)
+## §2 The object (definition; mirrors Spec.md rev 11 exactly)
 
 | # | Claim | Source |
 |---|---|---|
@@ -120,10 +120,10 @@ the corresponding deep dive; primary URL per row. No row is invented.
 | 5.6 | T6 machine-checked (fleet): `T6_priced_divergence`, `T6_accept_count`, `T6_slash_within_L`, `card_le_solvency_of_conflictFree`, `card_le_rate_window` in `Zkpc/Fleet/T6.lean`; `epochs_in_window`, `fleet_inv` in `Zkpc/Fleet/Basic.lean`; 0 < C needed for the count form (counterexample in file GATE-NOTE); 0 < T_e load-bearing | L |
 | 5.7 | RLN algebra machine-checked: `rln_recover_a`, `rln_recover_k`, `rln_single_point_hiding`, `rln_x_zero_degenerate`, `rln_evidence_complete`, `rln_evidence_sound` in `Zkpc/Games/RLN.lean` | L |
 | 5.8 | Game framework machine-checked: `guessGap`, `guessGap_eq`, `boolBiasAdvantage_hiddenBitExp`, `hiddenBitAdvantage_eq_half_boolDistAdvantage`, smoke theorems `hiddenBitAdvantage_const`, `hiddenBitAdvantage_eq_zero_of_distEquiv`, evict wrapper `withEvict`, challenge-terminated adversary `ChalAdversary` in `Zkpc/Games/Framework.lean`, over VCV-io | L; `research_knowledge/vcvio-gap.md` (framework choice + what VCV-io provides) |
-| 5.9 | T4 game DEFINITION machine-checked and gate-reviewed: `UnlinkScheme`, `unlinkGame`, `unlinkAdvantage` in `Zkpc/Games/Unlink.lean`; challenge termination is structural (pure `guess`, no post-challenge oracle access by type) | L; G gate B3 round 1 (cores verified sound) |
-| 5.10 | T7 game DEFINITION machine-checked and gate-reviewed: `frameGame`, `frameWinProb`, `Slashes`, sanity lemma `recoverSecret_line` in `Zkpc/Games/Frame.lean` | L; G gate B3 round 1 |
-| 5.11 | T4/T7 PROOFS not yet complete as of this draft; gate B3 requires fixes M1 (View must carry π or a ZK-bridging obligation), M2 (B genesis receipt interface), D1 (FRAME nfAt oracle for MC20 reveals) before the proofs are trusted | G gate B3 round 1 fix list; TODO-STATUS markers in §5 of the paper |
-| 5.12 | Refund-bearing variant (B) exists at spec level (rev 7, six gate rounds); its Lean instantiation (tasks H1–H4) has not started | S §4; TASKS.md H; TODO-STATUS marker |
+| 5.9 | T4 spend-unlinkability PROVED: `T4_flat_unlinkability` in `Zkpc/Games/T4.lean` shows advantage exactly 0 for every UNLINK adversary at every budget, over the session-form game (`unlinkGame`/`unlinkAdvantage`/`UnlinkScheme`, `Zkpc/Games/Unlink.lean`); challenge termination structural; close view simulatable from `(cm, count)` (`flat_closeViewSimulatable`, pinning the MC15 residue) | L; G gate B3 rounds 1–3 (SIGN-OFF); K2 (axiom-clean) |
+| 5.10 | T7 framing bound PROVED: `T7_frame_bound` in `Zkpc/Games/T7.lean` shows FRAME slash probability ≤ 1/\|F\| under the RO-oblivious good-event hypothesis `hobliv`; must-win calibration adversaries `frameWinProb_YK_eq_one` and `frameWinProb_aReuse_eq_one` (probability 1); the q/\|F\| PPT query tail deferred behind `hobliv` (GATE-NOTE), not axiomatized | L; G gate B3 rounds 1–3; K2 |
+| 5.11 | Calibration pair + battery PROVED in `Zkpc/Games/Calibration.lean`: `unlinkAdvantage_staticDistinguisher_eq_half` (B-static loses at ½), `unlinkAdvantage_bRerand_eq_zero` (B-rerand passes at 0); battery `unlinkAdvantage_aIndexLeak`, `unlinkAdvantage_nfeReuse`, `unlinkAdvantage_multTagDistinguisher_eq_half` each at ½ | L; K2 |
+| 5.12 | Refund-bearing variant (B) safety PROVED single-channel (N=1) in `Zkpc/Refund/`: `T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed`; models one close-dispute round, full failed-upgrade cascade deferred (GATE-NOTE) | S §4, §7; L `Zkpc/Refund/Safety.lean`; K2 |
 | 5.13 | Model boundary: protocol layer over an idealized ledger and idealized cryptography; ROM; circuits explicitly out of scope; "anyone claiming this repo verifies SNARKs is misreading it" | S §5 (verbatim wording) |
 | 5.14 | The development contains no Lean `axiom` declarations; assumptions are discharged by construction in the idealized model; `#print axioms` shows only propext/Quot.sound/Classical.choice; CI enforces zero `sorry`, axiom confinement, no `admit`/`native_decide` | REPO `Zkpc/Assumptions.lean` header; `.github/workflows/ci.yml` |
 | 5.15 | Assumption 6 (blind signatures) is declared and deliberately unused | S §5.6; `Zkpc/Assumptions.lean` |
@@ -157,16 +157,21 @@ the corresponding deep dive; primary URL per row. No row is invented.
 | 7.4 | CI guardrails: grep-fail on `sorry` anywhere, `axiom` outside Assumptions.lean, `admit`/`native_decide` anywhere; full `lake build` on the pinned toolchain | REPO `.github/workflows/ci.yml` |
 | 7.5 | Theorem-to-file map (as in §5 rows above) | L |
 | 7.6 | TLA+ models of the flat and fleet state machines, including ablation configs (`ZkpcFleetNoBind.cfg`, `ZkpcFleetNoMergeEv.cfg`) replaying the MC14/MC17 counterexamples | REPO `tla/` directory (file names literal) |
-| 7.7 | Gate record: six rounds on Spec.md (rev-1 → rev-7), one round on the Lean games, every counterexample logged | G (whole file); S header |
+| 7.7 | Gate record: eleven rounds on Spec.md (rev-1 → rev-11), three rounds on the Lean games (gate B3), plus K1/K2/K4 audits, every counterexample logged | G (whole file); S header |
 
 ## Claims deliberately NOT made
 
-- Any claim that T4 or T7 is proved (they are not, as of this draft; §5
-  carries TODO-STATUS markers).
-- "First machine-checked unlinkability proof" as an accomplished fact —
-  reserved until F1/H3 land; the paper says "no machine-checked
-  unlinkability proof exists for any channel construction" (absence claim,
-  flagged as search-based) and states what IS checked.
+- The unconditional (query-term) T7 bound: `T7_frame_bound` proves ≤ 1/|F|
+  only *under* the `hobliv` good-event hypothesis; the q/|F| PPT tail is
+  deferred, not claimed (§5; Spec §7 T7 GATE-NOTE).
+- The refund variant beyond single-channel (N=1) and one close-dispute
+  round: the full failed-upgrade cascade, the fleet-side B settlement, and
+  the B model-to-real bridges (zkBridgeObligation, genesis obligations) are
+  stated obligations / deferrals, not machine-checked results.
+- "First machine-checked unlinkability result" is claimed as a
+  *spend-unlinkability* result for the flat-ticket ideal model ("to our
+  knowledge"); it is not claimed against circuits (out of the model
+  boundary) nor as a survey-complete priority claim.
 - omarespejel's ~96% re-linkage figure as fact (his own unreviewed
   simulation; R residual list).
 - ACT deployment interest by Cloudflare/Google (unsourced; R residual list).
