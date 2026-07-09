@@ -26,6 +26,11 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   verifier completeness, perfect honest-verifier simulation via an explicit
   randomness/response equivalence, and two-transcript special-soundness
   extraction.
+- A verified-proof T4 instance (`Games.SigmaInstance`) whose real payer emits
+  an RLN point and accepting Sigma transcript. The complete signal/proof pair
+  and arbitrary solvent batches are exactly simulator-distributed, yielding
+  perfect T4 and a zero-loss proof-free bridge. The Sigma core also includes a
+  Fiat--Shamir proof object, programmed-oracle simulation, and fork extractor.
 
 ## Remaining before the complete roadmap is proved
 
@@ -37,12 +42,14 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    `close`, `nfAt`, direct `roX`/`roNf`, cache hits, and adaptive continuations.
    The existing composition theorem then supplies the advertised bound.
 
-2. **Non-interactive production proof bridge.** The linear Sigma protocol is
-   an algebraic proof-of-knowledge core, not yet a Fiat--Shamir NIZK. Add the
-   random-oracle challenge transform, prove completeness and an appropriate
-   forking/special-soundness reduction, prove zero knowledge against the full
-   ticket game, and instantiate `zkBridgeObligation` with its concrete loss.
-   The current masked-proof bridge remains an ideal/perfect reference.
+2. **Production Fiat--Shamir reduction.** The linear Sigma protocol now has a
+   Fiat--Shamir proof object, deterministic verifier, completeness,
+   programmed-oracle simulator, and algebraic fork extractor; the interactive
+   verified transcript is also connected to the full T4 game. What remains is
+   the probabilistic ROM programming/forking lemma for the non-interactive
+   instance, including its concrete query-dependent loss, followed by a
+   `zkBridgeObligation` instantiation for that FS wire type. The masked-proof
+   and interactive-Sigma bridges are exact reference endpoints.
 
 3. **Concrete refund cryptography.** Replace the ideal fresh-handle model with
    an explicit rerandomizable additively homomorphic encryption interface and

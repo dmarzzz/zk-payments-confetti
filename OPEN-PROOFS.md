@@ -144,6 +144,15 @@ zero loss for this concrete perfectly-ZK proof encoding.  A production NIZK
 an optional refinement and would replace exact equality by its scheme-specific
 `εZK` reduction.
 
+**Verified algebraic bridge landed:** `Zkpc/Crypto/LinearSigma.lean` gives a
+finite-field proof of knowledge for the RLN line relation with completeness,
+perfect transcript simulation, special-soundness extraction, and a
+Fiat--Shamir-shaped verifier/programming/fork interface.
+`Zkpc/Games/SigmaInstance.lean` lifts the complete real signal plus accepting
+proof transcript to arbitrary T4 batches and proves a zero-loss bridge. The
+remaining production step is the probabilistic ROM forking/programming bound
+for the non-interactive FS proof object.
+
 ### 3. B-instance obligations O2 / O3 / O4 (discharged)
 
 For the refund instantiation, `bRerand_spendBatch_none_zero` discharges O2,
