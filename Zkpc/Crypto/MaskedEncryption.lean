@@ -55,20 +55,6 @@ theorem decrypt_rerandomize (ct r ρ : F) :
   unfold decrypt rerandomize
   ring
 
-/-- Fresh rerandomization makes the presented ciphertext uniform and
-independent of its prior representation. -/
-theorem evalDist_rerandomize_cipher [SampleableType F] (ct : F) :
-    𝒹[(fun ρ : F => (rerandomize ct 0 ρ).1) <$> ($ᵗ F)] =
-      𝒹[$ᵗ F] := by
-  simpa [rerandomize, add_comm] using evalDist_add_right_uniform (F := F) ct
-
-/-- Two rerandomized presentations have identical distributions, regardless
-of their prior ciphertexts. -/
-theorem evalDist_rerandomize_independent [SampleableType F] (ct₁ ct₂ : F) :
-    𝒹[(fun ρ : F => (rerandomize ct₁ 0 ρ).1) <$> ($ᵗ F)] =
-      𝒹[(fun ρ : F => (rerandomize ct₂ 0 ρ).1) <$> ($ᵗ F)] := by
-  rw [evalDist_rerandomize_cipher ct₁, evalDist_rerandomize_cipher ct₂]
-
 /-- Homomorphically add a refund amount and rerandomize in one executable
 receipt update. -/
 def refundUpdate (ct r refund ρ : F) : Cipher F × Opening F :=
@@ -88,5 +74,4 @@ end Zkpc.Crypto.MaskedEncryption
 #print axioms Zkpc.Crypto.MaskedEncryption.decrypt_encrypt
 #print axioms Zkpc.Crypto.MaskedEncryption.add_encrypt
 #print axioms Zkpc.Crypto.MaskedEncryption.decrypt_rerandomize
-#print axioms Zkpc.Crypto.MaskedEncryption.evalDist_rerandomize_independent
 #print axioms Zkpc.Crypto.MaskedEncryption.decrypt_refundUpdate

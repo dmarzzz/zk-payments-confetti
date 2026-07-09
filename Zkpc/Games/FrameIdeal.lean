@@ -233,6 +233,49 @@ theorem maskKey_update_of_ne (f : F → Option F)
     simp [hk]
   · rw [Function.update_of_ne hq, Function.update_of_ne hq]
 
+/-- A direct `H_a` query away from the hidden secret commutes exactly with
+canonical idealization. -/
+theorem idealize_roA_step (k : F) (mclose : M) (kq : F) (i : ℕ)
+    (s : AuditedFrameSt F M) (hk : kq ≠ k) :
+    Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.roA kq i)).run s =
+      ((idealFrameImpl mclose) (.roA kq i)).run (idealizeFrame k s) := by
+  unfold auditedFrameImpl idealFrameImpl frameImpl
+  simp only [StateT.run_mk]
+  unfold lazyRO
+  split <;> rename_i h
+  · simp [h, idealizeFrame, auditAfter, hk]
+  · simp [h, idealizeFrame, auditAfter, hk, maskFirst_update_of_ne,
+      update_pair_at_hidden_of_ne]
+
+/-- A direct epoch-oracle query away from the hidden secret commutes exactly
+with canonical idealization. -/
+theorem idealize_roE_step (k : F) (mclose : M) (kq : F) (e : ℕ)
+    (s : AuditedFrameSt F M) (hk : kq ≠ k) :
+    Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.roE kq e)).run s =
+      ((idealFrameImpl mclose) (.roE kq e)).run (idealizeFrame k s) := by
+  unfold auditedFrameImpl idealFrameImpl frameImpl
+  simp only [StateT.run_mk]
+  unfold lazyRO
+  split <;> rename_i h
+  · simp [h, idealizeFrame, auditAfter, hk]
+  · simp [h, idealizeFrame, auditAfter, hk, maskFirst_update_of_ne]
+
+/-- A direct identity-oracle query away from the hidden secret commutes
+exactly with canonical idealization. -/
+theorem idealize_roId_step (k : F) (mclose : M) (kq : F)
+    (s : AuditedFrameSt F M) (hk : kq ≠ k) :
+    Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.roId kq)).run s =
+      ((idealFrameImpl mclose) (.roId kq)).run (idealizeFrame k s) := by
+  unfold auditedFrameImpl idealFrameImpl frameImpl
+  simp only [StateT.run_mk]
+  unfold lazyRO
+  split <;> rename_i h
+  · simp [h, idealizeFrame, auditAfter, hk]
+  · simp [h, idealizeFrame, auditAfter, hk, maskKey_update_of_ne]
+
 end Zkpc.Games
 
 #print axioms Zkpc.Games.frameCoupled_initial
@@ -242,3 +285,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.maskFirst_update_of_ne
 #print axioms Zkpc.Games.update_pair_at_hidden_of_ne
 #print axioms Zkpc.Games.maskKey_update_of_ne
+#print axioms Zkpc.Games.idealize_roA_step
+#print axioms Zkpc.Games.idealize_roE_step
+#print axioms Zkpc.Games.idealize_roId_step
