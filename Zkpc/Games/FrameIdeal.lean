@@ -385,6 +385,64 @@ theorem auditedFrameImpl_nfAt_complete (k : F) (mclose : M) (i : ℕ)
         have hnew := lazyRO_support_entry s.base.roA (k, i) ac hac
         simp [hi, hnew, hc j a hold]
 
+/-- `spend` and legacy `close` share exactly the same slope-audit update on
+an open state. -/
+theorem auditAfter_signal_eq (k : F) (m : M) (op : FrameOp F M)
+    (before after : FrameSt F M) (audit : FrameAudit F)
+    (hop : op = .spend m ∨ op = .close) (hopen : before.closed = false) :
+    auditAfter k op before after audit =
+      match before.roA (k, before.idx) with
+      | some _ => audit
+      | none => match after.roA (k, before.idx) with
+        | some slope => { audit with honestSlopes := slope :: audit.honestSlopes }
+        | none => audit := by
+  rcases hop with rfl | rfl <;> simp [auditAfter, hopen] <;> rfl
+
+/-- A successful honest signal emission preserves audit completeness when
+its freshly materialized slope is recorded by `auditAfter`. This common
+kernel serves both `spend` and legacy `close`. -/
+theorem emitSignal_audit_complete (k : F) (m : M) (op : FrameOp F M)
+    (s : AuditedFrameSt F M) (hc : FrameAuditComplete k s)
+    (hop : op = .spend m ∨ op = .close) (hopen : s.base.closed = false)
+    (z : Signal F × FrameSt F M) (hz : z ∈ support (emitSignal k m s.base)) :
+    FrameAuditComplete k
+      ⟨z.2, auditAfter k op s.base z.2 s.audit⟩ := by
+  unfold emitSignal at hz
+  obtain ⟨xc, hxc, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  obtain ⟨ac, hac, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  obtain ⟨nc, hnc, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst z
+  intro j a hentry
+  by_cases hj : j = s.base.idx
+  · subst j
+    change ac.2 (k, s.base.idx) = some a at hentry
+    have hqueried := lazyRO_support_entry s.base.roA (k, s.base.idx) ac hac
+    have ha : a = ac.1 := Option.some.inj (hentry.symm.trans hqueried)
+    subst a
+    rw [auditAfter_signal_eq k m op s.base _ s.audit hop hopen]
+    cases hold : s.base.roA (k, s.base.idx) with
+    | some old =>
+        simp only [hold]
+        have hvalue := lazyRO_support_value_of_entry
+          s.base.roA (k, s.base.idx) ac hac hold
+        rw [hvalue]
+        exact hc s.base.idx old hold
+    | none => simp [hold, lazyRO_support_entry s.base.roA (k, s.base.idx) ac hac]
+  · have hpair : (k, j) ≠ (k, s.base.idx) := by
+      intro h
+      exact hj (congrArg Prod.snd h)
+    change ac.2 (k, j) = some a at hentry
+    have hold : s.base.roA (k, j) = some a := by
+      rw [← hentry]
+      exact (lazyRO_support_eq_of_ne s.base.roA (k, s.base.idx) ac hac hpair).symm
+    rw [auditAfter_signal_eq k m op s.base _ s.audit hop hopen]
+    cases hi : s.base.roA (k, s.base.idx) with
+    | some old => simpa [hi] using hc j a hold
+    | none =>
+        have hnew := lazyRO_support_entry s.base.roA (k, s.base.idx) ac hac
+        simp [hi, hnew, hc j a hold]
+
 end Zkpc.Games
 
 #print axioms Zkpc.Games.frameCoupled_initial
@@ -402,3 +460,5 @@ end Zkpc.Games
 #print axioms Zkpc.Games.update_roNf_at_honest_of_complete
 #print axioms Zkpc.Games.idealize_roNf_step
 #print axioms Zkpc.Games.auditedFrameImpl_nfAt_complete
+#print axioms Zkpc.Games.auditAfter_signal_eq
+#print axioms Zkpc.Games.emitSignal_audit_complete
