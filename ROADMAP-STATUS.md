@@ -14,6 +14,9 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   `Games.FrameAudit` decorates the actual handler with secret probes, slope
   probes, and slope exposures, proves bad-event monotonicity and per-step
   resource growth, and erases exactly to `frameImpl` for every adaptive run.
+  `Games.FrameIdeal` supplies the secret-independent handler, canonical
+  secret-erasing state map, programmed initial-state relation, and exact
+  good-step coupling for every public random-oracle operation.
 - A proof-bearing T4 reference instance and a witness-dependent masked-proof
   instance, including session-level simulator equality, perfect unlinkability,
   and a zero-loss bridge to the proof-free game.
@@ -59,8 +62,9 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    theorem then supplies the corrected bound. The exact real-handler audit,
    monotonic bad event, projection theorem, both quantitative kernels, and a
    secret-independent ideal handler with canonical cache erasure are now
-   present. The remaining step is the signal/`nfAt` bad-or-good relation and
-   final VCV-io quantitative simulation application.
+   present. The public-oracle step relations and atomic fresh-slope hit bound
+   are also kernel-checked. The remaining step is the `spend`/`close`/`nfAt`
+   bad-or-good relation and final VCV-io quantitative simulation application.
 
 2. **Production Fiat--Shamir reduction.** The linear Sigma protocol now has a
    Fiat--Shamir proof object, deterministic verifier, completeness,
