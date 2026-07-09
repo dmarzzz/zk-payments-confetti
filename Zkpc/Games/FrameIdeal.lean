@@ -188,6 +188,11 @@ theorem freshRealSignal_evalDist_eq [Finite F] (k : F) :
         let nf ← ($ᵗ F)
         pure (⟨x, y, nf⟩ : Signal F)] := rfl
 
+/-- Canonical audited state used before the public identity commitment is
+programmed. It is useful for isolating the cache-bearing signal transition. -/
+def AuditedFrameSt.init (F M : Type) : AuditedFrameSt F M :=
+  ⟨FrameSt.init F M, FrameAudit.init⟩
+
 /-- Secret-independent oracle implementation. Direct public-oracle queries
 retain ordinary shared-cache behavior; only honest-member internals use the
 separate indexed simulator caches. -/
@@ -221,6 +226,58 @@ def idealFrameImpl (mclose : M) :
   | .roId kq => StateT.mk fun s => do
       let (v, c) ← lazyRO s.roId kq
       pure (v, { s with roId := c })
+
+/-- **First cache-bearing signal coupling.** From empty caches, a complete
+real `spend` step followed by secret erasure has exactly the same distribution
+as the ideal handler step, including the returned option, message-digest
+cache, next index, and indexed nullifier cache. -/
+theorem initial_spend_step_evalDist_eq [Finite F]
+    (k : F) (mclose m : M) :
+    𝒟[Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.spend m)).run
+          (AuditedFrameSt.init F M)] =
+      𝒟[((idealFrameImpl mclose) (.spend m)).run
+          (IdealFrameSt.init F M)] := by
+  unfold auditedFrameImpl idealFrameImpl frameImpl AuditedFrameSt.init
+    IdealFrameSt.init FrameSt.init FrameAudit.init emitSignal emitIdealSignal
+    lazyRO lazyROX
+  simp only [StateT.run_mk, Bool.false_eq_true, ↓reduceIte, bind_assoc,
+    pure_bind, Functor.map]
+  refine evalDist_bind_congr' ($ᵗ F) fun raw => ?_
+  let x := nonzeroDigest raw
+  have hx : x ≠ 0 := nonzeroDigest_ne_zero raw
+  let cont : F → ProbComp
+      (Option (Signal F) × IdealFrameSt F M) := fun y => do
+    let nf ← ($ᵗ F)
+    pure (some ⟨x, y, nf⟩,
+      { IdealFrameSt.init F M with
+        idx := 1
+        roX := Function.update (IdealFrameSt.init F M).roX m (some x)
+        honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) })
+  calc
+    𝒟[do
+        let a ← ($ᵗ F)
+        let nf ← ($ᵗ F)
+        pure (some ⟨x, rlnY k a x, nf⟩,
+          { IdealFrameSt.init F M with
+            idx := 1
+            roX := Function.update (IdealFrameSt.init F M).roX m (some x)
+            honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) })] =
+      𝒟[do let a ← ($ᵗ F); cont (a * x + k)] := by
+        apply evalDist_bind_congr'
+        intro a
+        simp [cont, rlnY, add_comm]
+    _ = 𝒟[do let y ← ($ᵗ F); cont y] :=
+      evalDist_bind_bijective_add_right_uniform F
+        (fun a : F => a * x) (mulRight_bijective₀ x hx) k cont
+    _ = 𝒟[do
+        let y ← ($ᵗ F)
+        let nf ← ($ᵗ F)
+        pure (some ⟨x, y, nf⟩,
+          { IdealFrameSt.init F M with
+            idx := 1
+            roX := Function.update (IdealFrameSt.init F M).roX m (some x)
+            honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) })] := rfl
 
 /-- Secret-independent evidence generator used by the final deferred-sampling
 certificate. The public commitment is sampled first and is not tied to any
@@ -511,3 +568,4 @@ end Zkpc.Games
 #print axioms Zkpc.Games.auditAfter_signal_eq
 #print axioms Zkpc.Games.emitSignal_audit_complete
 #print axioms Zkpc.Games.freshRealSignal_evalDist_eq
+#print axioms Zkpc.Games.initial_spend_step_evalDist_eq
