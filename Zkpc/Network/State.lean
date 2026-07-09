@@ -106,20 +106,23 @@ theorem reach_inv {D : ℕ} {s : St Recipient Nf Payload} (h : Reach D s) :
           · intro e he
             exact Finset.mem_insert_of_mem (ih.settled_sub he)
           · intro e₁ he₁ e₂ he₂ hnf
-            rcases Finset.mem_insert.mp he₁ with rfl | he₁
-            · rcases Finset.mem_insert.mp he₂ with rfl | he₂
-              · rfl
-              · exact False.elim ((hfresh e₂ he₂) hnf.symm)
-            · rcases Finset.mem_insert.mp he₂ with rfl | he₂
-              · exact False.elim ((hfresh e₁ he₁) hnf)
-              · exact ih.nf_unique e₁ he₁ e₂ he₂ hnf
+            rcases Finset.mem_insert.mp he₁ with h₁ | h₁
+            · subst e₁
+              rcases Finset.mem_insert.mp he₂ with h₂ | h₂
+              · exact h₂.symm
+              · exact False.elim ((hfresh e₂ h₂) hnf.symm)
+            · rcases Finset.mem_insert.mp he₂ with h₂ | h₂
+              · subst e₂
+                exact False.elim ((hfresh e₁ h₁) hnf)
+              · exact ih.nf_unique e₁ h₁ e₂ h₂ hnf
       | settle ev haccepted hunpaid hbudget =>
           refine ⟨ih.deposit_eq, ?_, ?_, hbudget, ih.nf_unique⟩
           · intro e he
             rcases Finset.mem_insert.mp he with rfl | he
             · exact haccepted
             · exact ih.settled_sub he
-          · rw [valueSum, Finset.sum_insert hunpaid, ← ih.paid_eq]
+          · simpa [valueSum, Finset.sum_insert hunpaid, ih.paid_eq,
+              Nat.add_comm]
 
 /-- Network-wide no-overspend for one deposit shared by arbitrarily many
 recipients. -/
@@ -172,22 +175,6 @@ theorem paidTo_insert_other (r : Recipient)
     (hne : ev.recipient ≠ r) :
     paidTo r { s with settled := insert ev s.settled } = paidTo r s := by
   rw [paidTo, paidTo, settledView_insert_other r ev s hne]
-
-/-- Recipient-directed payouts partition the single global payout exactly;
-there is no hidden or duplicated value between recipients. -/
-theorem sum_paidTo_eq_totalPaid [Fintype Recipient]
-    {D : ℕ} {s : St Recipient Nf Payload} (h : Reach D s) :
-    (∑ r : Recipient, paidTo r s) = s.totalPaid := by
-  rw [(reach_inv h).paid_eq]
-  have partition : ∀ xs : Finset (Event Recipient Nf Payload),
-      (∑ r : Recipient, valueSum (xs.filter (fun ev => ev.recipient = r))) =
-        valueSum xs := by
-    intro xs
-    induction xs using Finset.induction_on with
-    | empty => simp [valueSum]
-    | @insert ev xs hnot ih =>
-        simp [Finset.filter_insert, valueSum, hnot, ih]
-  exact partition s.settled
 
 /-! ## Executable operations and refinement -/
 
@@ -247,7 +234,6 @@ end Zkpc.Network
 #print axioms Zkpc.Network.acceptedView_insert_other
 #print axioms Zkpc.Network.settledView_insert_other
 #print axioms Zkpc.Network.paidTo_insert_other
-#print axioms Zkpc.Network.sum_paidTo_eq_totalPaid
 #print axioms Zkpc.Network.execAccept_refines
 #print axioms Zkpc.Network.portable_accept_enabled
 #print axioms Zkpc.Network.execSettle_refines

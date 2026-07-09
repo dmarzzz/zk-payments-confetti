@@ -147,9 +147,10 @@ def execSettleClose (pp : Params) (s : St F (Msg Pl)) (k : F) :
   | some (U, t) =>
       if t + pp.tau ≤ s.clock ∧ s.slashedAt k = none ∧
           (∀ i ∈ U, (k, i) ∉ s.swept) ∧ s.closeSettled k = false then
-        some { s with paidPayer := Function.update s.paidPayer k
-                  (s.paidPayer k + (pp.C * U.card + (pp.D - (pp.D / pp.C) * pp.C)))
-                      closeSettled := Function.update s.closeSettled k true }
+        some { s with
+          paidPayer := Function.update s.paidPayer k
+            (s.paidPayer k + (pp.C * U.card + (pp.D - (pp.D / pp.C) * pp.C)))
+          closeSettled := Function.update s.closeSettled k true }
       else none
 
 /-- Execute settlement-time voiding when a claimed-unused nullifier was
@@ -186,11 +187,16 @@ theorem execSettleClose_refines_step (pp : Params) (honest : F → Prop)
     ∃ s', execSettleClose pp s k = some s' ∧
       Step pp.C pp.D pp.tau honest s (.settleClose k) s' := by
   let s' : St F (Msg Pl) :=
-    { s with paidPayer := Function.update s.paidPayer k
+    { s with
+      paidPayer := Function.update s.paidPayer k
         (s.paidPayer k + (pp.C * U.card + (pp.D - (pp.D / pp.C) * pp.C)))
-             closeSettled := Function.update s.closeSettled k true }
+      closeSettled := Function.update s.closeSettled k true }
   refine ⟨s', ?_, Step.settleClose s k U t hc hexp hns hswbar hnotYet⟩
-  simp [execSettleClose, hc, hexp, hns, hswbar, hnotYet, s']
+  have hguard : t + pp.tau ≤ s.clock ∧ s.slashedAt k = none ∧
+      (∀ i ∈ U, (k, i) ∉ s.swept) ∧ s.closeSettled k = false :=
+    ⟨hexp, hns, hswbar, hnotYet⟩
+  simp only [execSettleClose, hc]
+  rw [if_pos hguard]
 
 /-- The executable settlement-time void is exactly `Step.settleVoid`. -/
 theorem execSettleVoid_refines_step (pp : Params) (honest : F → Prop)
