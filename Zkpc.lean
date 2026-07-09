@@ -6,6 +6,7 @@ import Zkpc.Core.T1
 import Zkpc.Core.T2
 import Zkpc.Core.T3
 import Zkpc.Core.T5
+import Zkpc.Crypto.LinearSigma
 import Zkpc.Core.Flat
 import Zkpc.Core.Refinement
 import Zkpc.Games.RLN
