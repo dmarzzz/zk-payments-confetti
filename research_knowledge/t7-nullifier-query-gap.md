@@ -12,6 +12,11 @@ computes `k = y - a*x`. With `q_sig` independently sampled honest slopes and
 points with a shared slope recover `k`, contributing a birthday term bounded
 conservatively by `q_sig^2/|F|`.
 
+Here `q_sig` is a conservative name for every operation that materializes an
+honest slope: `spend`, legacy `close`, and `nfAt`. The last case matters even
+though it does not immediately expose `y`: the same index can later be spent,
+and the real shared cache must remain coupled to the ideal per-index cache.
+
 `Zkpc.Games.frameWinProb_slopeReveal_eq_one` kernel-checks the limiting
 calibration `H_nf(a)=a`: one signal then frames with probability one. This is
 not the real random oracle, but proves slope hiding is essential and cannot be

@@ -130,7 +130,10 @@ adaptive multi-target `q_Nf*q_sig/|F|` term and
 `Zkpc/Games/FrameAudit.lean` is an exact ghost ornament of `frameImpl`: it
 records all three leakage classes, proves monotonicity and one-step resource
 growth, and projects arbitrary adaptive runs exactly to the original handler.
-The remaining coupling work is now the ideal-handler relation and application
+`Zkpc/Games/FrameIdeal.lean` now supplies the secret-independent handler,
+canonical cache-erasing projection, initial-state relation, and exact
+good-step projection lemmas for public oracle operations. The remaining
+coupling work is the signal/`nfAt` bad-or-good step relation and application
 of VCV-io's heterogeneous bad-plus-slack simulation theorem.
 
 ### 2. The ZK bridge, O1 (Class D, high value)
