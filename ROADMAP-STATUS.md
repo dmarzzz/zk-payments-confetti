@@ -79,7 +79,11 @@ unconditional T7 theorem remains open.
    (`roX`, `roA`, `roE`, `roId`, and `roNf`) now commute exactly with
    canonical idealization. The nullifier case is supported by a proved
    audit-completeness invariant and cache-disjointness lemmas, so the hidden
-   composed cache is preserved rather than assumed. The atomic
+   composed cache is preserved rather than assumed. `nfAt` and the shared
+   `spend`/`close` emission kernel preserve audit completeness on every
+   supported outcome. The cache-free real and ideal fresh-signal observables
+   are now proved exactly equal in distribution by the nonzero-digest slope
+   bijection. The stateful atomic
    fresh-slope and collision bounds still need
    source-valid proofs. The remaining semantic step is the
    `spend`/`close`/`nfAt` bad-or-good relation and final VCV-io quantitative
