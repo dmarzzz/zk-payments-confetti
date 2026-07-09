@@ -1,4 +1,5 @@
 import Mathlib.Algebra.Field.Basic
+import VCVio.OracleComp.Constructions.SampleableType
 
 /-!
 # Concrete finite-field Sigma protocol for RLN line knowledge
@@ -17,6 +18,8 @@ transcripts with the same commitment and distinct challenges.
 namespace Zkpc.Crypto.LinearSigma
 
 variable {F : Type} [Field F]
+
+open OracleSpec OracleComp
 
 /-- Public RLN line point. -/
 structure Statement (F : Type) where
@@ -106,6 +109,123 @@ def responseEquiv (w : Witness F) (c : F) : Randomness F ≃ Randomness F where
     intro z
     apply Randomness.ext <;> simp [responses, unresponses]
 
+/-- Honest proof generation with a uniform verifier challenge and uniform
+first-message randomness. -/
+def realTranscript [SampleableType F] (st : Statement F) (w : Witness F) :
+    ProbComp (Transcript F) := do
+  let c ← ($ᵗ F)
+  let tK ← ($ᵗ F)
+  let tA ← ($ᵗ F)
+  pure (prove st w ⟨tK, tA⟩ c)
+
+/-- Honest-verifier simulator distribution. -/
+def simulatedTranscript [SampleableType F] (st : Statement F) :
+    ProbComp (Transcript F) := do
+  let c ← ($ᵗ F)
+  let zK ← ($ᵗ F)
+  let zA ← ($ᵗ F)
+  pure (simulate st c zK zA)
+
+/-- Perfect honest-verifier zero knowledge as an equality of complete
+transcript distributions, not merely a pointwise simulator equation. -/
+theorem evalDist_real_eq_simulated [SampleableType F]
+    (st : Statement F) (w : Witness F) (hw : Holds st w) :
+    𝒹[realTranscript st w] = 𝒹[simulatedTranscript st] := by
+  unfold realTranscript simulatedTranscript
+  refine evalDist_bind_congr' ($ᵗ F) fun c => ?_
+  calc
+    𝒹[do
+        let tK ← ($ᵗ F)
+        let tA ← ($ᵗ F)
+        pure (prove st w ⟨tK, tA⟩ c)] =
+      𝒹[do
+        let tK ← ($ᵗ F)
+        let tA ← ($ᵗ F)
+        pure (simulate st c (tK + c * w.k) (tA + c * w.a))] := by
+          refine evalDist_bind_congr' ($ᵗ F) fun tK => ?_
+          refine evalDist_bind_congr' ($ᵗ F) fun tA => ?_
+          rw [prove_eq_simulate st w ⟨tK, tA⟩ c hw]
+    _ = 𝒹[do
+        let tK ← ($ᵗ F)
+        let zA ← ($ᵗ F)
+        pure (simulate st c (tK + c * w.k) zA)] := by
+          refine evalDist_bind_congr' ($ᵗ F) fun tK => ?_
+          exact evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+            Function.bijective_id (c * w.a)
+            (fun zA => pure (simulate st c (tK + c * w.k) zA))
+    _ = 𝒹[do
+        let zK ← ($ᵗ F)
+        let zA ← ($ᵗ F)
+        pure (simulate st c zK zA)] :=
+          evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+            Function.bijective_id (c * w.k)
+            (fun zK => do
+              let zA ← ($ᵗ F)
+              pure (simulate st c zK zA))
+
+/-- Normalize a public message digest into the nonzero line-coordinate
+domain required for single-point hiding. -/
+def nonzeroX (x : F) : F := if x = 0 then 1 else x
+
+theorem nonzeroX_ne_zero (x : F) : nonzeroX x ≠ 0 := by
+  unfold nonzeroX
+  split
+  · exact one_ne_zero
+  · assumption
+
+/-- Real RLN signal point together with its concrete proof transcript. -/
+def realSignalProof [SampleableType F] (k m : F) :
+    ProbComp (Statement F × Transcript F) := do
+  let a ← ($ᵗ F)
+  let st : Statement F := ⟨nonzeroX m, a * nonzeroX m + k⟩
+  let tr ← realTranscript st ⟨k, a⟩
+  pure (st, tr)
+
+/-- Witness-free simulator for a complete signal/proof pair. -/
+def simulatedSignalProof [SampleableType F] (m : F) :
+    ProbComp (Statement F × Transcript F) := do
+  let y ← ($ᵗ F)
+  let st : Statement F := ⟨nonzeroX m, y⟩
+  let tr ← simulatedTranscript st
+  pure (st, tr)
+
+/-- The complete verified RLN point and proof transcript is perfectly
+simulatable without the member secret. This composes single-point hiding
+with the Sigma transcript simulator and is the concrete T4 bridge kernel. -/
+theorem evalDist_realSignalProof_eq_simulated [SampleableType F] (k m : F) :
+    𝒹[realSignalProof k m] = 𝒹[simulatedSignalProof m] := by
+  let x := nonzeroX m
+  have hx : x ≠ 0 := nonzeroX_ne_zero m
+  let f : F → F := fun a => a * x
+  have hf : Function.Bijective f := mulRight_bijective₀ x hx
+  unfold realSignalProof simulatedSignalProof
+  calc
+    𝒹[do
+        let a ← ($ᵗ F)
+        let st : Statement F := ⟨nonzeroX m, a * nonzeroX m + k⟩
+        let tr ← realTranscript st ⟨k, a⟩
+        pure (st, tr)] =
+      𝒹[do
+        let a ← ($ᵗ F)
+        let st : Statement F := ⟨nonzeroX m, a * nonzeroX m + k⟩
+        let tr ← simulatedTranscript st
+        pure (st, tr)] := by
+          refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
+          apply evalDist_map_eq_of_evalDist_eq
+          apply evalDist_real_eq_simulated
+          unfold Holds
+          ring
+    _ = 𝒹[do
+        let y ← ($ᵗ F)
+        let st : Statement F := ⟨nonzeroX m, y⟩
+        let tr ← simulatedTranscript st
+        pure (st, tr)] := by
+          exact evalDist_bind_bijective_add_right_uniform f hf k
+            (fun y => do
+              let st : Statement F := ⟨nonzeroX m, y⟩
+              let tr ← simulatedTranscript st
+              pure (st, tr))
+
 /-- Extract the unique witness from two response pairs at distinct
 challenges. -/
 def extract (tr₁ tr₂ : Transcript F) : Witness F :=
@@ -134,10 +254,78 @@ theorem special_soundness (st : Statement F) (tr₁ tr₂ : Transcript F)
     _ = (tr₁.zK - tr₂.zK) +
         (tr₁.zA - tr₂.zA) * st.x := by rw [hcommit]; ring
 
+/-! ## Fiat--Shamir-shaped non-interactive proof -/
+
+/-- A challenge oracle hashes the statement and first message. Keeping it as
+an explicit function makes ROM programming and forking hypotheses visible. -/
+abbrev ChallengeOracle (F : Type) := Statement F → F → F
+
+/-- Non-interactive proof: the challenge is recomputed by the verifier. -/
+structure FSProof (F : Type) where
+  commitment : F
+  zK : F
+  zA : F
+
+/-- Interpret an FS proof as its underlying Sigma transcript. -/
+def fsTranscript (H : ChallengeOracle F) (st : Statement F) (pi : FSProof F) :
+    Transcript F :=
+  ⟨pi.commitment, H st pi.commitment, pi.zK, pi.zA⟩
+
+/-- Fiat--Shamir prover for a deterministic challenge oracle. -/
+def fsProve (H : ChallengeOracle F) (st : Statement F) (w : Witness F)
+    (r : Randomness F) : FSProof F :=
+  let T := commit st r
+  let c := H st T
+  ⟨T, r.tK + c * w.k, r.tA + c * w.a⟩
+
+/-- Fiat--Shamir verifier. -/
+def FSVerify (H : ChallengeOracle F) (st : Statement F) (pi : FSProof F) : Prop :=
+  Verify st (fsTranscript H st pi)
+
+/-- Fiat--Shamir completeness follows from Sigma completeness. -/
+theorem fs_completeness (H : ChallengeOracle F) (st : Statement F)
+    (w : Witness F) (r : Randomness F) (hw : Holds st w) :
+    FSVerify H st (fsProve H st w r) := by
+  exact completeness st w r (H st (commit st r)) hw
+
+/-- Simulator proof obtained by solving for the first message at a chosen
+challenge. It verifies whenever the programmable oracle returns that
+challenge at the simulated query. -/
+def fsSimulate (st : Statement F) (c zK zA : F) : FSProof F :=
+  ⟨zK + zA * st.x - c * st.y, zK, zA⟩
+
+/-- Programmed-ROM simulation correctness. -/
+theorem fsSimulate_verifies (H : ChallengeOracle F) (st : Statement F)
+    (c zK zA : F)
+    (hprogram : H st (zK + zA * st.x - c * st.y) = c) :
+    FSVerify H st (fsSimulate st c zK zA) := by
+  unfold FSVerify fsTranscript fsSimulate
+  rw [hprogram]
+  exact simulate_verifies st c zK zA
+
+/-- Extract from two accepting forked executions. The oracle answers differ
+at the shared `(statement, commitment)` query, exactly the conclusion supplied
+by a forking lemma; the algebraic extractor itself is unconditional. -/
+theorem fs_fork_extracts (H₁ H₂ : ChallengeOracle F) (st : Statement F)
+    (pi₁ pi₂ : FSProof F)
+    (hcommit : pi₁.commitment = pi₂.commitment)
+    (hv₁ : FSVerify H₁ st pi₁) (hv₂ : FSVerify H₂ st pi₂)
+    (hchallenge : H₁ st pi₁.commitment ≠ H₂ st pi₂.commitment) :
+    Holds st (extract (fsTranscript H₁ st pi₁) (fsTranscript H₂ st pi₂)) := by
+  apply special_soundness st (fsTranscript H₁ st pi₁)
+    (fsTranscript H₂ st pi₂) hv₁ hv₂
+  · exact hcommit
+  · exact hchallenge
+
 end Zkpc.Crypto.LinearSigma
 
 #print axioms Zkpc.Crypto.LinearSigma.completeness
 #print axioms Zkpc.Crypto.LinearSigma.simulate_verifies
 #print axioms Zkpc.Crypto.LinearSigma.prove_eq_simulate
 #print axioms Zkpc.Crypto.LinearSigma.responseEquiv
+#print axioms Zkpc.Crypto.LinearSigma.evalDist_real_eq_simulated
+#print axioms Zkpc.Crypto.LinearSigma.evalDist_realSignalProof_eq_simulated
 #print axioms Zkpc.Crypto.LinearSigma.special_soundness
+#print axioms Zkpc.Crypto.LinearSigma.fs_completeness
+#print axioms Zkpc.Crypto.LinearSigma.fsSimulate_verifies
+#print axioms Zkpc.Crypto.LinearSigma.fs_fork_extracts

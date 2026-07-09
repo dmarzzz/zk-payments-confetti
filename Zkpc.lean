@@ -10,6 +10,7 @@ import Zkpc.Crypto.LinearSigma
 import Zkpc.Core.Flat
 import Zkpc.Core.Refinement
 import Zkpc.Games.RLN
+import Zkpc.Games.SigmaInstance
 import Zkpc.Fleet.Basic
 import Zkpc.Fleet.T6
 import Zkpc.Fleet.Recovery
