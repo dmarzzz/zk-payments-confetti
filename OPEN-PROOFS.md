@@ -195,12 +195,17 @@ reconciliation slash. Consequently generated states inherit T1--T6 and the
 refund/fleet invariants. Remaining execution work is the contract-internal
 close-window scheduler and the receipt-upgrade cascade driver.
 
-### 6. Multi-recipient generalisation (research, not just proof)
+### 6. Multi-recipient generalisation (accounting layer landed)
 
-The named open problem: the object is single-recipient by construction.
-What a multi-recipient generalisation requires is stated in the paper's
-open-problems section and `RESEARCH.md`. This is a definition-design task
-first, then a proof task, and it would re-open the gate.
+`Zkpc/Network/State.lean` defines a portable-deposit network in which one
+deposit funds arbitrarily many recipients, admissions share a global
+nullifier set, and settlements are recipient-directed. It proves global
+deduplication, exact payout accounting, network-wide no-overspend, payout
+partitioning across a finite recipient set, unrelated-recipient view
+isolation, and executable-operation refinement. This closes the definition
+and accounting portion of the named open problem. A concrete portable
+threshold credential/ticketbook construction and a network-level
+cryptographic unlinkability reduction remain open.
 
 ## Where the definitions and their rationale live
 
