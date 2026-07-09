@@ -140,6 +140,54 @@ def emitIdealSignal (m : M) (s : IdealFrameSt F M) :
   pure (⟨x, y, nf⟩,
     { s with idx := s.idx + 1, roX := cX, honestNf := cNf })
 
+/-- Cache-free observable core of one real RLN signal. -/
+def freshRealSignal (k : F) : ProbComp (Signal F) := do
+  let raw ← ($ᵗ F)
+  let x := nonzeroDigest raw
+  let a ← ($ᵗ F)
+  let nf ← ($ᵗ F)
+  pure ⟨x, rlnY k a x, nf⟩
+
+/-- Cache-free observable core used by the ideal signal simulator. -/
+def freshIdealSignal (F : Type) [Field F] [SampleableType F] :
+    ProbComp (Signal F) := do
+  let raw ← ($ᵗ F)
+  let x := nonzeroDigest raw
+  let y ← ($ᵗ F)
+  let nf ← ($ᵗ F)
+  pure ⟨x, y, nf⟩
+
+/-- **Atomic fresh-signal coupling.** A fresh real RLN point and nullifier
+have exactly the ideal observable distribution. The proof transports the
+uniform slope through the bijection `a ↦ a*x` (the digest normalization
+guarantees `x ≠ 0`) and keeps the continuation, including the independent
+nullifier sample, intact. -/
+theorem freshRealSignal_evalDist_eq [Finite F] (k : F) :
+    𝒟[freshRealSignal k] = 𝒟[freshIdealSignal F] := by
+  unfold freshRealSignal freshIdealSignal
+  refine evalDist_bind_congr' ($ᵗ F) fun raw => ?_
+  let x := nonzeroDigest raw
+  have hx : x ≠ 0 := nonzeroDigest_ne_zero raw
+  let cont : F → ProbComp (Signal F) := fun y => do
+    let nf ← ($ᵗ F)
+    pure ⟨x, y, nf⟩
+  calc
+    𝒟[do
+        let a ← ($ᵗ F)
+        let nf ← ($ᵗ F)
+        pure (⟨x, rlnY k a x, nf⟩ : Signal F)] =
+      𝒟[do let a ← ($ᵗ F); cont (a * x + k)] := by
+        apply evalDist_bind_congr'
+        intro a
+        rfl
+    _ = 𝒟[do let y ← ($ᵗ F); cont y] :=
+      evalDist_bind_bijective_add_right_uniform F
+        (fun a : F => a * x) (mulRight_bijective₀ x hx) k cont
+    _ = 𝒟[do
+        let y ← ($ᵗ F)
+        let nf ← ($ᵗ F)
+        pure (⟨x, y, nf⟩ : Signal F)] := rfl
+
 /-- Secret-independent oracle implementation. Direct public-oracle queries
 retain ordinary shared-cache behavior; only honest-member internals use the
 separate indexed simulator caches. -/
@@ -462,3 +510,4 @@ end Zkpc.Games
 #print axioms Zkpc.Games.auditedFrameImpl_nfAt_complete
 #print axioms Zkpc.Games.auditAfter_signal_eq
 #print axioms Zkpc.Games.emitSignal_audit_complete
+#print axioms Zkpc.Games.freshRealSignal_evalDist_eq
