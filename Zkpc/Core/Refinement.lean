@@ -57,7 +57,7 @@ theorem spend_refines_step (pp : Params) (honest : F → Prop)
   refine ⟨s', ticket, payer', ?_, ?_, rfl, rfl, ?_⟩
   · simp [flatScheme, hsolv, ticket, payer']
   · exact Step.emitHonest s k m hh hlive hsolv
-  · simp [s']
+  · simp [payer', s']
 
 /-- On a fresh nullifier, executable `Redeem` accepts exactly when the
 symbolic machine can take its knowledge-sound `accept` transition. -/
@@ -78,7 +78,10 @@ theorem redeem_accept_refines_step (pp : Params) (honest : F → Prop)
       rw [Finset.toList_eq_nil]
       exact Finset.filter_eq_empty_iff.mpr (by
         intro u hu hki
-        exact hfresh u.2.2 (by simpa [hki.1, hki.2] using hu))
+        rcases u with ⟨ku, iu, mu⟩
+        simp only at hki ⊢
+        rcases hki with ⟨rfl, rfl⟩
+        exact hfresh mu hu)
     simp [flatScheme, hlive, hsolv, hnotmem, hempty, s']
   · exact Step.accept s k i m hsig hlive hsolv hfresh
 
@@ -137,6 +140,69 @@ theorem sweep_single_refines_step (pp : Params) (honest : F → Prop)
   · simp [flatScheme, hacc, hdedup, hwin, hbar, s']
   · exact Step.sweepOne s k i m hacc hdedup hwin hbar
 
+/-- Reflexive-transitive symbolic meaning of the executable sweep fold.
+Eligible entries take one `sweepOne` step; rejected, duplicate, expired, or
+barred entries leave the ledger unchanged, exactly as the implementation
+specifies. -/
+inductive SweepTrace (pp : Params) (honest : F → Prop) :
+    St F (Msg Pl) → List (F × ℕ × Msg Pl) → St F (Msg Pl) → Prop
+  | nil (s) : SweepTrace pp honest s [] s
+  | skip (s) (u : F × ℕ × Msg Pl) (us) (s')
+      (hineligible : ¬ (u ∈ s.acc ∧ (u.1, u.2.1) ∉ s.swept ∧
+        sweepOpen pp.tau s u.1 ∧ ¬ s.sweepBarred u.1 u.2.1))
+      (tail : SweepTrace pp honest s us s') :
+      SweepTrace pp honest s (u :: us) s'
+  | take (s) (k : F) (i : ℕ) (m : Msg Pl) (us) (s')
+      (hacc : (k, i, m) ∈ s.acc) (hdedup : (k, i) ∉ s.swept)
+      (hwin : sweepOpen pp.tau s k) (hbar : ¬ s.sweepBarred k i)
+      (tail : SweepTrace pp honest
+        { s with swept := insert (k, i) s.swept
+                 paidGw := s.paidGw + pp.C } us s') :
+      SweepTrace pp honest s ((k, i, m) :: us) s'
+
+/-- Every call of the arbitrary-list executable sweep produces a symbolic
+trace, including its no-op decisions for ineligible list entries. -/
+theorem sweep_refines_trace (pp : Params) (honest : F → Prop)
+    (tuples : List (F × ℕ × Msg Pl)) (s : St F (Msg Pl)) :
+    SweepTrace pp honest s tuples
+      ((flatScheme F Pl).sweep pp () tuples s) := by
+  induction tuples generalizing s with
+  | nil => exact SweepTrace.nil s
+  | cons u us ih =>
+      rcases u with ⟨k, i, m⟩
+      by_cases helig : (k, i, m) ∈ s.acc ∧ (k, i) ∉ s.swept ∧
+          sweepOpen pp.tau s k ∧ ¬ s.sweepBarred k i
+      · rcases helig with ⟨hacc, hdedup, hwin, hbar⟩
+        apply SweepTrace.take s k i m us _ hacc hdedup hwin hbar
+        simpa [flatScheme, hacc, hdedup, hwin, hbar] using
+          (ih { s with swept := insert (k, i) s.swept
+                       paidGw := s.paidGw + pp.C })
+      · apply SweepTrace.skip s (k, i, m) us _ helig
+        simpa [flatScheme, helig] using ih s
+
+/-- A concrete sweep trace from a reachable ledger ends in another reachable
+ledger, so the full list implementation inherits every reachability
+invariant, not merely the singleton success case. -/
+theorem SweepTrace.reachable (pp : Params) (honest : F → Prop)
+    {s s' : St F (Msg Pl)} {tuples : List (F × ℕ × Msg Pl)}
+    (htrace : SweepTrace pp honest s tuples s')
+    (hreach : Reach pp.C pp.D pp.tau honest s) :
+    Reach pp.C pp.D pp.tau honest s' := by
+  induction htrace with
+  | nil => exact hreach
+  | skip _ _ _ _ _ _ ih => exact ih hreach
+  | take s k i m us s' hacc hdedup hwin hbar tail ih =>
+      exact ih (Reach.step hreach
+        (Step.sweepOne s k i m hacc hdedup hwin hbar))
+
+/-- End-to-end reachability theorem for the executable arbitrary-list sweep. -/
+theorem sweep_preserves_reachability (pp : Params) (honest : F → Prop)
+    (tuples : List (F × ℕ × Msg Pl)) (s : St F (Msg Pl))
+    (hreach : Reach pp.C pp.D pp.tau honest s) :
+    Reach pp.C pp.D pp.tau honest
+      ((flatScheme F Pl).sweep pp () tuples s) :=
+  (sweep_refines_trace pp honest tuples s).reachable pp honest hreach
+
 /-- A sequence of successful refined object calls yields ordinary concrete
 reachability, so all existing T1--T5 invariants apply to the executable API
 trace. -/
@@ -155,4 +221,7 @@ end Zkpc.Core.Flat
 #print axioms Zkpc.Core.Flat.payerClose_refines_step
 #print axioms Zkpc.Core.Flat.dispute_refines_step
 #print axioms Zkpc.Core.Flat.sweep_single_refines_step
+#print axioms Zkpc.Core.Flat.sweep_refines_trace
+#print axioms Zkpc.Core.Flat.SweepTrace.reachable
+#print axioms Zkpc.Core.Flat.sweep_preserves_reachability
 #print axioms Zkpc.Core.Flat.refined_steps_reachable
