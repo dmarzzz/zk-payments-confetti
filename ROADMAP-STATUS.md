@@ -18,9 +18,10 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   secret-erasing state map, and programmed initial-state relation. Exact
   public-oracle step coupling was attempted at this checkpoint but is not yet
   retained as a proved API; the failed obligations are listed below.
-- A proof-bearing T4 reference instance and a witness-dependent masked-proof
+- A proof-free T4 reference instance and a witness-dependent masked-proof
   instance, including session-level simulator equality, perfect unlinkability,
-  and a zero-loss bridge to the proof-free game.
+  and a zero-loss bridge to the proof-free game. The separate proof-bearing
+  Sigma/T4 construction remains an open bridge obligation.
 - B-instance obligations for genesis receipts, receipt updates, capability
   monotonicity, close-view simulation, and the rerandomized challenge path.
 - Refund cascade and finite-fleet safety: exact upgrade count, terminal
@@ -40,18 +41,18 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   admission; and cross-recipient replay of an admitted nullifier is rejected.
   Its end-to-end theorem composes verification, executable redemption,
   executable settlement, reachability, and shared-deposit no-overspend.
-- A concrete finite-field Sigma protocol for knowledge of an RLN line:
-  verifier completeness, perfect honest-verifier simulation via an explicit
-  randomness/response equivalence, and two-transcript special-soundness
-  extraction.
-- A verified-proof T4 instance (`Games.SigmaInstance`) whose real payer emits
-  an RLN point and accepting Sigma transcript. The complete signal/proof pair
-  and arbitrary solvent batches are exactly simulator-distributed, yielding
-  perfect T4 and a zero-loss proof-free bridge. The Sigma core also includes a
-  Fiat--Shamir proof object, programmed-oracle simulation, and fork extractor.
+- A concrete finite-field Sigma algebraic core for knowledge of an RLN line:
+  verifier completeness, a simulator construction, response equivalence, and
+  two-transcript special-soundness extraction. Distributional
+  honest-verifier-ZK and the proof-bearing T4 instance are deliberately not
+  claimed until their sampling argument is formalized.
+- A Fiat--Shamir-shaped proof object, deterministic verifier, programmed
+  simulator interface, and algebraic fork extractor. Its probabilistic ROM
+  programming/forking reduction and T4 wire-level bridge remain open.
 - A concrete additive masked refund ciphertext with executable encryption,
-  opening, homomorphic addition, rerandomization, receipt updates, correctness,
-  and exact rerandomized-presentation independence.
+  opening, homomorphic addition, rerandomization, receipt updates, and
+  correctness. Its distributional rerandomization-privacy argument remains a
+  named reduction obligation.
 
 ## Remaining before the complete roadmap is proved
 
@@ -86,21 +87,22 @@ unconditional T7 theorem remains open.
    later adaptive message choice, so this needs continuation-level deferred
    sampling rather than only a pointwise state relation.
 
-2. **Production Fiat--Shamir reduction.** The linear Sigma protocol now has a
+2. **Production Fiat--Shamir reduction.** The linear Sigma protocol has a
    Fiat--Shamir proof object, deterministic verifier, completeness,
-   programmed-oracle simulator, and algebraic fork extractor; the interactive
-   verified transcript is also connected to the full T4 game. What remains is
-   the probabilistic ROM programming/forking lemma for the non-interactive
-   instance, including its concrete query-dependent loss, followed by a
+   programmed-oracle simulator interface, and algebraic fork extractor. What
+   remains is the distributional honest-verifier-ZK argument, the
+   probabilistic ROM programming/forking lemma for the non-interactive
+   instance (including its concrete query-dependent loss), and a
    `zkBridgeObligation` instantiation for that FS wire type. The masked-proof
-   and interactive-Sigma bridges are exact reference endpoints.
+   bridge is an exact reference endpoint; the interactive-Sigma bridge is not
+   yet connected to T4.
 
-3. **Production refund cryptography.** The opaque fresh handle now has an
+3. **Production refund cryptography.** The opaque fresh handle has an
    executable information-theoretic additive masked-cipher reference
-   instantiation with exact rerandomization privacy and receipt-update
-   correctness. What remains is a deployed public-key AH scheme reduction,
-   receipt-signature instantiation, and EUF-CMA chain authenticity rather than
-   absorption into transition guards.
+   instantiation with receipt-update correctness. What remains is its
+   distributional rerandomization-privacy proof, a deployed public-key AH
+   scheme reduction, receipt-signature instantiation, and EUF-CMA chain
+   authenticity rather than absorption into transition guards.
 
 4. **Threshold issuance and network unlinkability.** The accounting machine is
    now connected to a concrete proof-bearing portable ticket, and verification
