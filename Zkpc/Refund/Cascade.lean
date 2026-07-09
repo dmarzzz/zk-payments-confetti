@@ -44,6 +44,30 @@ inductive CascadeReach (n j : ℕ) : CascadeSt → Prop
   | step {s s' : CascadeSt} :
       CascadeReach n j s → CascadeStep n s s' → CascadeReach n j s'
 
+/-- Deterministic contract driver: upgrade a stale active claim, settle a
+current active claim, and reject inactive or impossible overshooting states. -/
+def execCascade (n : ℕ) (s : CascadeSt) : Option CascadeSt :=
+  if s.active = true then
+    if s.claim < n then some ⟨s.claim + 1, s.upgrades + 1, s.active⟩
+    else if s.claim = n then some { s with active := false }
+    else none
+  else none
+
+/-- Executable stale-claim advancement is exactly `CascadeStep.upgrade`. -/
+theorem execCascade_upgrade (n : ℕ) (s : CascadeSt)
+    (hactive : s.active = true) (hstale : s.claim < n) :
+    ∃ s', execCascade n s = some s' ∧ CascadeStep n s s' := by
+  refine ⟨⟨s.claim + 1, s.upgrades + 1, s.active⟩, ?_,
+    CascadeStep.upgrade s hactive hstale⟩
+  simp [execCascade, hactive, hstale]
+
+/-- Executable current-claim settlement is exactly `CascadeStep.settle`. -/
+theorem execCascade_settle (n : ℕ) (s : CascadeSt)
+    (hactive : s.active = true) (hcurrent : s.claim = n) :
+    ∃ s', execCascade n s = some s' ∧ CascadeStep n s s' := by
+  refine ⟨{ s with active := false }, ?_, CascadeStep.settle s hactive hcurrent⟩
+  simp [execCascade, hactive, hcurrent]
+
 /-- The central cascade invariant: the public claim is the initial claim plus
 the number of upgrades, never exceeds the true count, and an inactive window
 has reached the true count. -/
@@ -68,6 +92,15 @@ theorem cascadeReach_inv {n j : ℕ} (hjn : j ≤ n) {s : CascadeSt}
         exact absurd hinactive (by simpa using hactive)
     | settle hactive hcurrent =>
       exact ⟨hcount, hle, fun _ => hcurrent⟩
+
+/-- Every reachable active cascade has an executable next contract action. -/
+theorem execCascade_progress {n j : ℕ} (hjn : j ≤ n)
+    {s : CascadeSt} (hreach : CascadeReach n j s) (hactive : s.active = true) :
+    ∃ s', execCascade n s = some s' ∧ CascadeStep n s s' := by
+  have hle := (cascadeReach_inv hjn hreach).2.1
+  rcases lt_or_eq_of_le hle with hlt | heq
+  · exact execCascade_upgrade n s hactive hlt
+  · exact execCascade_settle n s hactive heq
 
 /-- A close can undergo at most its initial count understatement many
 upgrades. -/
@@ -122,6 +155,9 @@ theorem cascade_final_payouts (Cmax D R n : ℕ)
 end Zkpc.Refund
 
 #print axioms Zkpc.Refund.cascadeReach_inv
+#print axioms Zkpc.Refund.execCascade_upgrade
+#print axioms Zkpc.Refund.execCascade_settle
+#print axioms Zkpc.Refund.execCascade_progress
 #print axioms Zkpc.Refund.cascade_upgrades_le_understatement
 #print axioms Zkpc.Refund.cascade_settled_upgrades_eq
 #print axioms Zkpc.Refund.cascade_terminal_settled

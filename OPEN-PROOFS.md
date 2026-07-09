@@ -216,6 +216,13 @@ and accounting portion of the named open problem. A concrete portable
 threshold credential/ticketbook construction and a network-level
 cryptographic unlinkability reduction remain open.
 
+`Zkpc/Network/Credential.lean` now supplies the first concrete credential
+adapter: every application field is bound into a Fiat--Shamir statement,
+honest issuance verifies, valid fresh redemption refines to the network
+admission transition, and a nullifier replay is rejected even when redirected
+to another recipient. Threshold/blind issuance and the network-level
+unlinkability reduction remain open.
+
 ## Where the definitions and their rationale live
 
 - `Spec.md`: the object, the games, the seven theorems, and the modeling

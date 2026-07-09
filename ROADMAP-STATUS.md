@@ -19,9 +19,16 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   identity/fund-slash recovery rules.
 - Executable-ledger refinement for the flat object, arbitrary sweep lists,
   refund accept/close/force-close, and fleet tick/admission/slash.
+- Executable MC20 contract drivers for close disputes, successful settlement,
+  settlement-time voiding, and receipt-cascade upgrade/settle progress, each
+  refined to its relational transition.
 - A portable multi-recipient accounting machine with one shared deposit,
   global nullifier deduplication, recipient-directed settlement, exact payout
   partitioning, recipient-view isolation, and executable refinement.
+- A concrete portable credential adapter (`Network.Credential`): recipient,
+  global nullifier, value, and payload are bound into a Fiat--Shamir statement;
+  honest issuance verifies; verified fresh redemption refines to network
+  admission; and cross-recipient replay of an admitted nullifier is rejected.
 - A concrete finite-field Sigma protocol for knowledge of an RLN line:
   verifier completeness, perfect honest-verifier simulation via an explicit
   randomness/response equivalence, and two-transcript special-soundness
@@ -56,23 +63,19 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    reduction; instantiate receipt signatures and prove EUF-CMA chain
    authenticity rather than absorbing it into transition guards.
 
-4. **Portable network credential.** Connect the multi-recipient accounting
-   machine to a concrete portable credential or threshold-issued ticketbook.
-   Prove that credential verification implies an admissible network event,
-   globally unique nullifiers survive cross-recipient presentation, and each
-   recipient's cryptographic view satisfies the network unlinkability game.
+4. **Threshold issuance and network unlinkability.** The accounting machine is
+   now connected to a concrete proof-bearing portable ticket, and verification
+   refines to admission with cross-recipient replay rejection. What remains is
+   threshold/blind issuance (or another issuer-independent authorization
+   mechanism), an unforgeability reduction for ticket creation, and a
+   recipient-view network unlinkability game/reduction across presentations.
 
-5. **Internal scheduler execution.** Add executable drivers and refinement for
-   close-window dispute/settle/void transitions and the receipt-upgrade
-   cascade. The relational safety/liveness results exist, but these automatic
-   contract paths are not all exposed through deterministic drivers.
-
-6. **End-to-end composition theorem.** State and prove one theorem connecting
+5. **End-to-end composition theorem.** State and prove one theorem connecting
    concrete proof verification, executable admission, reconciliation/slashing,
    close/settlement, and the T1--T7 guarantees for a complete trace. Current
    theorems cover the layers separately.
 
-7. **Final validation and documentation.** After the items above, run a cold
+6. **Final validation and documentation.** After the items above, run a cold
    dependency fetch and clean full build, the forbidden-placeholder audit,
    `git diff --check`, all `#print axioms` checks, and reconcile `Spec.md`, the
    paper theorem table, assumption registry, and `OPEN-PROOFS.md` with the
