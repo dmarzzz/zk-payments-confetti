@@ -144,13 +144,13 @@ zero loss for this concrete perfectly-ZK proof encoding.  A production NIZK
 an optional refinement and would replace exact equality by its scheme-specific
 `εZK` reduction.
 
-### 3. B-instance obligations O2 / O3 / O4 (Class B/C, medium)
+### 3. B-instance obligations O2 / O3 / O4 (discharged)
 
-For the refund instantiation: the adversary-issued-genesis discharge
-(`M2` / O3), and the `closeViewSimulatable` discharge for true-count B
-closes (`O4`). Both are stated obligations in the games register
-(`Zkpc/Games/README-games.md`); each is a concrete-instance proof against
-the frozen game.
+For the refund instantiation, `bRerand_spendBatch_none_zero` discharges O2,
+`bIdeal_openCh_adversary_genesis`, `bIdeal_serve_issuer_receipt`, and
+`bIdeal_serve_capable_mono` discharge the adversary-issued-genesis/receipt
+semantics (M2/O3), and `bIdeal_closeViewSimulatable` discharges O4 for both
+B-static and B-rerand.
 
 ### 4. The challenge-fires lemma (Class B, small, good first task)
 
@@ -177,7 +177,12 @@ conservation, and the cooperative payer floor across any finite fleet.
 `Zkpc/Refund/Cascade.lean` models successive withheld-receipt upgrades, proves
 claims never overshoot the certified count, proves terminal cascades settle,
 and establishes the exact `n-j` upgrade count plus final payout conservation.
-The fleet-side T2 identity/fund-slash recovery windows remain open.
+`Zkpc/Fleet/Recovery.lean` now formalizes the fleet-side T2 aggregate recovery
+rule: pre-slash checkpoint eligibility, sweep-before-conflict seniority,
+remainder-capped payouts, exact conservation, full recovery when eligible
+demand fits, and the distinct fund-slash forfeit path. Connecting individual
+checkpoint membership witnesses and deadlines to the executable ledger trace
+remains part of the ledger-refinement task.
 
 ### 6. Multi-recipient generalisation (research, not just proof)
 

@@ -10,6 +10,7 @@ import Zkpc.Core.Flat
 import Zkpc.Games.RLN
 import Zkpc.Fleet.Basic
 import Zkpc.Fleet.T6
+import Zkpc.Fleet.Recovery
 import Zkpc.Games.Framework
 import Zkpc.Games.Unlink
 import Zkpc.Games.Frame
