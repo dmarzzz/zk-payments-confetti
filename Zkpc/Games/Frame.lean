@@ -155,6 +155,31 @@ theorem lazyRO_support_preserves {α : Type} [DecidableEq α]
       simp_all
     · simpa [Function.update_of_ne hq] using hentry
 
+/-- Away from the queried key, every supported lazy-oracle cache is exactly
+the old cache. -/
+theorem lazyRO_support_eq_of_ne {α : Type} [DecidableEq α]
+    (cache : α → Option F) (q : α) (z : F × (α → Option F))
+    (hz : z ∈ support (lazyRO cache q)) {q' : α} (hne : q' ≠ q) :
+    z.2 q' = cache q' := by
+  unfold lazyRO at hz
+  split at hz
+  · rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    rfl
+  · obtain ⟨sample, _, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+    rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    exact Function.update_of_ne hne _ _
+
+/-- On a cache hit, the supported return value is the cached value. -/
+theorem lazyRO_support_value_of_entry {α : Type} [DecidableEq α]
+    (cache : α → Option F) (q : α) (z : F × (α → Option F))
+    (hz : z ∈ support (lazyRO cache q)) {value : F}
+    (hentry : cache q = some value) : z.1 = value := by
+  unfold lazyRO at hz
+  simp [hentry] at hz
+  exact congrArg Prod.fst hz
+
 /-- Map a raw field sample into the specified nonzero digest domain. -/
 def nonzeroDigest (x : F) : F :=
   if x = 0 then 1 else x

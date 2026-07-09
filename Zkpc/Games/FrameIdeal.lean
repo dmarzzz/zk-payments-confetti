@@ -335,6 +335,56 @@ theorem idealize_roNf_step (k : F) (mclose : M) (aq : F)
   · simp [h, idealizeFrame, auditAfter, ha, maskSlopes_update_of_not_mem,
       update_roNf_at_honest_of_complete, hc]
 
+/-- The MC20 nullifier-reveal operation preserves audit completeness on every
+supported outcome: a newly sampled slope is recorded, while cache hits were
+already covered by the incoming invariant. -/
+theorem auditedFrameImpl_nfAt_complete (k : F) (mclose : M) (i : ℕ)
+    (s : AuditedFrameSt F M) (hc : FrameAuditComplete k s)
+    (z : F × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) (.nfAt i)).run s)) :
+    FrameAuditComplete k z.2 := by
+  unfold auditedFrameImpl at hz
+  obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst z
+  unfold frameImpl at hp
+  simp only [StateT.run_mk] at hp
+  obtain ⟨ac, hac, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+  obtain ⟨nc, hnc, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+  rw [support_pure, Set.mem_singleton_iff] at hp
+  subst p
+  intro j a hentry
+  by_cases hj : j = i
+  · subst j
+    change ac.2 (k, i) = some a at hentry
+    have hqueried := lazyRO_support_entry s.base.roA (k, i) ac hac
+    have ha : a = ac.1 := Option.some.inj (hentry.symm.trans hqueried)
+    subst a
+    change ac.1 ∈
+      (auditAfter k (.nfAt i) s.base
+        { s.base with roA := ac.2, roNf := nc.2 } s.audit).honestSlopes
+    unfold auditAfter
+    cases hold : s.base.roA (k, i) with
+    | some old =>
+        simp only [hold]
+        have hvalue := lazyRO_support_value_of_entry s.base.roA (k, i) ac hac hold
+        rw [hvalue]
+        exact hc i old hold
+    | none => simp [hold, lazyRO_support_entry s.base.roA (k, i) ac hac]
+  · have hpair : (k, j) ≠ (k, i) := by
+      intro h
+      exact hj (congrArg Prod.snd h)
+    change ac.2 (k, j) = some a at hentry
+    have hold : s.base.roA (k, j) = some a := by
+      rw [← hentry]
+      exact (lazyRO_support_eq_of_ne s.base.roA (k, i) ac hac hpair).symm
+    unfold auditAfter
+    cases hi : s.base.roA (k, i) with
+    | some old => simpa [hi] using hc j a hold
+    | none =>
+        have hnew := lazyRO_support_entry s.base.roA (k, i) ac hac
+        simp [hi, hnew, hc j a hold]
+
 end Zkpc.Games
 
 #print axioms Zkpc.Games.frameCoupled_initial
@@ -351,3 +401,4 @@ end Zkpc.Games
 #print axioms Zkpc.Games.maskSlopes_update_of_not_mem
 #print axioms Zkpc.Games.update_roNf_at_honest_of_complete
 #print axioms Zkpc.Games.idealize_roNf_step
+#print axioms Zkpc.Games.auditedFrameImpl_nfAt_complete
