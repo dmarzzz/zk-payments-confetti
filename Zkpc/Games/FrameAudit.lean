@@ -112,6 +112,55 @@ theorem FrameLeakBad.honest_cons (k slope : F) (a : FrameAudit F)
     exact Or.inr (Or.inl ⟨candidate, hp, List.mem_cons_of_mem slope hs⟩)
   · exact Or.inr (Or.inr (fun hnd => h hnd.tail))
 
+/-- Recording the honest secret itself as a direct candidate immediately
+raises the leakage event. -/
+theorem FrameLeakBad.secret_self (k : F) (a : FrameAudit F) :
+    FrameLeakBad k { a with secretProbes := k :: a.secretProbes } := by
+  exact Or.inl (by simp)
+
+/-- Recording a slope candidate that was already exposed by an honest signal
+immediately raises the slope-preimage branch of the leakage event. -/
+theorem FrameLeakBad.slope_hit (k slope : F) (a : FrameAudit F)
+    (h : slope ∈ a.honestSlopes) :
+    FrameLeakBad k { a with slopeProbes := slope :: a.slopeProbes } := by
+  exact Or.inr (Or.inl ⟨slope, by simp, h⟩)
+
+/-- Recording an honest slope that either repeats a previous honest slope or
+matches a previous candidate probe immediately raises the leakage event. -/
+theorem FrameLeakBad.honest_collision (k slope : F) (a : FrameAudit F)
+    (h : slope ∈ a.slopeProbes ∨ slope ∈ a.honestSlopes) :
+    FrameLeakBad k { a with honestSlopes := slope :: a.honestSlopes } := by
+  rcases h with h | h
+  · exact Or.inr (Or.inl ⟨slope, h, by simp⟩)
+  · exact Or.inr (Or.inr (by simp [List.nodup_cons, h]))
+
+/-- Any direct query that supplies the honest secret is immediately marked
+bad by the audit, independent of the real handler state. -/
+theorem auditAfter_direct_secret_bad (k : F) (i : ℕ)
+    (before after : FrameSt F M) (audit : FrameAudit F) :
+    FrameLeakBad k (auditAfter k (.roA k i) before after audit) := by
+  simpa [auditAfter] using FrameLeakBad.secret_self k audit
+
+/-- The same immediate bad-event witness for an epoch-oracle secret probe. -/
+theorem auditAfter_epoch_secret_bad (k : F) (e : ℕ)
+    (before after : FrameSt F M) (audit : FrameAudit F) :
+    FrameLeakBad k (auditAfter k (.roE k e) before after audit) := by
+  simpa [auditAfter] using FrameLeakBad.secret_self k audit
+
+/-- The same immediate bad-event witness for an identity-preimage probe. -/
+theorem auditAfter_identity_secret_bad (k : F)
+    (before after : FrameSt F M) (audit : FrameAudit F) :
+    FrameLeakBad k (auditAfter k (.roId k) before after audit) := by
+  simpa [auditAfter] using FrameLeakBad.secret_self k audit
+
+/-- A direct nullifier query at an already exposed honest slope immediately
+raises the slope-preimage branch of the audit. -/
+theorem auditAfter_slope_hit_bad (k slope : F)
+    (before after : FrameSt F M) (audit : FrameAudit F)
+    (h : slope ∈ audit.honestSlopes) :
+    FrameLeakBad k (auditAfter k (.roNf slope) before after audit) := by
+  simpa [auditAfter] using FrameLeakBad.slope_hit k slope audit h
+
 /-- The ghost bad event is monotone under every audit update. -/
 theorem auditAfter_preserves_bad (k : F) (op : FrameOp F M)
     (before after : FrameSt F M) (audit : FrameAudit F)
@@ -152,14 +201,14 @@ theorem auditAfter_secret_length_le (k : F) (op : FrameOp F M)
     (before after : FrameSt F M) (audit : FrameAudit F) :
     (auditAfter k op before after audit).secretProbes.length ≤
       audit.secretProbes.length + if isSecretProbe op then 1 else 0 := by
-  cases op <;> simp [auditAfter, isSecretProbe] <;> split <;> simp_all
+  cases op <;> simp [auditAfter, isSecretProbe] <;> aesop
 
 /-- A step adds exactly one candidate-slope record only for `roNf`. -/
 theorem auditAfter_slope_length_le (k : F) (op : FrameOp F M)
     (before after : FrameSt F M) (audit : FrameAudit F) :
     (auditAfter k op before after audit).slopeProbes.length ≤
       audit.slopeProbes.length + if isSlopeProbe op then 1 else 0 := by
-  cases op <;> simp [auditAfter, isSlopeProbe] <;> split <;> simp_all
+  cases op <;> simp [auditAfter, isSlopeProbe] <;> aesop
 
 /-- A step exposes at most one honest slope, only for spend/legacy-close
 operations; a closed call may expose none. -/
@@ -167,7 +216,7 @@ theorem auditAfter_honest_length_le (k : F) (op : FrameOp F M)
     (before after : FrameSt F M) (audit : FrameAudit F) :
     (auditAfter k op before after audit).honestSlopes.length ≤
       audit.honestSlopes.length + if isHonestSignalOp op then 1 else 0 := by
-  cases op <;> simp [auditAfter, isHonestSignalOp] <;> split <;> simp_all
+  cases op <;> simp [auditAfter, isHonestSignalOp] <;> aesop
 
 /-- Real handler plus an observational ghost audit. -/
 def auditedFrameImpl (k : F) (mclose : M) :
@@ -201,10 +250,10 @@ theorem auditedFrameImpl_bad_monotone (k : F) (mclose : M)
 audited execution has precisely the original response and real-state
 distribution after erasing the audit. -/
 theorem auditedFrameImpl_run_project (k : F) (mclose : M)
-    (oa : OracleComp (frameSpec F M) α) (s : AuditedFrameSt F M) :
+    {α : Type} (oa : OracleComp (frameSpec F M) α) (s : AuditedFrameSt F M) :
     Prod.map id AuditedFrameSt.base <$>
-        (auditedFrameImpl k mclose).run s oa =
-      (frameImpl k mclose).run s.base oa := by
+        (simulateQ (auditedFrameImpl k mclose) oa).run s =
+      (simulateQ (frameImpl k mclose) oa).run s.base := by
   exact OracleComp.map_run_simulateQ_eq_of_query_map_eq
     (auditedFrameImpl k mclose) (frameImpl k mclose)
     AuditedFrameSt.base (auditedFrameImpl_project_step k mclose) oa s

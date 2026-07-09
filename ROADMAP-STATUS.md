@@ -15,8 +15,9 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   probes, and slope exposures, proves bad-event monotonicity and per-step
   resource growth, and erases exactly to `frameImpl` for every adaptive run.
   `Games.FrameIdeal` supplies the secret-independent handler, canonical
-  secret-erasing state map, programmed initial-state relation, and exact
-  good-step coupling for every public random-oracle operation.
+  secret-erasing state map, and programmed initial-state relation. Exact
+  public-oracle step coupling was attempted at this checkpoint but is not yet
+  retained as a proved API; the failed obligations are listed below.
 - A proof-bearing T4 reference instance and a witness-dependent masked-proof
   instance, including session-level simulator equality, perfect unlinkability,
   and a zero-loss bridge to the proof-free game.
@@ -54,6 +55,19 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 
 ## Remaining before the complete roadmap is proved
 
+### Checkpoint validation status
+
+This PR is an **in-progress research checkpoint**, not a completed or green
+formalization. `Games.FrameAudit` and the reduced `Games.FrameIdeal` build, but
+the newest quantitative additions in `Games.T7` do not yet kernel-check. The
+current `lake build +Zkpc.Games.T7` failures include the slope-reveal
+calibration simplification, the logged slope-query construction and query
+bound, list/finset cardinality coercion, and the experimental uniform
+good/bad bind lemma. Some of those declarations consequently still report
+`sorryAx`. They must be repaired before the branch can claim placeholder-free
+validation. No theorem depending on those experimental declarations should be
+treated as established yet.
+
 1. **Unconditional T7 handler coupling.** Construct
    `FrameDeferredSampling` from the actual stateful `frameImpl`. The proof must
    relate the real shared caches to a secret-independent ideal handler up to
@@ -65,9 +79,15 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    theorem then supplies the corrected bound. The exact real-handler audit,
    monotonic bad event, projection theorem, both quantitative kernels, and a
    secret-independent ideal handler with canonical cache erasure are now
-   present. The public-oracle step relations and atomic fresh-slope hit bound
-   are also kernel-checked. The remaining step is the `spend`/`close`/`nfAt`
-   bad-or-good relation and final VCV-io quantitative simulation application.
+   present. Exact public-oracle step relations still require function-update
+   commutation proofs (and the `roNf` case must preserve the hidden composed
+   cache correctly). The atomic fresh-slope and collision bounds are drafted
+   but currently among the `Games.T7` build failures described above. After
+   repairing those kernels, the remaining semantic step is the
+   `spend`/`close`/`nfAt` bad-or-good relation and final VCV-io quantitative
+   simulation application. In particular, `nfAt` can sample a slope before a
+   later adaptive message choice, so this needs continuation-level deferred
+   sampling rather than only a pointwise state relation.
 
 2. **Production Fiat--Shamir reduction.** The linear Sigma protocol now has a
    Fiat--Shamir proof object, deterministic verifier, completeness,
@@ -98,12 +118,17 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    flat/refund admission, reconciliation/slashing, close settlement, and all
    T1--T7 guarantees over one complete trace.
 
-6. **Final validation and documentation.** After the items above, run a cold
+6. **Repair the current T7 checkpoint.** Eliminate every current
+   `Games.T7` elaboration error and `sorryAx` dependency, reinstate only proved
+   public-oracle coupling lemmas, and run the focused `FrameAudit`,
+   `FrameIdeal`, and `T7` builds before extending the deferred-sampling proof.
+
+7. **Final validation and documentation.** After the items above, run a cold
    dependency fetch and clean full build, the forbidden-placeholder audit,
    `git diff --check`, all `#print axioms` checks, and reconcile `Spec.md`, the
    paper theorem table, assumption registry, and `OPEN-PROOFS.md` with the
-   final implementation. Existing validation covers the current branch, not
-   these remaining deliverables.
+   final implementation. Earlier commits were validated incrementally, but
+   the current T7 research checkpoint is not green as documented above.
 
 The roadmap is not complete until every item above is implemented and the
 final composition and clean-build audit pass.

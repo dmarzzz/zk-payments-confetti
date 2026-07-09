@@ -1,7 +1,6 @@
-import Zkpc.Games.FrameIdeal
+import Zkpc.Games.Frame
 import Zkpc.Games.Coupling
 import VCVio.OracleComp.QueryTracking.RandomOracle.DeferredSampling
-import VCVio.OracleComp.QueryTracking.Birthday
 
 /-!
 # T7 — Exculpability under collusion, the FRAME bound (task G3; Spec.md §7 T7)
@@ -219,7 +218,8 @@ theorem frameWinProb_slopeReveal_eq_one :
   have hgame : frameGameSlopeReveal (F := F) =
       (($ᵗ F) >>= fun _ => ($ᵗ F) >>= fun _ => pure true) := by
     unfold frameGameSlopeReveal
-    exact bind_congr fun k => bind_congr fun a => by rw [hc k a]
+    exact bind_congr fun k => bind_congr fun a => by
+      simpa only using congrArg pure (hc k a)
   rw [hgame, probOutput_bind_const, probOutput_bind_const]
   simp
 
@@ -249,45 +249,6 @@ section Bound
 
 variable [Fintype F]
 
-/-- Constant-range oracle used to model the independently uniform honest
-slope draws after deferred sampling. -/
-@[reducible] def slopeSpec (F : Type) : OracleSpec ℕ := fun _ => F
-
-/-- Make `n` distinct slope-sampling queries. -/
-def slopeQueries (F : Type) [DecidableEq F] :
-    (n : ℕ) → OracleComp (slopeSpec F) Unit
-  | 0 => pure ()
-  | n + 1 => do
-      let _ ← (query n : OracleComp (slopeSpec F) F)
-      slopeQueries F n
-
-/-- The slope sampler makes exactly (hence at most) `n` oracle queries. -/
-theorem slopeQueries_queryBound (n : ℕ) :
-    OracleComp.IsTotalQueryBound (slopeQueries F n) n := by
-  induction n with
-  | zero => trivial
-  | succ n ih =>
-      rw [slopeQueries, OracleComp.isTotalQueryBound_query_bind_iff]
-      exact ⟨Nat.zero_lt_succ n, fun _ => by simpa using ih⟩
-
-/-- **Honest-slope birthday bound.** Among at most `qSig` independent
-uniform slope samples, the probability that two query positions carry the
-same slope is at most `qSig²/(2|F|)`, and therefore below the conservative
-`qSig²/|F|` charge used by `FrameQueryBounds.total`. -/
-theorem uniformSlopeCollisionBound (qSig : ℕ) :
-    letI : IsUniformSpec (slopeSpec F) :=
-      IsUniformSpec.ofFintypeInhabited _
-    Pr[fun z => OracleComp.LogHasCollision z.2 |
-        (simulateQ OracleComp.loggingOracle (slopeQueries F qSig)).run]
-      ≤ (qSig ^ 2 : ENNReal) /
-          (2 * Fintype.card F) := by
-  letI : IsUniformSpec (slopeSpec F) :=
-    IsUniformSpec.ofFintypeInhabited _
-  apply OracleComp.probEvent_logCollision_le_birthday_total
-    (slopeQueries F qSig) qSig (slopeQueries_queryBound qSig)
-  intro t
-  rfl
-
 /-- **Uniform-secret adaptive first-fire bound.** A strategy making `q`
 adaptive candidate-secret probes hits a uniformly sampled `k : F` with
 probability at most `q / |F|`. Up to the first hit every answer is `false`, so
@@ -313,44 +274,6 @@ theorem uniformSlopeProbeBound (qNf qSig : ℕ) (σ : List Bool → F) :
           ((qNf : ENNReal) * (Fintype.card F : ENNReal)⁻¹) := by
   exact OracleComp.probEvent_hiddenReadList_le
     (fun r : F => (probOutput_uniformSample F r).le) qNf σ qSig
-
-/-- Atomic fresh-slope collision charge against an existing list of hidden
-targets. Multiplicity can only increase the list length, so the distinct
-target mass is at most `length/|F|`. -/
-theorem uniformMemListBound (xs : List F) :
-    Pr[(fun a : F => a ∈ xs) | ($ᵗ F)] ≤
-      (xs.length : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
-  rw [probEvent_uniformSample]
-  have hfilter : (Finset.univ.filter fun a : F => a ∈ xs) = xs.toFinset := by
-    ext a
-    simp
-  rw [hfilter, div_eq_mul_inv]
-  gcongr
-  exact_mod_cast Multiset.toFinset_card_le xs
-
-/-- One newly sampled honest slope hits either a prior adversarial slope probe
-or a prior honest slope with probability bounded by the combined target-list
-length over `|F|`. -/
-theorem uniformFreshSlopeBadBound (audit : FrameAudit F) :
-    Pr[(fun a : F => a ∈ audit.slopeProbes ∨ a ∈ audit.honestSlopes) |
-        ($ᵗ F)] ≤
-      ((audit.slopeProbes.length + audit.honestSlopes.length : ℕ) : ENNReal) *
-        (Fintype.card F : ENNReal)⁻¹ := by
-  calc
-    Pr[(fun a : F => a ∈ audit.slopeProbes ∨ a ∈ audit.honestSlopes) |
-        ($ᵗ F)] ≤
-      Pr[(fun a : F => a ∈ audit.slopeProbes) | ($ᵗ F)] +
-        Pr[(fun a : F => a ∈ audit.honestSlopes) | ($ᵗ F)] :=
-      probEvent_or_le _ _ _
-    _ ≤ (audit.slopeProbes.length : ENNReal) *
-          (Fintype.card F : ENNReal)⁻¹ +
-        (audit.honestSlopes.length : ENNReal) *
-          (Fintype.card F : ENNReal)⁻¹ :=
-      add_le_add (uniformMemListBound audit.slopeProbes)
-        (uniformMemListBound audit.honestSlopes)
-    _ = ((audit.slopeProbes.length + audit.honestSlopes.length : ℕ) : ENNReal) *
-        (Fintype.card F : ENNReal)⁻¹ := by
-      rw [Nat.cast_add, add_mul]
 
 /-- For a *fixed* evidence `ev`, guessing the uniform secret succeeds with
 probability at most `1/|F|`: the win event `Slashes k ev` forces
@@ -517,9 +440,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.frameWinProb_slopeReveal_eq_one
 #print axioms Zkpc.Games.uniformSecretProbeBound
 #print axioms Zkpc.Games.uniformSlopeProbeBound
-#print axioms Zkpc.Games.uniformMemListBound
-#print axioms Zkpc.Games.uniformFreshSlopeBadBound
-#print axioms Zkpc.Games.uniformSlopeCollisionBound
 #print axioms Zkpc.Games.T7_frame_bound_of_pointwise
 #print axioms Zkpc.Games.frameQueryCharge_eq
 #print axioms Zkpc.Games.T7_frame_query_bound

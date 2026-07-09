@@ -105,15 +105,6 @@ theorem frameCoupled_initial (k cm : F) :
   · intro i
     rfl
 
-/-- The canonical image of the real programmed initial state is literally the
-secret-independent empty ideal state. -/
-theorem idealizeFrame_initial (k cm : F) :
-    idealizeFrame k
-      ⟨{ FrameSt.init F M with
-          roId := Function.update (FrameSt.init F M).roId k (some cm) },
-        FrameAudit.init⟩ = IdealFrameSt.init F M := by
-  ext <;> simp [idealizeFrame, IdealFrameSt.init, FrameSt.init, FrameAudit.init]
-
 /-- Emit a secret-independent simulated signal at the next honest index. -/
 def emitIdealSignal (m : M) (s : IdealFrameSt F M) :
     ProbComp (Signal F × IdealFrameSt F M) := do
@@ -167,79 +158,7 @@ def idealFrameEvidence (mclose : M)
   let cm ← ($ᵗ F)
   (idealFrameImpl mclose).run (IdealFrameSt.init F M) (A cm)
 
-/-! ## Exact good-step coupling for public oracle operations -/
-
-/-- Public message-digest queries commute exactly with canonical
-idealization. -/
-theorem idealize_roX_step (k : F) (mclose m : M)
-    (s : AuditedFrameSt F M) :
-    Prod.map id (idealizeFrame k) <$>
-        ((auditedFrameImpl k mclose) (.roX m)).run s =
-      ((idealFrameImpl mclose) (.roX m)).run (idealizeFrame k s) := by
-  unfold auditedFrameImpl idealFrameImpl
-  simp only [StateT.run_mk]
-  unfold lazyROX
-  split <;> simp [idealizeFrame, auditAfter]
-
-/-- A direct `H_a` query away from the hidden secret commutes exactly with
-idealization. -/
-theorem idealize_roA_step (k : F) (mclose : M) (kq : F) (i : ℕ)
-    (s : AuditedFrameSt F M) (hk : kq ≠ k) :
-    Prod.map id (idealizeFrame k) <$>
-        ((auditedFrameImpl k mclose) (.roA kq i)).run s =
-      ((idealFrameImpl mclose) (.roA kq i)).run (idealizeFrame k s) := by
-  unfold auditedFrameImpl idealFrameImpl
-  simp only [StateT.run_mk]
-  unfold lazyRO
-  simp only [idealizeFrame, hk, ↓reduceIte]
-  split <;> simp [idealizeFrame, auditAfter, hk]
-
-/-- A direct epoch-oracle query away from the hidden secret commutes exactly
-with idealization. -/
-theorem idealize_roE_step (k : F) (mclose : M) (kq : F) (e : ℕ)
-    (s : AuditedFrameSt F M) (hk : kq ≠ k) :
-    Prod.map id (idealizeFrame k) <$>
-        ((auditedFrameImpl k mclose) (.roE kq e)).run s =
-      ((idealFrameImpl mclose) (.roE kq e)).run (idealizeFrame k s) := by
-  unfold auditedFrameImpl idealFrameImpl
-  simp only [StateT.run_mk]
-  unfold lazyRO
-  simp only [idealizeFrame, hk, ↓reduceIte]
-  split <;> simp [idealizeFrame, auditAfter, hk]
-
-/-- A direct identity-oracle query away from the hidden preimage commutes
-exactly with idealization. -/
-theorem idealize_roId_step (k : F) (mclose : M) (kq : F)
-    (s : AuditedFrameSt F M) (hk : kq ≠ k) :
-    Prod.map id (idealizeFrame k) <$>
-        ((auditedFrameImpl k mclose) (.roId kq)).run s =
-      ((idealFrameImpl mclose) (.roId kq)).run (idealizeFrame k s) := by
-  unfold auditedFrameImpl idealFrameImpl
-  simp only [StateT.run_mk]
-  unfold lazyRO
-  simp only [idealizeFrame, hk, ↓reduceIte]
-  split <;> simp [idealizeFrame, auditAfter, hk]
-
-/-- A candidate-slope query that misses every internally sampled honest slope
-commutes exactly with idealization. -/
-theorem idealize_roNf_step (k : F) (mclose : M) (aq : F)
-    (s : AuditedFrameSt F M) (ha : aq ∉ s.audit.honestSlopes) :
-    Prod.map id (idealizeFrame k) <$>
-        ((auditedFrameImpl k mclose) (.roNf aq)).run s =
-      ((idealFrameImpl mclose) (.roNf aq)).run (idealizeFrame k s) := by
-  unfold auditedFrameImpl idealFrameImpl
-  simp only [StateT.run_mk]
-  unfold lazyRO
-  simp only [idealizeFrame, ha, ↓reduceIte]
-  split <;> simp [idealizeFrame, auditAfter, ha]
-
 end Zkpc.Games
 
 #print axioms Zkpc.Games.frameCoupled_initial
 #print axioms Zkpc.Games.frameCoupled_idealize
-#print axioms Zkpc.Games.idealizeFrame_initial
-#print axioms Zkpc.Games.idealize_roX_step
-#print axioms Zkpc.Games.idealize_roA_step
-#print axioms Zkpc.Games.idealize_roE_step
-#print axioms Zkpc.Games.idealize_roId_step
-#print axioms Zkpc.Games.idealize_roNf_step
