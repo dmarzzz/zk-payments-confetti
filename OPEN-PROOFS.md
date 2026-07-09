@@ -105,6 +105,22 @@ single most valuable open proof, the "hard 20%" the VCV-io survey
 (`research_knowledge/vcvio-gap.md`) flagged. Start from `frame_blind_bound`
 and VCV-io `IdenticalUntilBad`.
 
+**Infrastructure landed:** `FrameQueryBounds` now records separate structural
+`IsQueryBoundP` certificates for the three secret-testing channels, and
+`uniformSecretProbeBound` kernel-checks the adaptive `q/|F|` first-fire term.
+`T7_frame_bound_of_pointwise` assembles a pointwise real/ideal loss `ε` with
+the blind term to obtain `1/|F| + ε`. The remaining proof is therefore the
+handler-level deferred-sampling/identical-until-bad factorization that supplies
+that theorem with `ε = (q_A + q_E + q_Id)/|F|`.
+
+**Composition endpoint landed:** `FrameDeferredSampling` now states that
+handler factorization as a typed certificate tied to the actual
+`FrameQueryBounds`; `frameQueryCharge_eq` combines the three first-hit terms;
+and `T7_frame_query_bound` derives the exact advertised
+`(q_A + q_E + q_Id + 1)/|F|` result. Thus the structural budgets are no longer
+disconnected metadata. The sole residual is constructing
+`FrameDeferredSampling` from `frameImpl` by a stateful transcript coupling.
+
 ### 2. The ZK bridge, O1 (Class D, high value)
 
 `Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
@@ -115,6 +131,18 @@ advantage (Spec.md assumption 2). This is what lets the perfect
 `T4_flat_unlinkability` (proved on the π-free view) speak about the real
 wire protocol. See the disposition in `Zkpc/Games/FlatInstance.lean` and
 `Zkpc/Games/T4.lean`.
+
+**Concrete ideal-cryptography bridge landed:**
+`Zkpc/Games/FullTicketInstance.lean` defines both a simulator-side full wire
+view and `maskedProofInstance`, whose honest prover retains a private witness
+and emits the witness plus a fresh additive one-time mask.  The session-level
+theorem `evalDist_spendBatch_maskedProof` proves that the witness-dependent
+real transcript is exactly the simulator distribution; consequently
+`T4_maskedProof_unlinkability` and `maskedProof_zkBridge` discharge O1 with
+zero loss for this concrete perfectly-ZK proof encoding.  A production NIZK
+(for example a Fiat--Shamir proof under a computational assumption) remains
+an optional refinement and would replace exact equality by its scheme-specific
+`εZK` reduction.
 
 ### 3. B-instance obligations O2 / O3 / O4 (Class B/C, medium)
 
@@ -141,6 +169,15 @@ repair) and to the multi-gateway fleet. Separately, the fleet-side T2
 recovery clauses (identity- vs fund-slash window claims, `Spec.md` MC19)
 exist as prose and an `N = 1` core; lift them to the fleet transition
 system (the `Zkpc/Fleet/` machine is the place).
+
+**Finite-fleet safety and cascade landed:** `Zkpc/Refund/Fleet.lean` defines
+interleaved multi-channel reachability, proves each component is reachable in
+the single-channel machine, and aggregates no-overspend, settlement
+conservation, and the cooperative payer floor across any finite fleet.
+`Zkpc/Refund/Cascade.lean` models successive withheld-receipt upgrades, proves
+claims never overshoot the certified count, proves terminal cascades settle,
+and establishes the exact `n-j` upgrade count plus final payout conservation.
+The fleet-side T2 identity/fund-slash recovery windows remain open.
 
 ### 6. Multi-recipient generalisation (research, not just proof)
 
