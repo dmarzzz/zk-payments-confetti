@@ -124,6 +124,87 @@ theorem dispute_refines_step (pp : Params) (honest : F → Prop)
   · simp [flatScheme, h1, h2, hne, hopen, hns, s']
   · exact Step.slash s k i m m' h1 h2 hne hopen hns
 
+/-! ## Automatic MC20 window drivers -/
+
+/-- Execute a close-window challenge against an accepted ticket claimed
+unused by the payer. -/
+def execCloseDispute (pp : Params) (s : St F (Msg Pl))
+    (k : F) (i : ℕ) (m : Msg Pl) : Option (St F (Msg Pl)) :=
+  match s.closedAt k with
+  | none => none
+  | some (U, t) =>
+      if i ∈ U ∧ (k, i, m) ∈ s.acc ∧ s.clock ≤ t + pp.tau ∧
+          s.closeSettled k = false then
+        some { s with slashedAt := Function.update s.slashedAt k (some s.clock) }
+      else none
+
+/-- Execute successful close settlement after expiry and the two-sided sweep
+bar check. -/
+def execSettleClose (pp : Params) (s : St F (Msg Pl)) (k : F) :
+    Option (St F (Msg Pl)) :=
+  match s.closedAt k with
+  | none => none
+  | some (U, t) =>
+      if t + pp.tau ≤ s.clock ∧ s.slashedAt k = none ∧
+          (∀ i ∈ U, (k, i) ∉ s.swept) ∧ s.closeSettled k = false then
+        some { s with paidPayer := Function.update s.paidPayer k
+                  (s.paidPayer k + (pp.C * U.card + (pp.D - (pp.D / pp.C) * pp.C)))
+                      closeSettled := Function.update s.closeSettled k true }
+      else none
+
+/-- Execute settlement-time voiding when a claimed-unused nullifier was
+already swept. -/
+def execSettleVoid (pp : Params) (s : St F (Msg Pl)) (k : F) :
+    Option (St F (Msg Pl)) :=
+  match s.closedAt k with
+  | none => none
+  | some (U, t) =>
+      if t + pp.tau ≤ s.clock ∧ s.slashedAt k = none ∧
+          s.closeSettled k = false ∧ (∃ i ∈ U, (k, i) ∈ s.swept) then
+        some { s with slashedAt := Function.update s.slashedAt k (some s.clock) }
+      else none
+
+/-- The executable close challenge is exactly `Step.closeDispute`. -/
+theorem execCloseDispute_refines_step (pp : Params) (honest : F → Prop)
+    (s : St F (Msg Pl)) (k : F) (i : ℕ) (m : Msg Pl)
+    (U : Finset ℕ) (t : ℕ) (hc : s.closedAt k = some (U, t))
+    (hiU : i ∈ U) (hacc : (k, i, m) ∈ s.acc)
+    (hwin : s.clock ≤ t + pp.tau) (hnotYet : s.closeSettled k = false) :
+    ∃ s', execCloseDispute pp s k i m = some s' ∧
+      Step pp.C pp.D pp.tau honest s (.closeDispute k i m) s' := by
+  let s' : St F (Msg Pl) :=
+    { s with slashedAt := Function.update s.slashedAt k (some s.clock) }
+  refine ⟨s', ?_, Step.closeDispute s k i m U t hc hiU hacc hwin hnotYet⟩
+  simp [execCloseDispute, hc, hiU, hacc, hwin, hnotYet, s']
+
+/-- The executable successful settlement is exactly `Step.settleClose`. -/
+theorem execSettleClose_refines_step (pp : Params) (honest : F → Prop)
+    (s : St F (Msg Pl)) (k : F) (U : Finset ℕ) (t : ℕ)
+    (hc : s.closedAt k = some (U, t)) (hexp : t + pp.tau ≤ s.clock)
+    (hns : s.slashedAt k = none) (hswbar : ∀ i ∈ U, (k, i) ∉ s.swept)
+    (hnotYet : s.closeSettled k = false) :
+    ∃ s', execSettleClose pp s k = some s' ∧
+      Step pp.C pp.D pp.tau honest s (.settleClose k) s' := by
+  let s' : St F (Msg Pl) :=
+    { s with paidPayer := Function.update s.paidPayer k
+        (s.paidPayer k + (pp.C * U.card + (pp.D - (pp.D / pp.C) * pp.C)))
+             closeSettled := Function.update s.closeSettled k true }
+  refine ⟨s', ?_, Step.settleClose s k U t hc hexp hns hswbar hnotYet⟩
+  simp [execSettleClose, hc, hexp, hns, hswbar, hnotYet, s']
+
+/-- The executable settlement-time void is exactly `Step.settleVoid`. -/
+theorem execSettleVoid_refines_step (pp : Params) (honest : F → Prop)
+    (s : St F (Msg Pl)) (k : F) (U : Finset ℕ) (t : ℕ)
+    (hc : s.closedAt k = some (U, t)) (hexp : t + pp.tau ≤ s.clock)
+    (hns : s.slashedAt k = none) (hnotYet : s.closeSettled k = false)
+    (hover : ∃ i ∈ U, (k, i) ∈ s.swept) :
+    ∃ s', execSettleVoid pp s k = some s' ∧
+      Step pp.C pp.D pp.tau honest s (.settleVoid k) s' := by
+  let s' : St F (Msg Pl) :=
+    { s with slashedAt := Function.update s.slashedAt k (some s.clock) }
+  refine ⟨s', ?_, Step.settleVoid s k U t hc hexp hns hnotYet hover⟩
+  simp [execSettleVoid, hc, hexp, hns, hnotYet, hover, s']
+
 /-- Sweeping a singleton eligible tuple is exactly one `sweepOne` ledger
 transition, the base case of the implementation's list fold. -/
 theorem sweep_single_refines_step (pp : Params) (honest : F → Prop)
@@ -220,6 +301,9 @@ end Zkpc.Core.Flat
 #print axioms Zkpc.Core.Flat.redeem_accept_refines_step
 #print axioms Zkpc.Core.Flat.payerClose_refines_step
 #print axioms Zkpc.Core.Flat.dispute_refines_step
+#print axioms Zkpc.Core.Flat.execCloseDispute_refines_step
+#print axioms Zkpc.Core.Flat.execSettleClose_refines_step
+#print axioms Zkpc.Core.Flat.execSettleVoid_refines_step
 #print axioms Zkpc.Core.Flat.sweep_single_refines_step
 #print axioms Zkpc.Core.Flat.sweep_refines_trace
 #print axioms Zkpc.Core.Flat.SweepTrace.reachable

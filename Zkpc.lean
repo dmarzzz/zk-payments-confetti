@@ -18,6 +18,7 @@ import Zkpc.Fleet.Refinement
 import Zkpc.Games.Framework
 import Zkpc.Games.Unlink
 import Zkpc.Network.State
+import Zkpc.Network.Credential
 import Zkpc.Games.Frame
 import Zkpc.Games.Coupling
 import Zkpc.Games.FlatInstance
