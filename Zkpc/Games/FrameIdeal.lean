@@ -276,6 +276,65 @@ theorem idealize_roId_step (k : F) (mclose : M) (kq : F)
   · simp [h, idealizeFrame, auditAfter, hk]
   · simp [h, idealizeFrame, auditAfter, hk, maskKey_update_of_ne]
 
+/-- Every internally materialized honest slope is represented in the audit.
+This invariant makes the public nullifier namespace disjoint from the
+secret-erased per-index namespace on a good state. -/
+def FrameAuditComplete (k : F) (s : AuditedFrameSt F M) : Prop :=
+  ∀ i a, s.base.roA (k, i) = some a → a ∈ s.audit.honestSlopes
+
+/-- The programmed empty initial state has no materialized honest slopes. -/
+theorem frameAuditComplete_initial (k cm : F) :
+    FrameAuditComplete k
+      ⟨{ FrameSt.init F M with
+          roId := Function.update (FrameSt.init F M).roId k (some cm) },
+        FrameAudit.init⟩ := by
+  intro i a h
+  simp [FrameSt.init] at h
+
+/-- Updating the public nullifier cache at a non-honest slope commutes with
+masking all audited honest slopes. -/
+theorem maskSlopes_update_of_not_mem (f : F → Option F) (slopes : List F)
+    (aq value : F) (ha : aq ∉ slopes) :
+    (fun q => if q ∈ slopes then none else Function.update f aq (some value) q) =
+      Function.update (fun q => if q ∈ slopes then none else f q) aq (some value) := by
+  funext q
+  by_cases hq : q = aq
+  · subst q
+    simp [ha]
+  · rw [Function.update_of_ne hq, Function.update_of_ne hq]
+
+/-- Updating a non-honest public slope cannot alter a composed honest
+nullifier entry in an audit-complete state. -/
+theorem update_roNf_at_honest_of_complete (k aq value : F)
+    (s : AuditedFrameSt F M) (hc : FrameAuditComplete k s)
+    (ha : aq ∉ s.audit.honestSlopes) (i : ℕ) :
+    (s.base.roA (k, i)).bind (Function.update s.base.roNf aq (some value)) =
+      (s.base.roA (k, i)).bind s.base.roNf := by
+  cases h : s.base.roA (k, i) with
+  | none => rfl
+  | some a =>
+      simp only [Option.bind_some]
+      rw [Function.update_of_ne]
+      intro heq
+      subst a
+      exact ha (hc i aq h)
+
+/-- A public nullifier-oracle query that misses all audited honest slopes
+commutes exactly with idealization on an audit-complete state. -/
+theorem idealize_roNf_step (k : F) (mclose : M) (aq : F)
+    (s : AuditedFrameSt F M) (hc : FrameAuditComplete k s)
+    (ha : aq ∉ s.audit.honestSlopes) :
+    Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.roNf aq)).run s =
+      ((idealFrameImpl mclose) (.roNf aq)).run (idealizeFrame k s) := by
+  unfold auditedFrameImpl idealFrameImpl frameImpl
+  simp only [StateT.run_mk]
+  unfold lazyRO
+  split <;> rename_i h
+  · simp [h, idealizeFrame, auditAfter, ha]
+  · simp [h, idealizeFrame, auditAfter, ha, maskSlopes_update_of_not_mem,
+      update_roNf_at_honest_of_complete, hc]
+
 end Zkpc.Games
 
 #print axioms Zkpc.Games.frameCoupled_initial
@@ -288,3 +347,7 @@ end Zkpc.Games
 #print axioms Zkpc.Games.idealize_roA_step
 #print axioms Zkpc.Games.idealize_roE_step
 #print axioms Zkpc.Games.idealize_roId_step
+#print axioms Zkpc.Games.frameAuditComplete_initial
+#print axioms Zkpc.Games.maskSlopes_update_of_not_mem
+#print axioms Zkpc.Games.update_roNf_at_honest_of_complete
+#print axioms Zkpc.Games.idealize_roNf_step
