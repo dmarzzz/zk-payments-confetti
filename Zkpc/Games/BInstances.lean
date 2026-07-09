@@ -137,6 +137,36 @@ theorem bIdeal_closeViewSimulatable (Cmax D : ℕ) (rerand : Bool) :
       (fun _ => PUnit.unit) BPSt.idx :=
   ⟨fun _ c _ => pure c, fun _e _st => by simp [bIdeal]⟩
 
+/-! ## O3/M2: adversary-issued genesis and receipt absorption -/
+
+/-- **M2 genesis discharge.** Every handle selected by the adversary-payee is
+accepted as the genesis certified ciphertext and produces the canonical live
+state.  At this abstraction the adversary is the receipt issuer, so there is
+no separate malformed-signature branch. -/
+theorem bIdeal_openCh_adversary_genesis (Cmax D : ℕ) (rerand : Bool) (g : H) :
+    (bIdeal H Cmax D rerand).openCh g =
+      pure ((⟨g, 0, 0, none⟩ : BPSt H), PUnit.unit) := rfl
+
+/-- **O3 receipt discharge.** Serving an issuer-produced receipt replaces
+the certified ciphertext handle and adds precisely its certified refund to
+the payer state, while preserving the index and retry buffer. -/
+theorem bIdeal_serve_issuer_receipt (Cmax D : ℕ) (rerand : Bool)
+    (st : BPSt H) (ct' : H) (refund : ℕ) :
+    (bIdeal H Cmax D rerand).serve st (ct', refund) =
+      { st with ct := ct', R := st.R + refund } := rfl
+
+/-- Serving an issuer-produced receipt cannot make a previously capable
+candidate insolvent: certified refunds only enlarge the B solvency budget.
+This is the operational content of absorbing adversary-issued receipts in the
+UNLINK game. -/
+theorem bIdeal_serve_capable_mono (Cmax D q : ℕ) (rerand : Bool)
+    (st : BPSt H) (ct' : H) (refund : ℕ)
+    (hcap : (bIdeal H Cmax D rerand).capableFor q st = true) :
+    (bIdeal H Cmax D rerand).capableFor q
+      ((bIdeal H Cmax D rerand).serve st (ct', refund)) = true := by
+  simp only [bIdeal, decide_eq_true_eq] at hcap ⊢
+  omega
+
 /-! ## The B-rerand coupling (must-pass direction) -/
 
 /-- The state-independent ideal B-rerand challenge batch: `n` fresh uniform
@@ -257,3 +287,9 @@ theorem challengeResp_bRerand_bitfree (Cmax D : ℕ)
   · rfl
 
 end Zkpc.Games
+
+#print axioms Zkpc.Games.bIdeal_openCh_adversary_genesis
+#print axioms Zkpc.Games.bIdeal_serve_issuer_receipt
+#print axioms Zkpc.Games.bIdeal_serve_capable_mono
+#print axioms Zkpc.Games.bIdeal_closeViewSimulatable
+#print axioms Zkpc.Games.bRerand_spendBatch_none_zero
