@@ -83,7 +83,10 @@ unconditional T7 theorem remains open.
    `spend`/`close` emission kernel preserve audit completeness on every
    supported outcome. The cache-free real and ideal fresh-signal observables
    are now proved exactly equal in distribution by the nonzero-digest slope
-   bijection. The stateful atomic
+   bijection. The first complete real `spend` transition from empty caches,
+   after secret erasure, is also proved exactly equal to the ideal response
+   and full successor-state distribution (message cache, index, and indexed
+   nullifier included). The general stateful atomic
    fresh-slope and collision bounds still need
    source-valid proofs. The remaining semantic step is the
    `spend`/`close`/`nfAt` bad-or-good relation and final VCV-io quantitative
