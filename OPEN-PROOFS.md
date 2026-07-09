@@ -125,16 +125,17 @@ disconnected metadata. The sole residual is constructing
 `FrameDeferredSampling` from `frameImpl` by a stateful transcript coupling.
 
 **Corrected coupling substrate landed:** `uniformSlopeProbeBound` proves the
-adaptive multi-target `q_Nf*q_sig/|F|` term and
-`uniformSlopeCollisionBound` proves the honest-slope birthday term.
+adaptive multi-target `q_Nf*q_sig/|F|` term. The honest-slope birthday term
+remains part of the required final handler argument; an earlier logged-oracle
+draft was removed because it did not source-build.
 `Zkpc/Games/FrameAudit.lean` is an exact ghost ornament of `frameImpl`: it
 records all three leakage classes, proves monotonicity and one-step resource
 growth, and projects arbitrary adaptive runs exactly to the original handler.
 `Zkpc/Games/FrameIdeal.lean` now supplies the secret-independent handler,
-canonical cache-erasing projection, initial-state relation, and exact
-good-step projection lemmas for public oracle operations. The remaining
-coupling work is the signal/`nfAt` bad-or-good step relation and application
-of VCV-io's heterogeneous bad-plus-slack simulation theorem.
+canonical cache-erasing projection, and initial-state relation. The remaining
+coupling work includes source-valid public-oracle function-update relations,
+the signal/`nfAt` bad-or-good relation, and application of VCV-io's
+heterogeneous bad-plus-slack simulation theorem.
 
 ### 2. The ZK bridge, O1 (Class D, high value)
 
