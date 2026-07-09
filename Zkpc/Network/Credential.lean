@@ -102,8 +102,40 @@ theorem redeem_rejects_global_replay (H : ChallengeOracle F)
   · simp [Network.execAccept, hnotfresh]
   · rfl
 
+/-- End-to-end portable payment composition: a verified fresh credential is
+registered, settled once, remains within the shared deposit, and produces a
+state reachable by the network transition system. -/
+theorem credential_payment_end_to_end (H : ChallengeOracle F)
+    (encode : Encode F Recipient Nf Payload) (D : ℕ)
+    (s : Network.St Recipient Nf Payload) (hreach : Network.Reach D s)
+    (t : Ticket F Recipient Nf Payload) (hvalid : WellFormed H encode t)
+    (hfresh : ∀ old ∈ s.accepted, old.nf ≠ t.nf)
+    (hbudget : s.totalPaid + t.value ≤ s.deposit) :
+    ∃ s₁ s₂,
+      redeem H encode s t = some s₁ ∧
+      Network.execSettle s₁ t.event = some s₂ ∧
+      Network.Reach D s₂ ∧ s₂.totalPaid ≤ D := by
+  obtain ⟨s₁, hredeem, hadmit⟩ := redeem_refines H encode s t hvalid hfresh
+  have hreach₁ : Network.Reach D s₁ := Network.Reach.step hreach hadmit
+  have haccepted : t.event ∈ s₁.accepted := by
+    cases hadmit
+    simp [Ticket.event]
+  have hunpaid : t.event ∉ s₁.settled := by
+    cases hadmit
+    intro hsettled
+    have hold : t.event ∈ s.accepted := (Network.reach_inv hreach).settled_sub hsettled
+    exact hfresh t.event hold rfl
+  have hbudget₁ : s₁.totalPaid + t.event.value ≤ s₁.deposit := by
+    cases hadmit
+    exact hbudget
+  obtain ⟨s₂, hsettle, hstep₂⟩ :=
+    Network.execSettle_refines s₁ t.event haccepted hunpaid hbudget₁
+  have hreach₂ : Network.Reach D s₂ := Network.Reach.step hreach₁ hstep₂
+  exact ⟨s₁, s₂, hredeem, hsettle, hreach₂, Network.no_overspend hreach₂⟩
+
 end Zkpc.Network.Credential
 
 #print axioms Zkpc.Network.Credential.issue_wellFormed
 #print axioms Zkpc.Network.Credential.redeem_refines
 #print axioms Zkpc.Network.Credential.redeem_rejects_global_replay
+#print axioms Zkpc.Network.Credential.credential_payment_end_to_end
