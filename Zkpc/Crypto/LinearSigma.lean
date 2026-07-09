@@ -8,11 +8,13 @@ For public `(x,y)`, the witness `(k,a)` satisfies `y = k + a*x`.  The
 protocol commits with fresh `(tK,tA)`, receives challenge `c`, and responds
 `(tK+c*k, tA+c*a)`.  Verification is the corresponding linear equation.
 
-The module proves the three algebraic properties needed by a Fiat--Shamir or
-interactive instantiation: completeness, perfect honest-verifier simulation
-(via an explicit bijection between prover randomness and simulated
-responses), and special soundness by extraction from two accepting
-transcripts with the same commitment and distinct challenges.
+The module proves the algebraic properties needed by a Fiat--Shamir or
+interactive instantiation: completeness, a pointwise honest-verifier
+simulation relation with an explicit bijection between prover randomness and
+simulated responses, and special soundness by extraction from two accepting
+transcripts with the same commitment and distinct challenges.  The
+distributional honest-verifier-ZK and random-oracle programming arguments are
+separate obligations; this file intentionally does not claim them.
 -/
 
 namespace Zkpc.Crypto.LinearSigma
@@ -98,8 +100,9 @@ def responses (w : Witness F) (c : F) (r : Randomness F) : Randomness F :=
 def unresponses (w : Witness F) (c : F) (z : Randomness F) : Randomness F :=
   ⟨z.tK - c * w.k, z.tA - c * w.a⟩
 
-/-- Response translation is a bijection. Consequently uniform prover
-randomness and uniform simulator responses have identical distributions. -/
+/-- Response translation is a bijection. A separate sampling lemma can use
+this equivalence to transport uniform prover randomness to simulator
+responses. -/
 def responseEquiv (w : Witness F) (c : F) : Randomness F ≃ Randomness F where
   toFun := responses w c
   invFun := unresponses w c
