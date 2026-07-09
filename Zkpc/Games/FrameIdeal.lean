@@ -149,7 +149,7 @@ def freshRealSignal (k : F) : ProbComp (Signal F) := do
   pure ⟨x, rlnY k a x, nf⟩
 
 /-- Cache-free observable core used by the ideal signal simulator. -/
-def freshIdealSignal (F : Type) [Field F] [SampleableType F] :
+def freshIdealSignal (F : Type) [Field F] [DecidableEq F] [SampleableType F] :
     ProbComp (Signal F) := do
   let raw ← ($ᵗ F)
   let x := nonzeroDigest raw
@@ -179,7 +179,7 @@ theorem freshRealSignal_evalDist_eq [Finite F] (k : F) :
       𝒟[do let a ← ($ᵗ F); cont (a * x + k)] := by
         apply evalDist_bind_congr'
         intro a
-        rfl
+        simp [cont, rlnY, add_comm]
     _ = 𝒟[do let y ← ($ᵗ F); cont y] :=
       evalDist_bind_bijective_add_right_uniform F
         (fun a : F => a * x) (mulRight_bijective₀ x hx) k cont
