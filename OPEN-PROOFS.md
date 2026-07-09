@@ -184,13 +184,16 @@ demand fits, and the distinct fund-slash forfeit path. Connecting individual
 checkpoint membership witnesses and deadlines to the executable ledger trace
 remains part of the ledger-refinement task.
 
-**Executable flat-ledger bridge landed:** `Zkpc/Core/Refinement.lean` proves
+**Executable ledger bridges landed:** `Zkpc/Core/Refinement.lean` proves
 that successful `Open`, honest `Spend`, fresh `Redeem`, payer close, identity
-dispute, and an eligible singleton sweep return exactly the states of their
-corresponding `Step` constructors.  Consequently these concrete calls can be
-inserted into `Reach` and inherit T1--T5.  The remaining engineering lemma is
-the general list-fold correspondence for `sweep` (including skipped ineligible
-entries), plus equivalent executable bridges for the refund and fleet models.
+dispute, and arbitrary list sweeps return traces of their corresponding `Step`
+constructors; the sweep trace accounts explicitly for skipped ineligible
+entries. `Zkpc/Refund/Refinement.lean` supplies guarded executable accept,
+cooperative-close, and force-close operations for B, while
+`Zkpc/Fleet/Refinement.lean` supplies executable tick, gateway admission, and
+reconciliation slash. Consequently generated states inherit T1--T6 and the
+refund/fleet invariants. Remaining execution work is the contract-internal
+close-window scheduler and the receipt-upgrade cascade driver.
 
 ### 6. Multi-recipient generalisation (research, not just proof)
 
