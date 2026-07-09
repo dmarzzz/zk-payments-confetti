@@ -9,6 +9,11 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   lemma; quantitative real-to-ideal composition; and the corrected
   `(q_A + q_E + q_Id + q_Nf*q_sig + q_sig^2 + 1) / |F|` endpoint from a deferred-sampling
   certificate.
+- Corrected T7 quantitative kernels: an adaptive multi-target slope-preimage
+  bound `q_Nf*q_sig/|F|` and a logged-oracle honest-slope birthday bound.
+  `Games.FrameAudit` decorates the actual handler with secret probes, slope
+  probes, and slope exposures, proves bad-event monotonicity and per-step
+  resource growth, and erases exactly to `frameImpl` for every adaptive run.
 - A proof-bearing T4 reference instance and a witness-dependent masked-proof
   instance, including session-level simulator equality, perfect unlinkability,
   and a zero-loss bridge to the proof-free game.
@@ -51,7 +56,10 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    `close`, `nfAt`, direct `roX`/`roNf`, cache hits, and adaptive continuations.
    The formal slope-reveal calibration proves why `q_Nf*q_sig` is required;
    the collision term covers repeated honest slopes. The existing composition
-   theorem then supplies the corrected bound.
+   theorem then supplies the corrected bound. The exact real-handler audit,
+   monotonic bad event, projection theorem, and both quantitative kernels are
+   now present; the remaining step is the secret-independent ideal handler
+   relation and the final VCV-io quantitative simulation application.
 
 2. **Production Fiat--Shamir reduction.** The linear Sigma protocol now has a
    Fiat--Shamir proof object, deterministic verifier, completeness,
