@@ -48,6 +48,9 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   and arbitrary solvent batches are exactly simulator-distributed, yielding
   perfect T4 and a zero-loss proof-free bridge. The Sigma core also includes a
   Fiat--Shamir proof object, programmed-oracle simulation, and fork extractor.
+- A concrete additive masked refund ciphertext with executable encryption,
+  opening, homomorphic addition, rerandomization, receipt updates, correctness,
+  and exact rerandomized-presentation independence.
 
 ## Remaining before the complete roadmap is proved
 
@@ -75,10 +78,12 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    `zkBridgeObligation` instantiation for that FS wire type. The masked-proof
    and interactive-Sigma bridges are exact reference endpoints.
 
-3. **Concrete refund cryptography.** Replace the ideal fresh-handle model with
-   an explicit rerandomizable additively homomorphic encryption interface and
-   reduction; instantiate receipt signatures and prove EUF-CMA chain
-   authenticity rather than absorbing it into transition guards.
+3. **Production refund cryptography.** The opaque fresh handle now has an
+   executable information-theoretic additive masked-cipher reference
+   instantiation with exact rerandomization privacy and receipt-update
+   correctness. What remains is a deployed public-key AH scheme reduction,
+   receipt-signature instantiation, and EUF-CMA chain authenticity rather than
+   absorption into transition guards.
 
 4. **Threshold issuance and network unlinkability.** The accounting machine is
    now connected to a concrete proof-bearing portable ticket, and verification
