@@ -132,6 +132,44 @@ def simulatedTranscript [SampleableType F] (st : Statement F) :
   let zA ← ($ᵗ F)
   pure (simulate st c zK zA)
 
+/-- Perfect honest-verifier zero knowledge for complete transcripts.  The two
+response coordinates are transported separately through their additive
+bijections, so this is an equality of sampled distributions rather than only
+the pointwise equation `prove_eq_simulate`. -/
+theorem evalDist_real_eq_simulated [Fintype F] [SampleableType F]
+    (st : Statement F) (w : Witness F) (hw : Holds st w) :
+    𝒟[realTranscript st w] = 𝒟[simulatedTranscript st] := by
+  unfold realTranscript simulatedTranscript
+  refine evalDist_bind_congr' ($ᵗ F) fun c => ?_
+  calc
+    𝒟[do
+        let tK ← ($ᵗ F)
+        let tA ← ($ᵗ F)
+        pure (prove st w ⟨tK, tA⟩ c)] =
+      𝒟[do
+        let tK ← ($ᵗ F)
+        let tA ← ($ᵗ F)
+        pure (simulate st c (tK + c * w.k) (tA + c * w.a))] := by
+          refine evalDist_bind_congr' ($ᵗ F) fun tK => ?_
+          refine evalDist_bind_congr' ($ᵗ F) fun tA => ?_
+          rw [prove_eq_simulate st w ⟨tK, tA⟩ c hw]
+    _ = 𝒟[do
+        let zK ← ($ᵗ F)
+        let tA ← ($ᵗ F)
+        pure (simulate st c zK (tA + c * w.a))] := by
+          exact evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+            Function.bijective_id (c * w.k) (fun zK => do
+              let tA ← ($ᵗ F)
+              pure (simulate st c zK (tA + c * w.a)))
+    _ = 𝒟[do
+        let zK ← ($ᵗ F)
+        let zA ← ($ᵗ F)
+        pure (simulate st c zK zA)] := by
+          refine evalDist_bind_congr' ($ᵗ F) fun zK => ?_
+          exact evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+            Function.bijective_id (c * w.a)
+            (fun zA => pure (simulate st c zK zA))
+
 /-- Normalize a public message digest into the nonzero line-coordinate
 domain required for single-point hiding. -/
 def nonzeroX (x : F) : F := if x = 0 then 1 else x
@@ -243,6 +281,7 @@ end Zkpc.Crypto.LinearSigma
 #print axioms Zkpc.Crypto.LinearSigma.simulate_verifies
 #print axioms Zkpc.Crypto.LinearSigma.prove_eq_simulate
 #print axioms Zkpc.Crypto.LinearSigma.responseEquiv
+#print axioms Zkpc.Crypto.LinearSigma.evalDist_real_eq_simulated
 #print axioms Zkpc.Crypto.LinearSigma.special_soundness
 #print axioms Zkpc.Crypto.LinearSigma.fs_completeness
 #print axioms Zkpc.Crypto.LinearSigma.fsSimulate_verifies
