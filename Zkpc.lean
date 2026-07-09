@@ -20,6 +20,7 @@ import Zkpc.Games.Unlink
 import Zkpc.Network.State
 import Zkpc.Network.Credential
 import Zkpc.Games.Frame
+import Zkpc.Games.FrameAudit
 import Zkpc.Games.Coupling
 import Zkpc.Games.FlatInstance
 import Zkpc.Games.FullTicketInstance

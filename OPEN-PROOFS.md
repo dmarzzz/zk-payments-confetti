@@ -124,6 +124,15 @@ handler factorization as a typed certificate tied to the actual
 disconnected metadata. The sole residual is constructing
 `FrameDeferredSampling` from `frameImpl` by a stateful transcript coupling.
 
+**Corrected coupling substrate landed:** `uniformSlopeProbeBound` proves the
+adaptive multi-target `q_Nf*q_sig/|F|` term and
+`uniformSlopeCollisionBound` proves the honest-slope birthday term.
+`Zkpc/Games/FrameAudit.lean` is an exact ghost ornament of `frameImpl`: it
+records all three leakage classes, proves monotonicity and one-step resource
+growth, and projects arbitrary adaptive runs exactly to the original handler.
+The remaining coupling work is now the ideal-handler relation and application
+of VCV-io's heterogeneous bad-plus-slack simulation theorem.
+
 ### 2. The ZK bridge, O1 (Class D, high value)
 
 `Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
