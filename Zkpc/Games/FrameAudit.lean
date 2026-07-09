@@ -53,7 +53,7 @@ def isSlopeProbe : FrameOp F M → Bool
 
 /-- Honest point-exposure classifier. -/
 def isHonestSignalOp : FrameOp F M → Bool
-  | .spend _ | .close => true
+  | .spend _ | .close | .nfAt _ => true
   | _ => false
 
 instance (k : F) (a : FrameAudit F) : Decidable (FrameLeakBad k a) := by
@@ -67,13 +67,21 @@ def auditAfter (k : F) (op : FrameOp F M) (before after : FrameSt F M)
   match op with
   | .spend _ | .close =>
       if before.closed then audit
-      else match after.roA (k, before.idx) with
-        | some slope => { audit with honestSlopes := slope :: audit.honestSlopes }
-        | none => audit
+      else match before.roA (k, before.idx) with
+        | some _ => audit
+        | none => match after.roA (k, before.idx) with
+          | some slope => { audit with honestSlopes := slope :: audit.honestSlopes }
+          | none => audit
   | .roA kq _ | .roE kq _ | .roId kq =>
       { audit with secretProbes := kq :: audit.secretProbes }
   | .roNf aq => { audit with slopeProbes := aq :: audit.slopeProbes }
-  | .nfAt _ | .roX _ => audit
+  | .nfAt i =>
+      match before.roA (k, i) with
+      | some _ => audit
+      | none => match after.roA (k, i) with
+        | some slope => { audit with honestSlopes := slope :: audit.honestSlopes }
+        | none => audit
+  | .roX _ => audit
 
 /-- Existing leakage remains after recording a direct secret candidate. -/
 theorem FrameLeakBad.secret_cons (k q : F) (a : FrameAudit F)
@@ -111,16 +119,32 @@ theorem auditAfter_preserves_bad (k : F) (op : FrameOp F M)
     FrameLeakBad k (auditAfter k op before after audit) := by
   cases op with
   | spend m | close =>
-      simp only [auditAfter]
-      split
-      · exact hbad
-      · split
-        · exact FrameLeakBad.honest_cons k _ audit hbad
-        · exact hbad
+      unfold auditAfter
+      by_cases hc : before.closed
+      · simp [hc, hbad]
+      · simp only [hc, Bool.false_eq_true, ↓reduceIte]
+        cases hb : before.roA (k, before.idx) with
+        | some a => simp [hb, hbad]
+        | none =>
+            simp only [hb]
+            cases ha : after.roA (k, before.idx) with
+            | none => simp [ha, hbad]
+            | some slope =>
+                simpa [ha] using FrameLeakBad.honest_cons k slope audit hbad
   | roA kq i | roE kq i | roId kq =>
       exact FrameLeakBad.secret_cons k kq audit hbad
   | roNf aq => exact FrameLeakBad.slope_cons k aq audit hbad
-  | nfAt i | roX m => exact hbad
+  | nfAt i =>
+      unfold auditAfter
+      cases hb : before.roA (k, i) with
+      | some a => simp [hb, hbad]
+      | none =>
+          simp only [hb]
+          cases ha : after.roA (k, i) with
+          | none => simp [ha, hbad]
+          | some slope =>
+              simpa [ha] using FrameLeakBad.honest_cons k slope audit hbad
+  | roX m => exact hbad
 
 /-- A step adds at most one direct-secret probe, and only on a classified
 operation. -/

@@ -57,9 +57,10 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    The formal slope-reveal calibration proves why `q_Nf*q_sig` is required;
    the collision term covers repeated honest slopes. The existing composition
    theorem then supplies the corrected bound. The exact real-handler audit,
-   monotonic bad event, projection theorem, and both quantitative kernels are
-   now present; the remaining step is the secret-independent ideal handler
-   relation and the final VCV-io quantitative simulation application.
+   monotonic bad event, projection theorem, both quantitative kernels, and a
+   secret-independent ideal handler with canonical cache erasure are now
+   present. The remaining step is the signal/`nfAt` bad-or-good relation and
+   final VCV-io quantitative simulation application.
 
 2. **Production Fiat--Shamir reduction.** The linear Sigma protocol now has a
    Fiat--Shamir proof object, deterministic verifier, completeness,
