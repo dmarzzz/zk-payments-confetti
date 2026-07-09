@@ -19,7 +19,7 @@ variable {F : Type} [Field F] [DecidableEq F] [SampleableType F]
 variable {M : Type} [DecidableEq M]
 
 /-- State of the secret-independent handler. -/
-structure IdealFrameSt (F M : Type) where
+@[ext] structure IdealFrameSt (F M : Type) where
   idx : ℕ
   closed : Bool
   roA : F × ℕ → Option F
@@ -105,6 +105,32 @@ theorem frameCoupled_initial (k cm : F) :
   · intro i
     rfl
 
+/-- The canonical image of the programmed real initial state is literally the
+empty secret-independent ideal state. -/
+theorem idealizeFrame_initial (k cm : F) :
+    idealizeFrame k
+      ⟨{ FrameSt.init F M with
+          roId := Function.update (FrameSt.init F M).roId k (some cm) },
+        FrameAudit.init⟩ = IdealFrameSt.init F M := by
+  apply IdealFrameSt.ext
+  · rfl
+  · rfl
+  · funext q
+    simp [idealizeFrame, IdealFrameSt.init, FrameSt.init, FrameAudit.init]
+  · funext m
+    rfl
+  · funext aq
+    simp [idealizeFrame, IdealFrameSt.init, FrameSt.init, FrameAudit.init]
+  · funext q
+    simp [idealizeFrame, IdealFrameSt.init, FrameSt.init, FrameAudit.init]
+  · funext kq
+    by_cases hk : kq = k
+    · simp [idealizeFrame, IdealFrameSt.init, FrameSt.init, FrameAudit.init, hk]
+    · simp [idealizeFrame, IdealFrameSt.init, FrameSt.init, FrameAudit.init, hk,
+        Function.update_of_ne hk]
+  · funext i
+    rfl
+
 /-- Emit a secret-independent simulated signal at the next honest index. -/
 def emitIdealSignal (m : M) (s : IdealFrameSt F M) :
     ProbComp (Signal F × IdealFrameSt F M) := do
@@ -158,7 +184,61 @@ def idealFrameEvidence (mclose : M)
   let cm ← ($ᵗ F)
   (idealFrameImpl mclose).run (IdealFrameSt.init F M) (A cm)
 
+/-! ## Exact coupling for secret-independent public operations -/
+
+/-- Public message-digest queries commute exactly with canonical
+idealization, including both cache-hit and cache-miss branches. -/
+theorem idealize_roX_step (k : F) (mclose m : M)
+    (s : AuditedFrameSt F M) :
+    Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.roX m)).run s =
+      ((idealFrameImpl mclose) (.roX m)).run (idealizeFrame k s) := by
+  unfold auditedFrameImpl idealFrameImpl frameImpl
+  simp only [StateT.run_mk]
+  unfold lazyROX
+  split <;> rename_i h <;> simp [h, idealizeFrame, auditAfter]
+
+/-- Updating a public pair-keyed cache away from the hidden first component
+commutes with deleting the hidden component. -/
+theorem maskFirst_update_of_ne (f : F × ℕ → Option F)
+    (k kq value : F) (n : ℕ) (hk : kq ≠ k) :
+    (fun q => if q.1 = k then none
+      else Function.update f (kq, n) (some value) q) =
+      Function.update (fun q => if q.1 = k then none else f q)
+        (kq, n) (some value) := by
+  funext q
+  by_cases hq : q = (kq, n)
+  · subst q
+    simp [hk]
+  · rw [Function.update_of_ne hq, Function.update_of_ne hq]
+
+/-- An update away from `k` does not affect any cache entry whose first
+component is `k`. -/
+theorem update_pair_at_hidden_of_ne (f : F × ℕ → Option F)
+    (k kq value : F) (n i : ℕ) (hk : kq ≠ k) :
+    Function.update f (kq, n) (some value) (k, i) = f (k, i) := by
+  rw [Function.update_of_ne]
+  intro h
+  exact hk (congrArg Prod.fst h).symm
+
+/-- Updating a scalar public cache away from the hidden key commutes with
+deleting the hidden entry. -/
+theorem maskKey_update_of_ne (f : F → Option F)
+    (k kq value : F) (hk : kq ≠ k) :
+    (fun q => if q = k then none else Function.update f kq (some value) q) =
+      Function.update (fun q => if q = k then none else f q) kq (some value) := by
+  funext q
+  by_cases hq : q = kq
+  · subst q
+    simp [hk]
+  · rw [Function.update_of_ne hq, Function.update_of_ne hq]
+
 end Zkpc.Games
 
 #print axioms Zkpc.Games.frameCoupled_initial
 #print axioms Zkpc.Games.frameCoupled_idealize
+#print axioms Zkpc.Games.idealizeFrame_initial
+#print axioms Zkpc.Games.idealize_roX_step
+#print axioms Zkpc.Games.maskFirst_update_of_ne
+#print axioms Zkpc.Games.update_pair_at_hidden_of_ne
+#print axioms Zkpc.Games.maskKey_update_of_ne

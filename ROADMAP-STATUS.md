@@ -74,9 +74,12 @@ unconditional T7 theorem remains open.
    theorem then supplies the corrected bound. The exact real-handler audit,
    monotonic bad event, projection theorem, the multi-target slope kernel, and a
    secret-independent ideal handler with canonical cache erasure are now
-   present. Exact public-oracle step relations still require function-update
-   commutation proofs (and the `roNf` case must preserve the hidden composed
-   cache correctly). The atomic fresh-slope and collision bounds still need
+   present. Programmed initialization and public `roX` steps now commute
+   exactly with canonical idealization, and reusable pair/scalar cache-mask
+   update lemmas are proved for the remaining public operations. Exact
+   `roA`, `roE`, `roId`, and `roNf` step relations still need assembly (the
+   `roNf` case must preserve the hidden composed cache correctly). The atomic
+   fresh-slope and collision bounds still need
    source-valid proofs. The remaining semantic step is the
    `spend`/`close`/`nfAt` bad-or-good relation and final VCV-io quantitative
    simulation application. In particular, `nfAt` can sample a slope before a
