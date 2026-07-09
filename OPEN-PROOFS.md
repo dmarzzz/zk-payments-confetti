@@ -99,25 +99,28 @@ under the hypothesis `hobliv`** (the adversary's evidence distribution is
 independent of the secret, i.e. no random-oracle query hit `k`). `Spec.md`
 T7 asks for the unconditional `negl(λ)` bound. The obligation: discharge
 `hobliv` by a lazy-RO identical-until-bad argument over an unbounded
-interactive adversary, bounding the query terms, so `T7_frame_bound`
-becomes the unconditional `(q_A + q_Id + q_E + 1) / |F|`. This is the
+interactive adversary. The original three-channel numerator is insufficient:
+`H_nf` preimage probes recover exposed slopes, and multiple signals introduce
+slope-collision targets. The corrected conservative target is
+`(q_A + q_Id + q_E + q_Nf*q_sig + q_sig^2 + 1) / |F|`. This is the
 single most valuable open proof, the "hard 20%" the VCV-io survey
 (`research_knowledge/vcvio-gap.md`) flagged. Start from `frame_blind_bound`
 and VCV-io `IdenticalUntilBad`.
 
 **Infrastructure landed:** `FrameQueryBounds` now records separate structural
-`IsQueryBoundP` certificates for the three secret-testing channels, and
+`IsQueryBoundP` certificates for direct secret probes, nullifier probes, and
+honest signal exposures, and
 `uniformSecretProbeBound` kernel-checks the adaptive `q/|F|` first-fire term.
 `T7_frame_bound_of_pointwise` assembles a pointwise real/ideal loss `ε` with
 the blind term to obtain `1/|F| + ε`. The remaining proof is therefore the
 handler-level deferred-sampling/identical-until-bad factorization that supplies
-that theorem with `ε = (q_A + q_E + q_Id)/|F|`.
+the corrected direct-probe, slope-preimage, and collision loss.
 
 **Composition endpoint landed:** `FrameDeferredSampling` now states that
 handler factorization as a typed certificate tied to the actual
-`FrameQueryBounds`; `frameQueryCharge_eq` combines the three first-hit terms;
-and `T7_frame_query_bound` derives the exact advertised
-`(q_A + q_E + q_Id + 1)/|F|` result. Thus the structural budgets are no longer
+`FrameQueryBounds`; `frameQueryCharge_eq` combines all leakage terms; and
+`T7_frame_query_bound` derives `(qb.total + 1)/|F|`, where `qb.total` includes
+`q_Nf*q_sig + q_sig^2`. Thus the structural budgets are no longer
 disconnected metadata. The sole residual is constructing
 `FrameDeferredSampling` from `frameImpl` by a stateful transcript coupling.
 

@@ -4,10 +4,10 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 
 ## Implemented in this branch
 
-- Query-bounded T7 infrastructure: separate `H_a`, `H_e`, and `H_id`
-  structural budgets; the adaptive uniform-secret first-hit lemma; quantitative
-  real-to-ideal composition; and the final exact
-  `(q_A + q_E + q_Id + 1) / |F|` endpoint from a deferred-sampling
+- Query-bounded T7 infrastructure: separate direct-secret, `H_nf`, and
+  honest-signal structural budgets; the adaptive uniform-secret first-hit
+  lemma; quantitative real-to-ideal composition; and the corrected
+  `(q_A + q_E + q_Id + q_Nf*q_sig + q_sig^2 + 1) / |F|` endpoint from a deferred-sampling
   certificate.
 - A proof-bearing T4 reference instance and a witness-dependent masked-proof
   instance, including session-level simulator equality, perfect unlinkability,
@@ -46,10 +46,12 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 1. **Unconditional T7 handler coupling.** Construct
    `FrameDeferredSampling` from the actual stateful `frameImpl`. The proof must
    relate the real shared caches to a secret-independent ideal handler up to
-   the first direct `roA`, `roE`, or `roId` query whose candidate equals the
-   hidden secret. It must account for public `cm`, honest `spend`, legacy
+   the first direct-secret hit, slope-preimage hit, or honest-slope collision.
+   It must account for public `cm`, honest `spend`, legacy
    `close`, `nfAt`, direct `roX`/`roNf`, cache hits, and adaptive continuations.
-   The existing composition theorem then supplies the advertised bound.
+   The formal slope-reveal calibration proves why `q_Nf*q_sig` is required;
+   the collision term covers repeated honest slopes. The existing composition
+   theorem then supplies the corrected bound.
 
 2. **Production Fiat--Shamir reduction.** The linear Sigma protocol now has a
    Fiat--Shamir proof object, deterministic verifier, completeness,
