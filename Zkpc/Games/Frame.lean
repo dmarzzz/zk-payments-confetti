@@ -120,6 +120,41 @@ def lazyRO {α : Type} [DecidableEq α] (cache : α → Option F) (q : α) :
       let v ← ($ᵗ F)
       pure (v, Function.update cache q (some v))
 
+/-- Every supported lazy-oracle outcome records the returned value at the
+queried key. -/
+theorem lazyRO_support_entry {α : Type} [DecidableEq α]
+    (cache : α → Option F) (q : α) (z : F × (α → Option F))
+    (hz : z ∈ support (lazyRO cache q)) : z.2 q = some z.1 := by
+  unfold lazyRO at hz
+  split at hz
+  · rename_i value h
+    rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    exact h
+  · obtain ⟨value, _, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+    rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    simp
+
+/-- Lazy-oracle sampling is monotone: every previously populated cache entry
+is preserved in every supported outcome. -/
+theorem lazyRO_support_preserves {α : Type} [DecidableEq α]
+    (cache : α → Option F) (q : α) (z : F × (α → Option F))
+    (hz : z ∈ support (lazyRO cache q)) {q' : α} {value : F}
+    (hentry : cache q' = some value) : z.2 q' = some value := by
+  unfold lazyRO at hz
+  split at hz
+  · rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    exact hentry
+  · obtain ⟨sample, _, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+    rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    by_cases hq : q' = q
+    · subst q'
+      simp_all
+    · simpa [Function.update_of_ne hq] using hentry
+
 /-- Map a raw field sample into the specified nonzero digest domain. -/
 def nonzeroDigest (x : F) : F :=
   if x = 0 then 1 else x
