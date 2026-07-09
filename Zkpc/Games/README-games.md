@@ -21,7 +21,7 @@
 
 ## GATE-NOTE / GATE-OBLIGATION register (rev-9)
 
-**Obligations (per-instance proof debts):** (O1/M1) discharge `zkBridgeObligation` full-ticket → proof-free with the instance's `εZK`; (O2/Mi3, session form) `capableFor q ⇒` the whole `q`-batch succeeds (or bound the branch); (O3) B instances: `serve` absorbs invalid receipts as no-ops; `openCh` absorbs malformed genesis as never-capable state; **(O4, new)** discharge `closeViewSimulatable` — close output simulatable from `(cm, spend count)` alone.
+**Obligations (per-instance proof debts):** (O1/M1) discharge `zkBridgeObligation` full-ticket → proof-free with the instance's `εZK`; (O2/Mi3, session form) `capableFor q ⇒` the whole `q`-batch succeeds (or bound the branch); (O3) B instances formalize adversary-issued genesis/receipt absorption (at the issuer abstraction every supplied handle is well formed); **(O4)** discharge `closeViewSimulatable` — close output simulatable from `(cm, spend count)` alone. O2/O3/O4 are discharged for B-rerand/`bIdeal` in `BInstances.lean`.
 
 **UNLINK notes:** session challenge is atomic at `e*` (shared `nf_{e*}` structural); empty challenge vector ⇒ ⊥ (`q ≥ 1` per spec, `b`-independent); epochs = adversary `tick` counter (§6 scheduler); retry ≠ new signal (no freshness update) and answered post-close; close's `lastSig` update = conservative no-op (MC20: no close signal); capability's "open ∧ unslashed" vacuous here (Mi2: no circularity — excul lemma precedes T4); `Open` folded to `openCh(GenesisInput)`+`OpenView`; spend-at-closed ⇒ ⊥; corrupt payers unmodeled (zero-cost maximality).
 
