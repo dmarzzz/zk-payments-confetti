@@ -180,6 +180,59 @@ theorem nonzeroX_ne_zero (x : F) : nonzeroX x ≠ 0 := by
   · exact one_ne_zero
   · assumption
 
+/-- A real RLN point paired with an accepting interactive Sigma transcript. -/
+def realSignalProof [SampleableType F] (k m : F) :
+    ProbComp (Statement F × Transcript F) := do
+  let a ← ($ᵗ F)
+  let st : Statement F := ⟨nonzeroX m, a * nonzeroX m + k⟩
+  let tr ← realTranscript st ⟨k, a⟩
+  pure (st, tr)
+
+/-- Witness-free simulator for a complete RLN point and Sigma transcript. -/
+def simulatedSignalProof [SampleableType F] (m : F) :
+    ProbComp (Statement F × Transcript F) := do
+  let y ← ($ᵗ F)
+  let st : Statement F := ⟨nonzeroX m, y⟩
+  let tr ← simulatedTranscript st
+  pure (st, tr)
+
+/-- A fresh slope hides the RLN intercept even when the complete accepting
+Sigma transcript is included. -/
+theorem evalDist_realSignalProof_eq_simulated [Fintype F] [SampleableType F]
+    (k m : F) :
+    𝒟[realSignalProof k m] = 𝒟[simulatedSignalProof m] := by
+  let x := nonzeroX m
+  have hx : x ≠ 0 := nonzeroX_ne_zero m
+  let f : F → F := fun a => a * x
+  have hf : Function.Bijective f := mulRight_bijective₀ x hx
+  unfold realSignalProof simulatedSignalProof
+  calc
+    𝒟[do
+        let a ← ($ᵗ F)
+        let st : Statement F := ⟨nonzeroX m, a * nonzeroX m + k⟩
+        let tr ← realTranscript st ⟨k, a⟩
+        pure (st, tr)] =
+      𝒟[do
+        let a ← ($ᵗ F)
+        let st : Statement F := ⟨nonzeroX m, a * nonzeroX m + k⟩
+        let tr ← simulatedTranscript st
+        pure (st, tr)] := by
+          refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
+          apply evalDist_map_eq_of_evalDist_eq
+          apply evalDist_real_eq_simulated
+          unfold Holds
+          ring
+    _ = 𝒟[do
+        let y ← ($ᵗ F)
+        let st : Statement F := ⟨nonzeroX m, y⟩
+        let tr ← simulatedTranscript st
+        pure (st, tr)] := by
+          exact evalDist_bind_bijective_add_right_uniform (α := F) (β := F) f hf k
+            (fun y => do
+              let st : Statement F := ⟨nonzeroX m, y⟩
+              let tr ← simulatedTranscript st
+              pure (st, tr))
+
 /-- Extract the unique witness from two response pairs at distinct
 challenges. -/
 def extract (tr₁ tr₂ : Transcript F) : Witness F :=
@@ -282,6 +335,7 @@ end Zkpc.Crypto.LinearSigma
 #print axioms Zkpc.Crypto.LinearSigma.prove_eq_simulate
 #print axioms Zkpc.Crypto.LinearSigma.responseEquiv
 #print axioms Zkpc.Crypto.LinearSigma.evalDist_real_eq_simulated
+#print axioms Zkpc.Crypto.LinearSigma.evalDist_realSignalProof_eq_simulated
 #print axioms Zkpc.Crypto.LinearSigma.special_soundness
 #print axioms Zkpc.Crypto.LinearSigma.fs_completeness
 #print axioms Zkpc.Crypto.LinearSigma.fsSimulate_verifies
