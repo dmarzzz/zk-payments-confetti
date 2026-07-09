@@ -69,6 +69,49 @@ namespace Zkpc.Games
 variable {F : Type} [Field F] [DecidableEq F] [SampleableType F]
 variable {M : Type} [DecidableEq M]
 
+/-! ## Query-bounded adversaries
+
+The unconditional theorem charges only adversary queries that can test a
+candidate for the honest secret. Honest `spend`/`nfAt` execution uses the same
+random-oracle caches internally, but those handler-side lookups are not guesses
+chosen by the adversary and therefore are deliberately not counted here. -/
+
+/-- Direct adversary queries to `H_a`; these can hit `(k, i)`. -/
+def isDirectRoAQuery : FrameOp F M → Bool
+  | .roA _ _ => true
+  | _ => false
+
+/-- Direct adversary queries to `H_e`; these can hit `(k, e)`. -/
+def isDirectRoEQuery : FrameOp F M → Bool
+  | .roE _ _ => true
+  | _ => false
+
+/-- Direct adversary queries to `H_id`; these can test a preimage of `cm`. -/
+def isDirectRoIdQuery : FrameOp F M → Bool
+  | .roId _ => true
+  | _ => false
+
+/-- The explicit ROM-query budget required by the unconditional FRAME bound.
+The bounds hold for every possible public commitment input, since `A` is
+applied only after `cm = H_id(k)` has been sampled. Keeping the three channels
+separate yields the intended numerator `q_A + q_E + q_Id`. -/
+structure FrameQueryBounds
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) where
+  qA : ℕ
+  qE : ℕ
+  qId : ℕ
+  roA_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isDirectRoAQuery t = true) qA
+  roE_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isDirectRoEQuery t = true) qE
+  roId_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isDirectRoIdQuery t = true) qId
+
+/-- Total secret-testing query budget appearing in the T7 numerator. -/
+def FrameQueryBounds.total {A : F → OracleComp (frameSpec F M) (Evidence F)}
+    (qb : FrameQueryBounds A) : ℕ :=
+  qb.qA + qb.qE + qb.qId
+
 /-! ## The rev-11 must-win calibration battery -/
 
 /-- Degenerate-RLN FRAME game with `y = k` (the line-masking slope absent):
@@ -150,6 +193,19 @@ section Bound
 
 variable [Fintype F]
 
+/-- **Uniform-secret adaptive first-fire bound.** A strategy making `q`
+adaptive candidate-secret probes hits a uniformly sampled `k : F` with
+probability at most `q / |F|`. Up to the first hit every answer is `false`, so
+the candidate sequence is independent of `k`; VCV-io's hidden-target theorem
+formalizes precisely that argument. This lemma is instantiated once for each
+of the `H_a`, `H_e`, and `H_id` query channels. -/
+theorem uniformSecretProbeBound (q : ℕ) (σ : List Bool → F) :
+    Pr[(fun b : Bool => b = true) |
+        OracleComp.hiddenReadMany ($ᵗ F) q σ]
+      ≤ (q : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
+  exact OracleComp.probEvent_hiddenReadMany_le
+    (fun r : F => (probOutput_uniformSample F r).le) q σ
+
 /-- For a *fixed* evidence `ev`, guessing the uniform secret succeeds with
 probability at most `1/|F|`: the win event `Slashes k ev` forces
 `k = recoverSecret ev`, a single point of the uniform `k`. -/
@@ -198,6 +254,90 @@ lemma frame_blind_bound (gen : ProbComp (Evidence F)) :
         mul_le_mul_right' tsum_probOutput_le_one _
     _ = (Fintype.card F : ENNReal)⁻¹ := one_mul _
 
+/-- **Quantitative real-to-ideal FRAME bridge.** Suppose the real evidence
+process for every fixed secret raises the conditional slash probability by at
+most `ε` over a single secret-independent generator `gen`. Then the complete
+FRAME experiment is bounded by the blind-guess term plus `ε`.
+
+This is the assembly socket for the lazy-random-oracle identical-until-bad
+argument: that argument only has to establish `hclose`, with
+`ε = (q_A + q_E + q_Id) / |F|`; this theorem combines it with
+`frame_blind_bound` and supplies the final `+ 1/|F|` term. Unlike
+`T7_frame_bound`, it does not require exact distributional independence. -/
+theorem T7_frame_bound_of_pointwise (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (gen : ProbComp (Evidence F)) (ε : ENNReal)
+    (hclose : ∀ k : F,
+      Pr[= true | frameEvidence mclose A k >>= fun ev =>
+          pure (decide (Slashes k ev))]
+        ≤ Pr[= true | gen >>= fun ev => pure (decide (Slashes k ev))] + ε) :
+    frameWinProb mclose A ≤ (Fintype.card F : ENNReal)⁻¹ + ε := by
+  unfold frameWinProb
+  rw [frameGame_eq_evidence, probOutput_bind_eq_tsum]
+  calc
+    (∑' k : F, Pr[= k | ($ᵗ F)] *
+        Pr[= true | frameEvidence mclose A k >>= fun ev =>
+          pure (decide (Slashes k ev))])
+        ≤ ∑' k : F, Pr[= k | ($ᵗ F)] *
+          (Pr[= true | gen >>= fun ev => pure (decide (Slashes k ev))] + ε) := by
+            exact ENNReal.tsum_le_tsum fun k => mul_le_mul_left' (hclose k) _
+    _ = (∑' k : F, Pr[= k | ($ᵗ F)] *
+          Pr[= true | gen >>= fun ev => pure (decide (Slashes k ev))])
+        + (∑' k : F, Pr[= k | ($ᵗ F)]) * ε := by
+          simp only [mul_add, ENNReal.tsum_add, ENNReal.tsum_mul_right]
+    _ ≤ (Fintype.card F : ENNReal)⁻¹ + 1 * ε := by
+          gcongr
+          · rw [← probOutput_bind_eq_tsum]
+            exact frame_blind_bound gen
+          · exact tsum_probOutput_le_one
+    _ = (Fintype.card F : ENNReal)⁻¹ + ε := by rw [one_mul]
+
+/-- A deferred-sampling certificate for a query-bounded FRAME adversary.
+It is deliberately tied to `FrameQueryBounds`: the real handler is compared
+with one secret-independent evidence generator, and the permitted loss is
+exactly the mass of the three direct secret-testing channels.  Constructing
+this certificate is the stateful handler-coupling obligation; once supplied,
+no further probabilistic or arithmetic hypothesis is needed. -/
+structure FrameDeferredSampling (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) where
+  idealEvidence : ProbComp (Evidence F)
+  close : ∀ k : F,
+    Pr[= true | frameEvidence mclose A k >>= fun ev =>
+        pure (decide (Slashes k ev))]
+      ≤ Pr[= true | idealEvidence >>= fun ev =>
+          pure (decide (Slashes k ev))]
+        + (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+
+/-- The three per-oracle first-hit charges combine to the advertised total
+query charge.  This is the arithmetic endpoint used by the handler coupling:
+one `q/|F|` term each for `H_a`, `H_e`, and `H_id`. -/
+theorem frameQueryCharge_eq
+    {A : F → OracleComp (frameSpec F M) (Evidence F)}
+    (qb : FrameQueryBounds A) :
+    (qb.qA : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+        + (qb.qE : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+        + (qb.qId : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+      = (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
+  simp only [FrameQueryBounds.total, Nat.cast_add, add_mul]
+
+/-- **Query-bounded T7 composition theorem.** A stateful deferred-sampling
+certificate turns the structural query budgets into the complete FRAME
+bound `(q_A + q_E + q_Id + 1)/|F|`.  In particular, the public commitment,
+honest signals, close reveal, and shared caches are all accounted for inside
+the certificate rather than hidden in an informal independence claim. -/
+theorem T7_frame_query_bound (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (hds : FrameDeferredSampling mclose A qb) :
+    frameWinProb mclose A
+      ≤ ((qb.total + 1 : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  refine le_trans
+    (T7_frame_bound_of_pointwise mclose A hds.idealEvidence
+      ((qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹) hds.close) ?_
+  rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul]
+  exact le_of_eq (add_comm _ _)
+
 /-- **T7 FRAME bound (Spec.md §7 T7, instantiation A).** For every honest
 member and every adversary whose evidence is independent of the secret `k`
 (the RO-oblivious / query-scoped good event, `hobliv`), the probability that
@@ -224,4 +364,8 @@ end Zkpc.Games
 -- F2 kernel audit (K2): only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Games.frameWinProb_YK_eq_one
 #print axioms Zkpc.Games.frameWinProb_aReuse_eq_one
+#print axioms Zkpc.Games.uniformSecretProbeBound
+#print axioms Zkpc.Games.T7_frame_bound_of_pointwise
+#print axioms Zkpc.Games.frameQueryCharge_eq
+#print axioms Zkpc.Games.T7_frame_query_bound
 #print axioms Zkpc.Games.T7_frame_bound

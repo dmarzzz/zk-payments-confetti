@@ -17,7 +17,7 @@ How each named assumption of Spec.md §5 enters the model instead:
 | # | Assumption | Where it lives in the model |
 |---|---|---|
 | 1 | NIZK knowledge soundness | Transition guards: the symbolic layer's `Redeem` accepts a ticket iff its *semantic witness* satisfies `R_spend` (Spec.md §3/§4). An accepted ticket "is" its extracted witness; forged proofs do not exist in the model. |
-| 2 | NIZK zero-knowledge | The probabilistic layer's tickets carry no proof object at all: the adversary's view contains only the simulatable public components. Removing `π` from the view *is* the simulation. |
+| 2 | NIZK zero-knowledge | `Games.FullTicketInstance` includes a real witness-dependent proof `key + mask` and proves its complete session transcript equal in distribution to a witness-free simulated proof. The proof-free instance is the final reduction target. |
 | 3 | PRF/ROM idealization + domain separation (MC9) | The game layer samples `H_a(k,·)`, `H_e(k,·)`, `H_nf` as random oracles (VCVio `randomOracle`); the symbolic layer identifies nullifiers with their preimage pairs (collision-freeness by construction). |
 | 3′ | `single_signal_hiding` | Stated and *proved* in the ROM game layer (`Zkpc.Games`): one point `(x, k + a·x)` with fresh-uniform `a` leaves `k` uniform. Named separately because standard PRF security does not imply it (the key is used additively — KDM-flavored; rev-1 gate finding). |
 | 4 | EUF-CMA signatures (B) | Symbolic layer: the refund-receipt chain admits only payee-issued links; forged receipts do not exist in the model. The chain-binding tag (MC7) is what excludes *honestly issued but spliced* receipts — that one is a theorem obligation (T1-B), not an assumption. |

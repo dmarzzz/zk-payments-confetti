@@ -85,11 +85,10 @@ emitted at `y = rlnY k a x`, the `Dispute` recomputation here
 `rln_recover_a`/`rln_recover_k`'s formula, and the sanity lemma
 `recoverSecret_line` is derived from `rln_recover_k`. The T7 prover
 additionally gets `rln_single_point_hiding` / `rln_evidence_sound` from
-that file. GATE-NOTE (inherited from RLN.lean's `x = 0` caveat): `roX`
-answers `0` with probability `1/|F|`, and a spend whose digest is `0`
-emits `y = k` outright; the T7 statement must absorb that event in its
-negligible bound (or the instantiation must domain-separate `H_x` away
-from `0`, as RLN.lean prescribes).
+that file. The `H_x` handler enforces Spec.md §1's codomain `F \ {0}`
+through `nonzeroDigest`: a raw zero sample is mapped to `1` before it is
+cached or returned. Thus FRAME cannot emit the degenerate signal `y = k`
+at `x = 0`, and T7 needs no hidden per-spend failure term.
 -/
 
 open OracleSpec OracleComp
@@ -120,6 +119,65 @@ def lazyRO {α : Type} [DecidableEq α] (cache : α → Option F) (q : α) :
   | none => do
       let v ← ($ᵗ F)
       pure (v, Function.update cache q (some v))
+
+/-- Map a raw field sample into the specified nonzero digest domain. -/
+def nonzeroDigest (x : F) : F :=
+  if x = 0 then 1 else x
+
+omit [SampleableType F] in
+/-- Digest normalization never returns zero. -/
+theorem nonzeroDigest_ne_zero (x : F) : nonzeroDigest x ≠ 0 := by
+  unfold nonzeroDigest
+  split
+  · exact one_ne_zero
+  · assumption
+
+/-- Lazy `H_x` lookup with codomain restricted to nonzero field elements.
+Only normalized values enter the cache, keeping direct queries and honest
+signals consistent. -/
+def lazyROX (cache : M → Option F) (m : M) :
+    ProbComp (F × (M → Option F)) :=
+  match cache m with
+  | some x => pure (x, cache)
+  | none => do
+      let raw ← ($ᵗ F)
+      let x := nonzeroDigest raw
+      pure (x, Function.update cache m (some x))
+
+/-- Every populated entry of an `H_x` cache is nonzero. -/
+def RoXCacheNonzero (cache : M → Option F) : Prop :=
+  ∀ m x, cache m = some x → x ≠ 0
+
+omit [DecidableEq F] [SampleableType F] in
+/-- Updating a valid digest cache with a nonzero value preserves validity. -/
+theorem RoXCacheNonzero.update {cache : M → Option F}
+    (hcache : RoXCacheNonzero cache) (m : M) {x : F} (hx : x ≠ 0) :
+    RoXCacheNonzero (Function.update cache m (some x)) := by
+  intro m' x' hentry
+  by_cases hm : m' = m
+  · subst m'
+    simp only [Function.update_self] at hentry
+    exact Option.some.inj hentry ▸ hx
+  · rw [Function.update_of_ne hm] at hentry
+    exact hcache m' x' hentry
+
+/-- Every outcome of `lazyROX` returns a nonzero digest and preserves the
+nonzero-cache invariant. -/
+theorem lazyROX_support_nonzero {cache : M → Option F}
+    (hcache : RoXCacheNonzero cache) (m : M)
+    (z : F × (M → Option F)) (hz : z ∈ support (lazyROX cache m)) :
+    z.1 ≠ 0 ∧ RoXCacheNonzero z.2 := by
+  unfold lazyROX at hz
+  split at hz
+  · rename_i x hx
+    rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    exact ⟨hcache m x hx, hcache⟩
+  · obtain ⟨raw, _, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+    rw [support_pure, Set.mem_singleton_iff] at hz
+    subst z
+    exact ⟨nonzeroDigest_ne_zero raw,
+      hcache.update m (nonzeroDigest_ne_zero raw)⟩
 
 /-- FRAME game state: the honest member's next unused index, whether it
 has closed, and the five random-oracle caches (shared between the honest
@@ -160,7 +218,7 @@ all against the shared RO caches. One emission per index, ever — the
 honest single-signal rule, structurally. -/
 def emitSignal (k : F) (m : M) (s : FrameSt F M) :
     ProbComp (Signal F × FrameSt F M) := do
-  let (x, cX) ← lazyRO s.roX m
+  let (x, cX) ← lazyROX s.roX m
   let (a, cA) ← lazyRO s.roA (k, s.idx)
   let (nf, cNf) ← lazyRO s.roNf a
   pure (⟨x, rlnY k a x, nf⟩,
@@ -249,7 +307,7 @@ def frameImpl (k : F) (mclose : M) :
       let (v, c) ← lazyRO s.roA (kq, i)
       pure (v, { s with roA := c })
   | .roX m => StateT.mk fun s => do
-      let (v, c) ← lazyRO s.roX m
+      let (v, c) ← lazyROX s.roX m
       pure (v, { s with roX := c })
   | .roNf aq => StateT.mk fun s => do
       let (v, c) ← lazyRO s.roNf aq
