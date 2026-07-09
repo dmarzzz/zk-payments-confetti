@@ -59,6 +59,29 @@ theorem spend_refines_step (pp : Params) (honest : F → Prop)
   · exact Step.emitHonest s k m hh hlive hsolv
   · simp [s']
 
+/-- On a fresh nullifier, executable `Redeem` accepts exactly when the
+symbolic machine can take its knowledge-sound `accept` transition. -/
+theorem redeem_accept_refines_step (pp : Params) (honest : F → Prop)
+    (s : St F (Msg Pl)) (k : F) (i : ℕ) (m : Msg Pl)
+    (hsig : (k, i, m) ∈ s.sigs) (hlive : s.live k)
+    (hsolv : (i + 1) * pp.C ≤ pp.D)
+    (hfresh : ∀ m', (k, i, m') ∉ s.acc) :
+    ∃ s',
+      (flatScheme F Pl).redeem pp () s.acc s (k, i, m) =
+        (.accept, s'.acc, none) ∧
+      Step pp.C pp.D pp.tau honest s (.accept k i m) s' := by
+  let s' : St F (Msg Pl) := { s with acc := insert (k, i, m) s.acc }
+  refine ⟨s', ?_, ?_⟩
+  · have hnotmem : (k, i, m) ∉ s.acc := hfresh m
+    have hempty :
+        (s.acc.filter (fun u => u.1 = k ∧ u.2.1 = i)).toList = [] := by
+      rw [Finset.toList_eq_nil]
+      exact Finset.filter_eq_empty_iff.mpr (by
+        intro u hu hki
+        exact hfresh u.2.2 (by simpa [hki.1, hki.2] using hu))
+    simp [flatScheme, hlive, hsolv, hnotmem, hempty, s']
+  · exact Step.accept s k i m hsig hlive hsolv hfresh
+
 /-- The executable honest payer-close enumerates exactly the unused suffix and
 returns precisely the ledger state of `Step.payerClose`. -/
 theorem payerClose_refines_step (pp : Params) (honest : F → Prop)
@@ -98,6 +121,22 @@ theorem dispute_refines_step (pp : Params) (honest : F → Prop)
   · simp [flatScheme, h1, h2, hne, hopen, hns, s']
   · exact Step.slash s k i m m' h1 h2 hne hopen hns
 
+/-- Sweeping a singleton eligible tuple is exactly one `sweepOne` ledger
+transition, the base case of the implementation's list fold. -/
+theorem sweep_single_refines_step (pp : Params) (honest : F → Prop)
+    (s : St F (Msg Pl)) (k : F) (i : ℕ) (m : Msg Pl)
+    (hacc : (k, i, m) ∈ s.acc) (hdedup : (k, i) ∉ s.swept)
+    (hwin : sweepOpen pp.tau s k) (hbar : ¬ s.sweepBarred k i) :
+    ∃ s',
+      (flatScheme F Pl).sweep pp () [(k, i, m)] s = s' ∧
+      Step pp.C pp.D pp.tau honest s (.sweepOne k i m) s' := by
+  let s' : St F (Msg Pl) :=
+    { s with swept := insert (k, i) s.swept
+             paidGw := s.paidGw + pp.C }
+  refine ⟨s', ?_, ?_⟩
+  · simp [flatScheme, hacc, hdedup, hwin, hbar, s']
+  · exact Step.sweepOne s k i m hacc hdedup hwin hbar
+
 /-- A sequence of successful refined object calls yields ordinary concrete
 reachability, so all existing T1--T5 invariants apply to the executable API
 trace. -/
@@ -112,6 +151,8 @@ end Zkpc.Core.Flat
 
 #print axioms Zkpc.Core.Flat.open_refines_step
 #print axioms Zkpc.Core.Flat.spend_refines_step
+#print axioms Zkpc.Core.Flat.redeem_accept_refines_step
 #print axioms Zkpc.Core.Flat.payerClose_refines_step
 #print axioms Zkpc.Core.Flat.dispute_refines_step
+#print axioms Zkpc.Core.Flat.sweep_single_refines_step
 #print axioms Zkpc.Core.Flat.refined_steps_reachable
