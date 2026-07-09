@@ -74,11 +74,11 @@ unconditional T7 theorem remains open.
    theorem then supplies the corrected bound. The exact real-handler audit,
    monotonic bad event, projection theorem, the multi-target slope kernel, and a
    secret-independent ideal handler with canonical cache erasure are now
-   present. Programmed initialization and public `roX` steps now commute
-   exactly with canonical idealization, and reusable pair/scalar cache-mask
-   update lemmas are proved for the remaining public operations. Exact
-   `roA`, `roE`, `roId`, and `roNf` step relations still need assembly (the
-   `roNf` case must preserve the hidden composed cache correctly). The atomic
+   present. Programmed initialization and every good public-oracle step
+   (`roX`, `roA`, `roE`, `roId`, and `roNf`) now commute exactly with
+   canonical idealization. The nullifier case is supported by a proved
+   audit-completeness invariant and cache-disjointness lemmas, so the hidden
+   composed cache is preserved rather than assumed. The atomic
    fresh-slope and collision bounds still need
    source-valid proofs. The remaining semantic step is the
    `spend`/`close`/`nfAt` bad-or-good relation and final VCV-io quantitative
