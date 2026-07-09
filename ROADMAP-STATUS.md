@@ -57,16 +57,11 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 
 ### Checkpoint validation status
 
-This PR is an **in-progress research checkpoint**, not a completed or green
-formalization. `Games.FrameAudit` and the reduced `Games.FrameIdeal` build, but
-the newest quantitative additions in `Games.T7` do not yet kernel-check. The
-current `lake build +Zkpc.Games.T7` failures include the slope-reveal
-calibration simplification, the logged slope-query construction and query
-bound, list/finset cardinality coercion, and the experimental uniform
-good/bad bind lemma. Some of those declarations consequently still report
-`sorryAx`. They must be repaired before the branch can claim placeholder-free
-validation. No theorem depending on those experimental declarations should be
-treated as established yet.
+This PR is an **in-progress research checkpoint**, not a completed
+formalization. The focused `FrameAudit`, `FrameIdeal`, and `T7` targets
+source-build without `sorryAx`; experimental logged-slope and exact
+public-oracle coupling claims that did not source-build were removed. The
+unconditional T7 theorem remains open.
 
 1. **Unconditional T7 handler coupling.** Construct
    `FrameDeferredSampling` from the actual stateful `frameImpl`. The proof must
@@ -77,13 +72,12 @@ treated as established yet.
    The formal slope-reveal calibration proves why `q_Nf*q_sig` is required;
    the collision term covers repeated honest slopes. The existing composition
    theorem then supplies the corrected bound. The exact real-handler audit,
-   monotonic bad event, projection theorem, both quantitative kernels, and a
+   monotonic bad event, projection theorem, the multi-target slope kernel, and a
    secret-independent ideal handler with canonical cache erasure are now
    present. Exact public-oracle step relations still require function-update
    commutation proofs (and the `roNf` case must preserve the hidden composed
-   cache correctly). The atomic fresh-slope and collision bounds are drafted
-   but currently among the `Games.T7` build failures described above. After
-   repairing those kernels, the remaining semantic step is the
+   cache correctly). The atomic fresh-slope and collision bounds still need
+   source-valid proofs. The remaining semantic step is the
    `spend`/`close`/`nfAt` bad-or-good relation and final VCV-io quantitative
    simulation application. In particular, `nfAt` can sample a slope before a
    later adaptive message choice, so this needs continuation-level deferred
@@ -118,17 +112,11 @@ treated as established yet.
    flat/refund admission, reconciliation/slashing, close settlement, and all
    T1--T7 guarantees over one complete trace.
 
-6. **Repair the current T7 checkpoint.** Eliminate every current
-   `Games.T7` elaboration error and `sorryAx` dependency, reinstate only proved
-   public-oracle coupling lemmas, and run the focused `FrameAudit`,
-   `FrameIdeal`, and `T7` builds before extending the deferred-sampling proof.
-
-7. **Final validation and documentation.** After the items above, run a cold
+6. **Final validation and documentation.** After the items above, run a cold
    dependency fetch and clean full build, the forbidden-placeholder audit,
    `git diff --check`, all `#print axioms` checks, and reconcile `Spec.md`, the
    paper theorem table, assumption registry, and `OPEN-PROOFS.md` with the
-   final implementation. Earlier commits were validated incrementally, but
-   the current T7 research checkpoint is not green as documented above.
+   final implementation.
 
 The roadmap is not complete until every item above is implemented and the
 final composition and clean-build audit pass.
