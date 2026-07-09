@@ -36,4 +36,76 @@ structure SigmaFlatPSt (F : Type) where
   idx : ℕ
   last : Option (SigmaFlatView F)
 
+section Interactive
+
+variable [Fintype F]
+
+/-- One real verified-proof spend. -/
+def sigmaFlatSpend (budget e : ℕ) (st : SigmaFlatPSt F) (m : F) :
+    ProbComp (Option (SigmaFlatView F × SigmaFlatPSt F)) :=
+  if st.idx < budget then do
+    let nfe ← ($ᵗ F)
+    let nf ← ($ᵗ F)
+    let (statement, proof) ← realSignalProof st.key m
+    let v : SigmaFlatView F := ⟨0, e, nfe, m, nf, statement, proof⟩
+    pure (some (v, ⟨st.key, st.idx + 1, some v⟩))
+  else pure none
+
+/-- Concrete proof-bearing UNLINK instance for the interactive Sigma wire. -/
+def sigmaFlatInstance (budget : ℕ) : UnlinkScheme where
+  M := F
+  View := SigmaFlatView F
+  CloseView := List F
+  OpenView := PUnit
+  GenesisInput := PUnit
+  Receipt := PUnit
+  PSt := SigmaFlatPSt F
+  openCh _ := do
+    let key ← ($ᵗ F)
+    pure (⟨key, 0, none⟩, PUnit.unit)
+  spend e st m := sigmaFlatSpend budget e st m
+  lastTicket st := st.last
+  serve st _ := st
+  close _ st := do
+    let U ← freshFList (budget - st.idx)
+    pure (U, st)
+  capableFor q st := decide (st.idx + q ≤ budget)
+
+/-- Witness-free simulator distribution for a solvent interactive session. -/
+def sigmaFreshBatch (e : ℕ) : List F → ProbComp (Option (List (SigmaFlatView F)))
+  | [] => pure (some [])
+  | m :: ms => do
+      let nfe ← ($ᵗ F)
+      let nf ← ($ᵗ F)
+      let (statement, proof) ← simulatedSignalProof m
+      let v : SigmaFlatView F := ⟨0, e, nfe, m, nf, statement, proof⟩
+      Option.map (v :: ·) <$> sigmaFreshBatch e ms
+
+/-- Every solvent real-prover batch equals the witness-free simulator batch. -/
+lemma evalDist_spendBatch_sigmaFlat (budget e : ℕ) :
+    ∀ (ms : List F) (st : SigmaFlatPSt F), st.idx + ms.length ≤ budget →
+      𝒟[spendBatch (sigmaFlatInstance (F := F) budget) e st ms] =
+        𝒟[sigmaFreshBatch e ms] := by
+  intro ms
+  induction ms with
+  | nil => intro st _; rfl
+  | cons m ms ih =>
+      intro st hst
+      have hsolv : st.idx < budget := by
+        have : st.idx + (ms.length + 1) ≤ budget := by simpa using hst
+        omega
+      simp only [spendBatch, sigmaFlatInstance, sigmaFlatSpend, sigmaFreshBatch,
+        if_pos hsolv, bind_assoc, pure_bind]
+      refine evalDist_bind_congr' ($ᵗ F) fun nfe => ?_
+      refine evalDist_bind_congr' ($ᵗ F) fun nf => ?_
+      rw [evalDist_bind, evalDist_realSignalProof_eq_simulated st.key m, ← evalDist_bind]
+      refine evalDist_bind_congr' (simulatedSignalProof m) fun p => ?_
+      rcases p with ⟨statement, proof⟩
+      apply evalDist_map_eq_of_evalDist_eq
+      apply ih
+      show st.idx + 1 + ms.length ≤ budget
+      omega
+
+end Interactive
+
 end Zkpc.Games
