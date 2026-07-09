@@ -29,6 +29,8 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   global nullifier, value, and payload are bound into a Fiat--Shamir statement;
   honest issuance verifies; verified fresh redemption refines to network
   admission; and cross-recipient replay of an admitted nullifier is rejected.
+  Its end-to-end theorem composes verification, executable redemption,
+  executable settlement, reachability, and shared-deposit no-overspend.
 - A concrete finite-field Sigma protocol for knowledge of an RLN line:
   verifier completeness, perfect honest-verifier simulation via an explicit
   randomness/response equivalence, and two-transcript special-soundness
@@ -70,10 +72,11 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
    mechanism), an unforgeability reduction for ticket creation, and a
    recipient-view network unlinkability game/reduction across presentations.
 
-5. **End-to-end composition theorem.** State and prove one theorem connecting
-   concrete proof verification, executable admission, reconciliation/slashing,
-   close/settlement, and the T1--T7 guarantees for a complete trace. Current
-   theorems cover the layers separately.
+5. **Full channel/fleet composition theorem.** The portable credential path now
+   has an end-to-end verification→redemption→settlement→no-overspend theorem.
+   What remains is the larger channel theorem connecting proof verification,
+   flat/refund admission, reconciliation/slashing, close settlement, and all
+   T1--T7 guarantees over one complete trace.
 
 6. **Final validation and documentation.** After the items above, run a cold
    dependency fetch and clean full build, the forbidden-placeholder audit,
