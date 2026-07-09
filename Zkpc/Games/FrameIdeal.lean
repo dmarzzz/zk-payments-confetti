@@ -227,6 +227,94 @@ def idealFrameImpl (mclose : M) :
       let (v, c) ← lazyRO s.roId kq
       pure (v, { s with roId := c })
 
+/-- Masking the sole hidden slope entry in an empty `H_a` cache yields the
+empty public cache. -/
+@[simp] theorem mask_initial_roA (k a : F) :
+    (fun q : F × ℕ => if q.1 = k then none
+      else Function.update (fun _ : F × ℕ => none) (k, 0) (some a) q) =
+      (fun _ => none) := by
+  funext q
+  by_cases hq : q.1 = k
+  · simp [hq]
+  · have hne : q ≠ (k, 0) := by
+      intro h
+      exact hq (congrArg Prod.fst h)
+    simp [hq, Function.update_of_ne hne]
+
+/-- Masking the sole honest-slope entry in an empty `H_nf` cache yields the
+empty public cache. -/
+@[simp] theorem mask_initial_roNf (a nf : F) :
+    (fun q : F => if q = a then none
+      else Function.update (fun _ : F => none) a (some nf) q) =
+      (fun _ => none) := by
+  funext q
+  by_cases hq : q = a
+  · simp [hq]
+  · simp [hq, Function.update_of_ne hq]
+
+/-- The hidden `H_a`/`H_nf` composition after the first signal is exactly an
+indexed ideal-nullifier cache update at `0`. -/
+@[simp] theorem initial_honestNf (k a nf : F) :
+    (fun i => (Function.update (fun _ : F × ℕ => none) (k, 0) (some a) (k, i)).bind
+      (Function.update (fun _ : F => none) a (some nf))) =
+      Function.update (fun _ : ℕ => none) 0 (some nf) := by
+  funext i
+  by_cases hi : i = 0
+  · subst i
+    simp
+  · have hpair : (k, i) ≠ (k, 0) := by
+      intro h
+      exact hi (congrArg Prod.snd h)
+    simp [hi, Function.update_of_ne hpair]
+
+/-- Secret erasure of the concrete empty-cache successor produced by one
+fresh signal. The hidden slope and its public-nullifier cache entry disappear,
+while the composed nullifier is retained at ideal index `0`. -/
+@[simp] theorem idealize_initial_signal_state (k a nf x : F) (m : M) :
+    idealizeFrame k
+      ⟨{ FrameSt.init F M with
+          idx := 1
+          roA := Function.update (FrameSt.init F M).roA (k, 0) (some a)
+          roX := Function.update (FrameSt.init F M).roX m (some x)
+          roNf := Function.update (FrameSt.init F M).roNf a (some nf) },
+        { FrameAudit.init with honestSlopes := [a] }⟩ =
+      { IdealFrameSt.init F M with
+        idx := 1
+        roX := Function.update (IdealFrameSt.init F M).roX m (some x)
+        honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) } := by
+  apply IdealFrameSt.ext
+  · rfl
+  · rfl
+  · funext q
+    by_cases hq : q.1 = k
+    · simp [idealizeFrame, FrameSt.init, hq]
+      simp [IdealFrameSt.init]
+    · have hne : q ≠ (k, 0) := by
+        intro h
+        exact hq (congrArg Prod.fst h)
+      simp [idealizeFrame, FrameSt.init, hq, Function.update_of_ne hne,
+        IdealFrameSt.init]
+  · rfl
+  · funext q
+    by_cases hq : q = a
+    · subst q
+      simp [idealizeFrame, FrameSt.init, IdealFrameSt.init]
+    · simp [idealizeFrame, FrameSt.init, IdealFrameSt.init, hq,
+        Function.update_of_ne hq]
+  · funext q
+    simp [idealizeFrame, FrameSt.init, IdealFrameSt.init]
+  · funext q
+    simp [idealizeFrame, FrameSt.init, IdealFrameSt.init]
+  · funext i
+    by_cases hi : i = 0
+    · subst i
+      simp [idealizeFrame, FrameSt.init, IdealFrameSt.init]
+    · have hpair : (k, i) ≠ (k, 0) := by
+        intro h
+        exact hi (congrArg Prod.snd h)
+      simp [idealizeFrame, FrameSt.init, IdealFrameSt.init, hi,
+        Function.update_of_ne hpair]
+
 /-- **First cache-bearing signal coupling.** From empty caches, a complete
 real `spend` step followed by secret erasure has exactly the same distribution
 as the ideal handler step, including the returned option, message-digest
@@ -238,11 +326,40 @@ theorem initial_spend_step_evalDist_eq [Finite F]
           (AuditedFrameSt.init F M)] =
       𝒟[((idealFrameImpl mclose) (.spend m)).run
           (IdealFrameSt.init F M)] := by
-  unfold auditedFrameImpl idealFrameImpl frameImpl AuditedFrameSt.init
-    IdealFrameSt.init FrameSt.init FrameAudit.init emitSignal emitIdealSignal
-    lazyRO lazyROX
-  simp only [StateT.run_mk, Bool.false_eq_true, ↓reduceIte, bind_assoc,
-    pure_bind, Functor.map]
+  let realStep : ProbComp (Option (Signal F) × IdealFrameSt F M) := do
+    let raw ← ($ᵗ F)
+    let a ← ($ᵗ F)
+    let nf ← ($ᵗ F)
+    pure (some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩,
+      { IdealFrameSt.init F M with
+        idx := 1
+        roX := Function.update (IdealFrameSt.init F M).roX m
+          (some (nonzeroDigest raw))
+        honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) })
+  let idealStep : ProbComp (Option (Signal F) × IdealFrameSt F M) := do
+    let raw ← ($ᵗ F)
+    let y ← ($ᵗ F)
+    let nf ← ($ᵗ F)
+    pure (some ⟨nonzeroDigest raw, y, nf⟩,
+      { IdealFrameSt.init F M with
+        idx := 1
+        roX := Function.update (IdealFrameSt.init F M).roX m
+          (some (nonzeroDigest raw))
+        honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) })
+  have hreal :
+      Prod.map id (idealizeFrame k) <$>
+          ((auditedFrameImpl k mclose) (.spend m)).run
+            (AuditedFrameSt.init F M) = realStep := by
+    unfold auditedFrameImpl frameImpl AuditedFrameSt.init FrameSt.init FrameAudit.init
+      emitSignal lazyRO lazyROX realStep
+    simp [StateT.run_mk, idealizeFrame, auditAfter, mask_initial_roA,
+      mask_initial_roNf, initial_honestNf, IdealFrameSt.init]
+  have hideal :
+      ((idealFrameImpl mclose) (.spend m)).run (IdealFrameSt.init F M) =
+        idealStep := by
+    unfold idealFrameImpl emitIdealSignal IdealFrameSt.init lazyRO lazyROX idealStep
+    simp [StateT.run_mk, IdealFrameSt.init]
+  rw [hreal, hideal]
   refine evalDist_bind_congr' ($ᵗ F) fun raw => ?_
   let x := nonzeroDigest raw
   have hx : x ≠ 0 := nonzeroDigest_ne_zero raw
@@ -258,7 +375,7 @@ theorem initial_spend_step_evalDist_eq [Finite F]
     𝒟[do
         let a ← ($ᵗ F)
         let nf ← ($ᵗ F)
-        pure (some ⟨x, rlnY k a x, nf⟩,
+        pure (some (⟨x, rlnY k a x, nf⟩ : Signal F),
           { IdealFrameSt.init F M with
             idx := 1
             roX := Function.update (IdealFrameSt.init F M).roX m (some x)
@@ -273,12 +390,11 @@ theorem initial_spend_step_evalDist_eq [Finite F]
     _ = 𝒟[do
         let y ← ($ᵗ F)
         let nf ← ($ᵗ F)
-        pure (some ⟨x, y, nf⟩,
+        pure (some (⟨x, y, nf⟩ : Signal F),
           { IdealFrameSt.init F M with
             idx := 1
             roX := Function.update (IdealFrameSt.init F M).roX m (some x)
             honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) })] := rfl
-
 /-- Secret-independent evidence generator used by the final deferred-sampling
 certificate. The public commitment is sampled first and is not tied to any
 secret in this world; querying its real preimage is precisely an audited bad
@@ -568,4 +684,3 @@ end Zkpc.Games
 #print axioms Zkpc.Games.auditAfter_signal_eq
 #print axioms Zkpc.Games.emitSignal_audit_complete
 #print axioms Zkpc.Games.freshRealSignal_evalDist_eq
-#print axioms Zkpc.Games.initial_spend_step_evalDist_eq
