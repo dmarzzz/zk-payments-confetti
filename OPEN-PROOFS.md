@@ -321,3 +321,62 @@ threshold-signature unforgeability reduction, remain open.
   prover guidance specific to the game layer.
 - `paper/`: the systematization and the theorem-to-file map at paper
   altitude.
+
+## The nullifier-chain channel instantiation (`Zkpc/Chain/`, landed)
+
+A separate, much simpler unidirectional-channel design
+(`research_knowledge/vitalik-nullifier-chain-channel.md`: Alice keeps a
+nullifier chain `N_{i+1} = H(N_i, c)`; each payment reveals the parent's
+committed next-nullifier, proves `parent_balance + δ = new_balance ≤ D` in
+zero knowledge, and commits to a fresh next nullifier; Bob countersigns and
+refuses duplicates; a stale close is challengeable by nullifier collision).
+Formalized as an **additional instantiation** alongside `Zkpc/Refund/`; it
+does not touch the frozen `Spec.md` definitions. All theorems kernel-checked,
+depending only on `propext`/`Classical.choice`/`Quot.sound`.
+
+**Class A — settlement state machine** (`Zkpc/Chain/State.lean`, template
+`Zkpc/Core/T1.lean`): `chain_no_overspend` (Bob's payout and every committed
+balance `≤ D` on every reachable trace), `bob_never_loses` (every terminal
+state pays Bob at least his latest countersigned balance: honest close pays
+it exactly per `honest_close_exact`; challenged stale close and Alice-AWOL
+timeout pay the whole deposit), `conservation` (every settled channel splits
+exactly `D`), `alice_refund_liveness` (if Bob never countersigned, Alice can
+unilaterally drive the channel to a settlement paying her exactly `D`), and
+`no_overpay_recovery` (the `new_balance ≤ D` guard caps every closable
+state). Bob's countersignature is idealized as the transition guard itself
+(an accepted countersigned state IS its witness), matching the repo's
+knowledge-soundness-as-transition-guard convention.
+
+**Collision mechanism** (`Zkpc/Chain/Collision.lean`): the algebra behind
+the challenge rule. `stale_close_detectable` (completeness: closing any
+non-final state — including the genesis-refund-after-payment case, uniformly
+— opens exactly the nullifier the successor message revealed, so an honest
+Bob holds the colliding evidence), `honest_close_unchallengeable`
+(soundness/exculpability: closing the latest state opens a nullifier no
+message ever revealed, so an honest Alice is never slashed),
+`collision_iff_stale` (the challenge predicate is exact — the fact that
+justifies transcribing the evidence rule as the machine's `i < len` guard),
+plus the machine bridges `challenge_enabled_of_stale` /
+`honest_close_never_slashed`. Chain collision-freedom (`Injective nul`) is
+the explicit lazy-RO hypothesis. `Zkpc/Chain/Refinement.lean` adds the
+deterministic guarded executor with both refinement directions, so
+executable traces inherit the safety layer.
+
+**Class B — per-request anonymity** (`Zkpc/Chain/Anonymity.lean`, templates
+`Zkpc/Games/Coupling.lean` + `T4.lean`): `chain_two_payment_anonymity` —
+the two-payment linkage game (hidden bit selects same-chain-consecutive vs
+two-independent-channels; Bob sees the two messages: revealed nullifier,
+hiding commitments to new balance and next nullifier, public δ) has
+advantage exactly `0` for every adversary. Both worlds' views equal one
+canonical fresh view (`evalDist_sameChain` / `evalDist_crossChain`):
+unqueried `H(N_i, c)` slots are fresh-uniform in the lazy ROM and the
+commitments are one-time additive masks (the perfectly hiding reference
+scheme of `Zkpc/Crypto/MaskedEncryption.lean`).
+
+**Deliberately not claimed** (the design doc's own stated boundaries and
+extensions): deposit-amount (`D`) and close-amount privacy, open/close
+footprint hiding, recipient anonymity (Bob is named on chain),
+shielded-pool integration, δ-correlation and timing across payments with
+*distinct* public prices, and real signature/STARK reductions (a deployed
+scheme replaces the ideal guards/commitments and pays its own
+unforgeability/knowledge-soundness/hiding bounds).

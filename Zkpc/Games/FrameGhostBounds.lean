@@ -18,10 +18,10 @@ namespace Zkpc.Games
 variable {F : Type} [Field F] [DecidableEq F] [SampleableType F] [Fintype F]
 variable {M : Type} [DecidableEq M]
 
+omit [Field F] in
 /-- A uniform field element belongs to a fixed list with probability at most
 the list length divided by the field cardinality.  Repetitions only make the
 length bound more conservative. -/
-omit [Field F] in
 theorem probEvent_uniform_mem_list_le (xs : List F) :
     Pr[(fun k : F => k ∈ xs) | ($ᵗ F)]
       ≤ (xs.length : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
