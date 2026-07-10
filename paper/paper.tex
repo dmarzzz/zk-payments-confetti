@@ -920,12 +920,17 @@ M2/O3), and close-view simulatability for both B-static and B-rerand
 (\decl{bIdeal_closeViewSimulatable}, O4). On the refund cryptography
 itself, \file{Zkpc/Crypto/MaskedEncryption.lean} proves exact
 distributional rerandomization and refund-update privacy for the additive
-masked cipher, and \file{Zkpc/Crypto/ReceiptMac.lean} proves a $1/|F|$
-fresh-message forgery bound for the one-time algebraic receipt MAC
-(\decl{mac_forgery_bound}). What remains beyond these
-information-theoretic reference layers is deployment-grade: a concrete
-hash-implementation reduction for the FS layer and multi-query EUF-CMA
-signature/MAC reductions (\S\ref{sec:limits}).
+masked cipher. \file{Zkpc/Crypto/ElGamal.lean} adds the public-key algebra---
+decryption correctness, homomorphic addition, rerandomization, and refund
+update correctness---but deliberately makes no DDH/IND-CPA claim.
+\file{Zkpc/Crypto/ReceiptMac.lean} proves a $1/|F|$ fixed-pair bound and a
+deterministic one-query bound in a reparametrized transcript game, plus an
+$n/|F|$ union bound for independently keyed instances. The latter has no
+shared signing key or cross-link attacker state and is not the Spec-B receipt
+chain's multi-query EUF-CMA theorem. What remains beyond these reference
+layers is deployment-grade: a concrete hash-implementation reduction for the
+FS layer, a DDH/IND-CPA encryption reduction, and a shared-key multi-query
+signature/MAC reduction (\S\ref{sec:limits}).
 
 \paragraph{Executable refinement.} The relational transition systems the
 theorems quantify over are now refined by executable operations:
@@ -1251,9 +1256,9 @@ T7 query-budget composition and scaling & \file{Zkpc/Games/T7.lean}, \file{Zkpc/
 Wire ZK bridges (O1) & \file{Zkpc/Games/FullTicketInstance.lean}, \file{Zkpc/Games/SigmaInstance.lean} & \decl{T4_maskedProof_unlinkability}, \decl{maskedProof_zkBridge}, \decl{T4_sigmaFlat_unlinkability}, \decl{sigmaFlat_zkBridge}, \decl{T4_fsFlat_unlinkability}, \decl{fsFlat_zkBridge}, \decl{fullFlat_zkBridge} \\
 Sigma / Fiat--Shamir cores & \file{Zkpc/Crypto/LinearSigma.lean}, \file{Zkpc/Crypto/FSRom.lean} & \decl{completeness}, \decl{evalDist_real_eq_simulated}, \decl{special_soundness}, \decl{evalDist_fsProveLazy_eq_simulated}, \decl{fsProgramCollisionBound}, \decl{fsForkChallengeCollisionBound} \\
 B-instance obligations (O2--O4) & \file{Zkpc/Games/BInstances.lean} & \decl{bRerand_spendBatch_none_zero}, \decl{bIdeal_openCh_adversary_genesis}, \decl{bIdeal_serve_issuer_receipt}, \decl{bIdeal_serve_capable_mono}, \decl{bIdeal_closeViewSimulatable} \\
-Refund crypto references & \file{Zkpc/Crypto/MaskedEncryption.lean}, \file{Zkpc/Crypto/ReceiptMac.lean} & \decl{evalDist_rerandomize_cipher_uniform}, \decl{evalDist_refundUpdate_cipher_uniform}, \decl{mac_forgery_bound} \\
+Refund crypto references & \file{Zkpc/Crypto/MaskedEncryption.lean}, \file{Zkpc/Crypto/ElGamal.lean}, \file{Zkpc/Crypto/ReceiptMac.lean} & \decl{evalDist_rerandomize_cipher_uniform}, \decl{evalDist_refundUpdate_cipher_uniform}, \decl{decrypt_encrypt}, \decl{add_encrypt}, \decl{rerandomize_encrypt}, \decl{decrypt_refundUpdate}, \decl{mac_forgery_bound}, \decl{adaptive_mac_forgery_bound}, \decl{adaptive_mac_chain_bound} \\
 Refund cascade & \file{Zkpc/Refund/Cascade.lean} & \decl{cascade_upgrades_le_understatement}, \decl{cascade_settled_upgrades_eq}, \decl{cascade_terminal_settled}, \decl{cascade_final_payouts}, \decl{execCascade_progress} \\
-Refund fleet aggregation & \file{Zkpc/Refund/Fleet.lean} & \decl{fleet_no_overspend}, \decl{fleet_conservation}, \decl{fleet_payer_floor} \\
+Refund fleet aggregation & \file{Zkpc/Refund/Fleet.lean}, \file{Zkpc/Refund/AuthenticatedFleet.lean} & \decl{fleet_no_overspend}, \decl{fleet_conservation}, \decl{fleet_payer_floor}, \decl{authenticated_fleet_security} (independent-key reference bound only) \\
 Fleet recovery (MC19) & \file{Zkpc/Fleet/Recovery.lean} & \decl{identityRecovery_conservation}, \decl{identityRecovery_capped}, \decl{identityRecovery_all_full}, \decl{preSlash_claim_eligible}, \decl{postSlash_claim_ineligible}, \decl{fundSlashRecovery_full} \\
 Executable refinement & \file{Zkpc/Core/Refinement.lean}, \file{Zkpc/Refund/Refinement.lean}, \file{Zkpc/Fleet/Refinement.lean} & \decl{sweep_refines_trace}, \decl{refined_steps_reachable}, \decl{exec*_refines_step}, \decl{exec_step_reachable} \\
 Multi-recipient network & \file{Zkpc/Network/State.lean}, \file{Zkpc/Network/Credential.lean}, \file{Zkpc/Network/Issuance.lean} & \decl{no_overspend}, \decl{global_dedup}, \decl{redeem_rejects_global_replay}, \decl{credential_payment_end_to_end}, \decl{evalDist_blindRequest_uniform}, \decl{ticket_fork_extracts}, \decl{recipientView_unlinkable} \\

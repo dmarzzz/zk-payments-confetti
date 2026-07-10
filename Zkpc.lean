@@ -12,6 +12,7 @@ import Zkpc.Core.T3
 import Zkpc.Core.T5
 import Zkpc.Crypto.LinearSigma
 import Zkpc.Crypto.MaskedEncryption
+import Zkpc.Crypto.ElGamal
 import Zkpc.Crypto.ReceiptMac
 import Zkpc.Core.Flat
 import Zkpc.Core.Refinement

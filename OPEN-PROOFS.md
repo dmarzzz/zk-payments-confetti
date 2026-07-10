@@ -103,7 +103,7 @@ release validation described above.
 | RLN algebra | `rln_recover_k`, `rln_single_point_hiding`, `rln_evidence_sound` | `Zkpc/Games/RLN.lean` |
 | Ideal Sigma/FS reference layer | simulation, extraction, and collision-bound endpoints | `Zkpc/Crypto/{LinearSigma,FSRom}.lean` |
 | Conditional T7 scaling | query/field-size negligibility transfers (no PPT classifier) | `Zkpc/Games/FrameAsymptotic.lean` |
-| Masked encryption and receipt MAC reference layer | exact hiding/update and finite-field forgery endpoints | `Zkpc/Crypto/{MaskedEncryption,ReceiptMac}.lean` |
+| Refund crypto reference layer | masked-cipher hiding; ElGamal algebra; fixed-pair, deterministic one-query, and independent-key-list MAC bounds | `Zkpc/Crypto/{MaskedEncryption,ElGamal,ReceiptMac}.lean`, `Zkpc/Refund/AuthenticatedFleet.lean` |
 | Refund and fleet safety | finite-fleet accounting, cascade, and recovery endpoints | `Zkpc/Refund/{Safety,Fleet,Cascade}.lean`, `Zkpc/Fleet/Recovery.lean` |
 | Executable refinement | flat, refund, fleet, and network refinement endpoints | `Zkpc/{Core,Refund,Fleet,Network}/` |
 | Portable network reference layer | accounting, credential, and threshold issuance endpoints | `Zkpc/Network/` |
@@ -136,10 +136,11 @@ finite query-bounded T7 theorem above.
 - **Deployed Fiat--Shamir reduction.** Relate a concrete hash implementation
   and adversarial query interface to the ideal lazy-ROM reference layer,
   including its knowledge-soundness/forking loss.
-- **Production refund cryptography.** Replace the information-theoretic
-  masked-cipher and algebraic one-time MAC references with deployed
-  public-key rerandomizable encryption and multi-query authentication
-  reductions.
+- **Production refund cryptography.** The tree now includes additive ElGamal
+  correctness/rerandomization algebra and narrow affine-MAC one-query bounds,
+  but still needs a DDH/IND-CPA reduction and shared-key, stateful multi-query
+  receipt authentication. The independent-key list bound is not the Spec-B
+  receipt-signature game.
 - **Adaptive multi-session network security.** Lift the local threshold
   issuance and recipient-view results to an adaptive executable network game
   and a production threshold-signature unforgeability reduction.

@@ -2,19 +2,23 @@ import Zkpc.Refund.Fleet
 import Zkpc.Crypto.ReceiptMac
 
 /-!
-# Authenticated refund-fleet composition
+# Independent-key authentication bound plus refund-fleet accounting
 
 The refund state-machine theorems are conditional on admitted receipt links.
-`ReceiptMac` now supplies the missing cryptographic admission boundary: an
-adaptive attacker that sees each authentic tag before choosing a fresh-message
-forgery breaks one independently keyed link with probability at most `1/|F|`,
-and any link in a finite chain with probability at most `n/|F|`.
+`ReceiptMac` supplies a narrow reference bound: a deterministic strategy that
+sees one tag before choosing a fresh-message forgery breaks one independently
+keyed affine-MAC instance with probability at most `1/|F|`; a finite list of
+such independent-key experiments has total failure at most `n/|F|`.
 
 This module packages that cryptographic failure probability with the fleet's
 deterministic no-overspend, conservation, and payer-floor guarantees.  It does
 not pretend that a MAC failure is an ordinary symbolic transition: the result
 states exactly the standard reduction boundary—outside an explicitly bounded
 authentication-failure event, admitted traces enjoy the symbolic guarantees.
+
+This is not the Spec-B shared-key receipt chain: it has no cross-link attacker
+state, uses a fresh one-time key per experiment and one fixed message, and does
+not discharge the production multi-query EUF-CMA assumption.
 -/
 
 open OracleSpec OracleComp
@@ -25,10 +29,10 @@ open scoped BigOperators
 
 variable {I Rep F : Type} [DecidableEq I]
 
-/-- End-to-end refund-fleet guarantees at the authenticated-admission
-boundary.  The first three fields are trace properties; the fourth is the
-probability that adversarial receipt authentication invalidates that trace
-boundary. -/
+/-- Product of refund-fleet accounting guarantees and the independent-key
+reference authentication bound.  The first three fields are trace properties;
+the fourth is a separate probability statement about the narrow forgery
+experiment above. -/
 structure AuthenticatedFleetGuarantees
     [Fintype I] [Field F] [DecidableEq F] [Fintype F] [SampleableType F]
     (Cmax D : ℕ) (s : FleetSt I Rep) (m : F)
@@ -44,9 +48,10 @@ structure AuthenticatedFleetGuarantees
           (forges.map (Crypto.ReceiptMac.adaptiveForgeryGame m))]
       ≤ (forges.length : ENNReal) * (Fintype.card F : ENNReal)⁻¹
 
-/-- **Authenticated refund-fleet theorem.** Reachability and honest terminal
-conditions establish all accounting obligations, while adaptive receipt-chain
-unforgeability supplies the exact additive cryptographic failure budget. -/
+/-- **Refund-fleet plus independent-key authentication theorem.** Reachability
+and honest terminal conditions establish the accounting obligations, while
+the separate deterministic one-query experiments supply an additive reference
+failure budget. -/
 theorem authenticated_fleet_security
     [Fintype I] [Field F] [DecidableEq F] [Fintype F] [SampleableType F]
     {Cmax D : ℕ} {r0 : I → Rep} {s : FleetSt I Rep}

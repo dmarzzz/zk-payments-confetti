@@ -266,12 +266,13 @@ PPT-to-query boundedness.
   `Zkpc/Composition/EndToEnd.lean`;
 - [pending] clean full build from the release audit environment;
 - [pending] exact `#print axioms` output for
-  `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`,
-  `T7_frame_query_bound_unconditional`, and
-  `T7Certificate.ofQueryBounds`;
+  `T7_frame_query_bound_avg`, `frameGoodSliceTransfer_of_tape`,
+  `dsBadMassLe_of_queryBounds`, `frameRealBadMassLe_of_dsCount`,
+  `frameDeferredSamplingAvg_of_goodSlice_and_realBad`,
+  `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`,
+  `T7Certificate.ofAveraged`, and `T7Certificate.ofQueryBounds`;
 - [pending] exact `#print axioms` output for the flat/refund end-to-end
-  wrappers and, if retained in the candidate, both `FrameAsymptotic`
-  theorems;
+  wrappers and both `FrameAsymptotic` theorems;
 - [pending] final forbidden-token greps and diff hygiene checks.
 
 Until those observations are filled from real command output, this section

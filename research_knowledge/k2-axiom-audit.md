@@ -109,7 +109,8 @@ Per-file `#print axioms` line counts (grep `#print axioms`, 2026-07-10):
 ```
 Zkpc/Crypto/FSRom.lean               5
 Zkpc/Crypto/MaskedEncryption.lean    9
-Zkpc/Crypto/ReceiptMac.lean          3
+Zkpc/Crypto/ElGamal.lean             5
+Zkpc/Crypto/ReceiptMac.lean          6
 Zkpc/Games/SigmaInstance.lean        6
 Zkpc/Games/T4Fires.lean              2
 Zkpc/Games/FullTicketInstance.lean   5
@@ -133,6 +134,11 @@ Zkpc/Games/FrameBadMass.lean        21
 Zkpc/Games/FrameFactor.lean         16
 Zkpc/Games/FrameAssembly.lean        3
 Zkpc/Games/FrameTransfer.lean       11
+Zkpc/Games/FrameGoodSliceTapeInduction.lean 7
+Zkpc/Games/FrameComplete.lean        5
+Zkpc/Games/FrameAsymptotic.lean      2
+Zkpc/Composition/EndToEnd.lean       3
+Zkpc/Refund/AuthenticatedFleet.lean  1
 Zkpc/Chain/State.lean                6
 Zkpc/Chain/Collision.lean            5
 Zkpc/Chain/Anonymity.lean            3
@@ -185,14 +191,17 @@ source text alone. Required release evidence is still:
 - [pending] a successful clean build of the exact final candidate containing
   the final T7, composition, and scaling theorems;
 - [pending] captured `#print axioms` output for
-  `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`,
-  `T7_frame_query_bound_unconditional`, and
-  `T7Certificate.ofQueryBounds`;
-- [pending] captured `#print axioms` output for
-  `flat_endToEnd_unconditional`, `refund_endToEnd_unconditional`,
-  `frameWinProb_negligible_of_query_bound`, and
-  `frameWinProb_negligible_of_polynomial_query_bound` if the scaling module
-  is included in the final candidate;
+  `T7_frame_query_bound_avg`, `frameGoodSliceTransfer_of_tape`,
+  `dsBadMassLe_of_queryBounds`, `frameRealBadMassLe_of_dsCount`,
+  `frameDeferredSamplingAvg_of_goodSlice_and_realBad`,
+  `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`,
+  `T7Certificate.ofAveraged`, and `T7Certificate.ofQueryBounds`;
+- [pending] captured `#print axioms` output for both composition wrappers and
+  both `FrameAsymptotic` scaling theorems;
+- [pending] captured output for the newly root-imported refund reference
+  endpoints in `ElGamal.lean`, `ReceiptMac.lean`, and
+  `AuthenticatedFleet.lean`, with their narrow independent-key/no-IND-CPA
+  scope reviewed separately from the Spec-B model guards;
 - [pending] the final audited commit SHA, repository escape-hatch greps, and
   diff hygiene checks.
 
