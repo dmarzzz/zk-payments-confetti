@@ -846,7 +846,7 @@ theorem noPending_initial (k cm : F) :
 
 omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- The empty audit is good: no leakage branch fires on empty lists. -/
-theorem not_frameLeakBad_init (k : F) :
+theorem goodSlice_not_frameLeakBad_init (k : F) :
     ¬ FrameLeakBad k (FrameAudit.init (F := F)) := by
   intro hbad
   rcases hbad with hk | ⟨s, hs1, -⟩ | hdup
@@ -1169,7 +1169,8 @@ theorem auditedFrameImpl_noPending_step (k : F) (mclose : M)
       by_cases hk : kq = k
       · exfalso
         subst hk
-        exact hgoodz (auditAfter_direct_secret_bad kq n r.base _ r.audit)
+        exact hgoodz (auditAfter_direct_secret_bad kq n r.base
+          { r.base with roA := c.2 } r.audit)
       · intro i hi
         change c.2 (k, i) = none
         have hne : (k, i) ≠ (kq, n) := fun h =>
@@ -1264,5 +1265,310 @@ theorem auditedFrameImpl_hiddenSlopeInj_step (k : F) (mclose : M)
         subst hp
         exact hiddenSlopeInj_emitSignal k mclose .close r hc hinj
           (Or.inr rfl) hopen w hw hgoodz
+
+
+/-! ## The pin-free good-slice induction -/
+
+/-- Classifier for the MC20 reveal oracle `nfAt`. -/
+def isNfAtOp : FrameOp F M → Bool
+  | .nfAt _ => true
+  | _ => false
+
+/-- An adversary is `nfAt`-free when it never queries the MC20 reveal
+oracle, certified structurally per delivered commitment. On such runs no
+unconsumed pinned slope ever exists, so the good-slice dominance closes
+pointwise (`goodSlice_run_le_of_nfAtFree`). -/
+def NfAtFree (A : F → OracleComp (frameSpec F M) (Evidence F)) : Prop :=
+  ∀ cm : F, OracleComp.IsQueryBoundP (A cm) (fun t => isNfAtOp t = true) 0
+
+section Induction
+
+variable [Fintype F]
+
+/-- **The assembled good-slice induction, pin-free fragment (Spec.md §7
+T7).** For an adversary computation that never queries `nfAt`, from any
+state satisfying the six threaded invariants, the guarded real win
+expectation is dominated by the ideal win expectation. Each step is one of:
+a killed secret-touching branch (`roA`/`roE`/`roId` at `k`, `roNf` at an
+exposed slope — zero good-slice mass), an exactly-idealized public or closed
+step, or a fresh-slope emission crux; `NoPending` rules out the pinned
+emission, and is itself maintained because `nfAt` — the only pin creator —
+is excluded by the query bound. -/
+theorem goodSlice_run_le_of_nfAtFree (k : F) (mclose : M)
+    (φ : Evidence F → ENNReal) :
+    ∀ (oa : OracleComp (frameSpec F M) (Evidence F)),
+      OracleComp.IsQueryBoundP oa (fun t => isNfAtOp t = true) 0 →
+      ∀ (r : AuditedFrameSt F M),
+        FrameAuditComplete k r → HiddenSlopeInj k r → RoNfCovered r →
+        RoXCacheNonzero r.base.roX → NoPending k r →
+        ¬ FrameLeakBad k r.audit →
+        (∑' z : Evidence F × AuditedFrameSt F M,
+          Pr[= z | (simulateQ (auditedFrameImpl k mclose) oa).run r] *
+            (if FrameLeakBad k z.2.audit then 0 else φ z.1))
+          ≤ ∑' w : Evidence F × IdealFrameSt F M,
+              Pr[= w | (simulateQ (idealFrameImpl mclose) oa).run
+                  (idealizeFrame k r)] * φ w.1 := by
+  intro oa
+  induction oa using OracleComp.inductionOn with
+  | pure ev =>
+      intro _ r _ _ _ _ _ hgood
+      simp only [simulateQ_pure, StateT.run_pure, tsum_probOutput_pure_mul]
+      rw [if_neg hgood]
+  | query_bind t kont ih =>
+      intro hqb r hc hinj hcov hx0 hnp hgood
+      rw [isQueryBoundP_query_bind_iff] at hqb
+      simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind,
+        tsum_probOutput_bind_mul]
+      have hcont : (∀ i, t ≠ FrameOp.nfAt i) →
+          ∀ (p : (frameSpec F M).Range t × AuditedFrameSt F M),
+          p ∈ support (((auditedFrameImpl k mclose) t).run r) →
+          (∑' z : Evidence F × AuditedFrameSt F M,
+            Pr[= z | (simulateQ (auditedFrameImpl k mclose)
+                (kont p.1)).run p.2] *
+              (if FrameLeakBad k z.2.audit then 0 else φ z.1))
+            ≤ (if FrameLeakBad k p.2.audit then 0
+                else ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont p.1)).run (idealizeFrame k p.2)] * φ w.1) := by
+        intro hnfat p hp
+        by_cases hbadp : FrameLeakBad k p.2.audit
+        · rw [if_pos hbadp]
+          exact le_of_eq
+            (goodSlice_run_zero_of_bad k mclose (kont p.1) p.2 hbadp _)
+        · rw [if_neg hbadp]
+          refine ih p.1 (hqb.2 p.1) p.2 ?_ ?_ ?_ ?_ ?_ hbadp
+          · rcases auditedFrameImpl_badOrComplete_step k mclose t r
+              (Or.inr hc) p hp with h | h
+            · exact absurd h hbadp
+            · exact h
+          · exact auditedFrameImpl_hiddenSlopeInj_step k mclose t r hc hinj
+              p hp hbadp
+          · exact auditedFrameImpl_roNfCovered_step k mclose t r hc hcov p hp
+          · exact auditedFrameImpl_roXNonzero_step k mclose t r hx0 p hp
+          · exact auditedFrameImpl_noPending_step k mclose t hnfat r hnp
+              p hp hbadp
+      cases t with
+      | nfAt i =>
+          exfalso
+          rcases hqb.1 with hnot | hlt
+          · exact hnot rfl
+          · exact absurd hlt (lt_irrefl 0)
+      | roX m =>
+          refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+            (goodSlice_step_le_of_idealize_eq k mclose r
+              (idealize_roX_step k mclose m r)
+              (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                Pr[= w | (simulateQ (idealFrameImpl mclose)
+                    (kont q.1)).run q.2] * φ w.1))
+          by_cases hp : p ∈ support
+            (((auditedFrameImpl k mclose) (FrameOp.roX m)).run r)
+          · exact mul_le_mul_right
+              (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+          · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+            simp
+      | roA kq n =>
+          by_cases hk : kq = k
+          · subst hk
+            refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (le_trans (le_of_eq (tsum_goodGuard_zero_of_support_bad k
+                (((auditedFrameImpl k mclose) (FrameOp.roA k n)).run r)
+                (fun z hz =>
+                  auditedFrameImpl_support_bad_roA k mclose n r z hz)
+                (fun p => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont p.1)).run (idealizeFrame k p.2)] * φ w.1)))
+                zero_le')
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roA k n)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+          · refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_of_idealize_eq k mclose r
+                (idealize_roA_step k mclose kq n r hk)
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roA kq n)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+      | roE kq e =>
+          by_cases hk : kq = k
+          · subst hk
+            refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (le_trans (le_of_eq (tsum_goodGuard_zero_of_support_bad k
+                (((auditedFrameImpl k mclose) (FrameOp.roE k e)).run r)
+                (fun z hz =>
+                  auditedFrameImpl_support_bad_roE k mclose e r z hz)
+                (fun p => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont p.1)).run (idealizeFrame k p.2)] * φ w.1)))
+                zero_le')
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roE k e)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+          · refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_of_idealize_eq k mclose r
+                (idealize_roE_step k mclose kq e r hk)
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roE kq e)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+      | roId kq =>
+          by_cases hk : kq = k
+          · subst hk
+            refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (le_trans (le_of_eq (tsum_goodGuard_zero_of_support_bad k
+                (((auditedFrameImpl k mclose) (FrameOp.roId k)).run r)
+                (fun z hz =>
+                  auditedFrameImpl_support_bad_roId k mclose r z hz)
+                (fun p => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont p.1)).run (idealizeFrame k p.2)] * φ w.1)))
+                zero_le')
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roId k)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+          · refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_of_idealize_eq k mclose r
+                (idealize_roId_step k mclose kq r hk)
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roId kq)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+      | roNf aq =>
+          by_cases haq : aq ∈ r.audit.honestSlopes
+          · refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (le_trans (le_of_eq (tsum_goodGuard_zero_of_support_bad k
+                (((auditedFrameImpl k mclose) (FrameOp.roNf aq)).run r)
+                (fun z hz =>
+                  auditedFrameImpl_support_bad_roNf k mclose aq r haq z hz)
+                (fun p => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont p.1)).run (idealizeFrame k p.2)] * φ w.1)))
+                zero_le')
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roNf aq)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+          · refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_of_idealize_eq k mclose r
+                (idealize_roNf_step k mclose aq r hc haq)
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.roNf aq)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+      | spend m =>
+          by_cases hcl : r.base.closed
+          · refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_of_idealize_eq k mclose r
+                (idealize_spend_step_closed k mclose m r hcl)
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.spend m)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+          · have hopen : r.base.closed = false := by simpa using hcl
+            refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_spend_fresh k mclose m r hopen
+                (hnp r.base.idx le_rfl) hc hcov hx0 hgood
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) (FrameOp.spend m)).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+      | close =>
+          by_cases hcl : r.base.closed
+          · refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_of_idealize_eq k mclose r
+                (idealize_close_step_closed k mclose r hcl)
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) FrameOp.close).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+          · have hopen : r.base.closed = false := by simpa using hcl
+            refine le_trans (ENNReal.tsum_le_tsum fun p => ?_)
+              (goodSlice_step_le_close_fresh k mclose r hopen
+                (hnp r.base.idx le_rfl) hc hcov hx0 hgood
+                (fun q => ∑' w : Evidence F × IdealFrameSt F M,
+                  Pr[= w | (simulateQ (idealFrameImpl mclose)
+                      (kont q.1)).run q.2] * φ w.1))
+            by_cases hp : p ∈ support
+              (((auditedFrameImpl k mclose) FrameOp.close).run r)
+            · exact mul_le_mul_right
+                (hcont (fun i h => FrameOp.noConfusion h) p hp) _
+            · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+              simp
+
+/-- **Pointwise good-slice dominance for `nfAt`-free adversaries (Spec.md §7
+T7).** The named residual `FramePointwiseGoodSlice` holds unconditionally on
+the fragment that never queries the MC20 reveal oracle: instantiate the
+pin-free induction at the programmed initial state and erase the ghost. -/
+theorem framePointwiseGoodSlice_of_nfAtFree (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (hA : NfAtFree A) (k : F) :
+    FramePointwiseGoodSlice mclose A k := by
+  refine framePointwiseGoodSlice_of_idealDom mclose A k fun cm => ?_
+  have h := goodSlice_run_le_of_nfAtFree k mclose
+    (fun ev => if Slashes k ev then 1 else 0) (A cm) (hA cm)
+    ⟨{ FrameSt.init F M with
+        roId := Function.update (FrameSt.init F M).roId k (some cm) },
+      FrameAudit.init⟩
+    (frameAuditComplete_initial k cm) (hiddenSlopeInj_initial k cm)
+    (roNfCovered_initial k cm) roXCacheNonzero_init (noPending_initial k cm)
+    (not_frameLeakBad_init k)
+  rw [idealizeFrame_initial k cm] at h
+  exact h
+
+/-- **The k-averaged good-slice transfer for `nfAt`-free adversaries**
+(Spec.md §7 T7): the transfer residual of the corrected certificate holds
+outright on the reveal-free fragment. -/
+theorem frameGoodSliceTransfer_of_nfAtFree (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) (hA : NfAtFree A) :
+    FrameGoodSliceTransfer mclose A :=
+  frameGoodSliceTransfer_of_pointwise mclose A fun k =>
+    framePointwiseGoodSlice_of_nfAtFree mclose A hA k
+
+end Induction
 
 end Zkpc.Games
