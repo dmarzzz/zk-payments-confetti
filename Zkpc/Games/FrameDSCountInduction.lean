@@ -22,10 +22,10 @@ reindexing stable at every cache slot other than the consumed hole. -/
 structure DSShadowInvStrong (sigma : DSShadowSt F M) (m : Nat) : Prop
     extends DSShadowInv sigma m where
   hpat_mem : forall i e, sigma.pat i = some e -> e ∈ sigma.shadow
-  hcoord_unique : forall a, a ∈ sigma.shadow -> forall b, b ∈ sigma.shadow ->
-    forall j, a.coord = some j -> b.coord = some j -> a = b
 
 /-- Extensionality helper for concrete deferred-slope states. -/
+omit [Field F] [DecidableEq F] [SampleableType F] [Fintype F]
+    [DecidableEq M] in
 private theorem dsFrameSt_ext {s t : DSFrameSt F M}
     (hideal : s.ideal = t.ideal) (hslope : s.slope = t.slope)
     (haudit : s.audit = t.audit) : s = t := by
@@ -44,7 +44,7 @@ def dsShadowInit (F M : Type) : DSShadowSt F M :=
 /-- The empty symbolic state satisfies the strong invariant at tape length
 zero. -/
 theorem dsShadowInvStrong_init : DSShadowInvStrong (dsShadowInit F M) 0 := by
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_⟩
   · refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · simp [dsShadowInit]
     · simp [dsShadowInit]
@@ -55,7 +55,6 @@ theorem dsShadowInvStrong_init : DSShadowInvStrong (dsShadowInit F M) 0 := by
     · simp [dsShadowInit]
     · simp [dsShadowInit]
     · simp [dsShadowInit]
-  · simp [dsShadowInit]
   · simp [dsShadowInit]
 
 /-- Insert a newly materialized symbolic slope at an unused index and at
@@ -129,7 +128,38 @@ theorem DSShadowInvStrong.coord_ne_of_mem_of_ne_hole
   intro q hq hqj
   subst q
   have hh : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
-  exact hne (h.hcoord_unique e he (.hole j) hh j hq rfl)
+  apply hne
+  clear hne
+  induction sigma.shadow with
+  | nil => simp at he
+  | cons a rest ih =>
+      cases hca : a.coord with
+      | none =>
+          have hnd : (entryCoords rest).Nodup := by
+            simpa [entryCoords, hca] using h.hnd
+          rcases List.mem_cons.1 he with rfl | he
+          · simp [hca] at hq
+          rcases List.mem_cons.1 hh with rfl | hh
+          · simp [hca]
+          exact ih hnd he hh
+      | some l =>
+          have hnd : (l :: entryCoords rest).Nodup := by
+            simpa [entryCoords, hca] using h.hnd
+          rw [List.nodup_cons] at hnd
+          rcases hnd with ⟨hl, hnd⟩
+          rcases List.mem_cons.1 he with rfl | he
+          · rcases List.mem_cons.1 hh with rfl | hh
+            · rfl
+            · exfalso
+              apply hl
+              simp only [entryCoords, List.mem_filterMap]
+              refine ⟨.hole j, hh, rfl⟩
+          · rcases List.mem_cons.1 hh with rfl | hh
+            · exfalso
+              apply hl
+              simp only [entryCoords, List.mem_filterMap]
+              exact ⟨e, he, hq⟩
+            · exact ih hnd he hh
 
 omit [SampleableType F] [Fintype F] in
 /-- Replacing public caches without changing the honest counter preserves
@@ -139,28 +169,31 @@ theorem DSShadowInvStrong.setIdeal_sameIdx {sigma : DSShadowSt F M} {m : Nat}
     (h : DSShadowInvStrong sigma m) (ideal : IdealFrameSt F M)
     (hidx : ideal.idx = sigma.ideal.idx) (hroX : RoXCacheNonzero ideal.roX) :
     DSShadowInvStrong (sigma.setIdeal ideal) m := by
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_⟩
   · refine ⟨h.hx, h.hsep, h.hlt, h.hnd, hroX, h.hpat, h.hpatinj, ?_⟩
     intro i hi e he
     apply h.hfresh i
     · simpa [DSShadowSt.setIdeal, hidx] using hi
     · exact he
   · exact h.hpat_mem
-  · exact h.hcoord_unique
 
 omit [SampleableType F] [Fintype F] in
 /-- Merely recording a direct-secret probe preserves the invariant. -/
 theorem DSShadowInvStrong.addSecretProbe {sigma : DSShadowSt F M} {m : Nat}
     (h : DSShadowInvStrong sigma m) (q : F) :
     DSShadowInvStrong (sigma.addSecretProbe q) m := by
-  simpa [DSShadowSt.addSecretProbe] using h
+  refine ⟨?_, ?_⟩
+  · simpa [DSShadowSt.addSecretProbe] using h.toDSShadowInv
+  · simpa [DSShadowSt.addSecretProbe] using h.hpat_mem
 
 omit [SampleableType F] [Fintype F] in
 /-- Merely recording a slope probe preserves the invariant. -/
 theorem DSShadowInvStrong.addSlopeProbe {sigma : DSShadowSt F M} {m : Nat}
     (h : DSShadowInvStrong sigma m) (q : F) :
     DSShadowInvStrong (sigma.addSlopeProbe q) m := by
-  simpa [DSShadowSt.addSlopeProbe] using h
+  refine ⟨?_, ?_⟩
+  · simpa [DSShadowSt.addSlopeProbe] using h.toDSShadowInv
+  · simpa [DSShadowSt.addSlopeProbe] using h.hpat_mem
 
 omit [SampleableType F] [Fintype F] in
 /-- Seeding after appending the draw of a fresh pending hole is exactly the
