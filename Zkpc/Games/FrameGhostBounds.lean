@@ -36,10 +36,10 @@ theorem probEvent_uniform_mem_list_le (xs : List F) :
   simp only [div_eq_mul_inv]
   gcongr
 
+omit [Field F] in
 /-- Postponing the uniform secret until after an arbitrary transcript
 computation preserves the fixed-list membership bound, provided every
 supported transcript carries at most `q` candidates. -/
-omit [Field F] in
 theorem probEvent_deferred_uniform_mem_list_le {α : Type}
     (gen : ProbComp α) (probes : α → List F) (q : ℕ)
     (hbound : ∀ z ∈ support gen, (probes z).length ≤ q) :
