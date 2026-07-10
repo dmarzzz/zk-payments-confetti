@@ -57,6 +57,49 @@ section RealBadRoute
 
 variable [Fintype F]
 
+/-- Two predicate-targeted query bounds combine into a bound for their union.
+The predicates may overlap; an overlapping query spends both source budgets,
+which is conservatively dominated by spending one unit from their sum. -/
+theorem isQueryBoundP_or {ι α : Type} {spec : OracleSpec ι}
+    (oa : OracleComp spec α) (p q : ι → Prop)
+    [DecidablePred p] [DecidablePred q] (n m : ℕ)
+    (hp : OracleComp.IsQueryBoundP oa p n)
+    (hq : OracleComp.IsQueryBoundP oa q m) :
+    OracleComp.IsQueryBoundP oa (fun t => p t ∨ q t) (n + m) := by
+  induction oa using OracleComp.inductionOn generalizing n m with
+  | pure x => trivial
+  | query_bind t k ih =>
+      rw [isQueryBoundP_query_bind_iff] at hp hq ⊢
+      constructor
+      · by_cases h : p t ∨ q t
+        · right
+          rcases h with h | h
+          · rcases hp.1 with hnp | hn
+            · exact (hnp h).elim
+            · omega
+          · rcases hq.1 with hnq | hm
+            · exact (hnq h).elim
+            · omega
+        · exact Or.inl h
+      · intro u
+        have hrest := ih u _ _ (hp.2 u) (hq.2 u)
+        refine hrest.mono ?_
+        have hpPos : p t → 0 < n := fun h => hp.1.resolve_left (not_not_intro h)
+        have hqPos : q t → 0 < m := fun h => hq.1.resolve_left (not_not_intro h)
+        by_cases hpt : p t
+        · have hn := hpPos hpt
+          by_cases hqt : q t
+          · have hm := hqPos hqt
+            simp [hpt, hqt]
+            omega
+          · simp [hpt, hqt]
+            omega
+        · by_cases hqt : q t
+          · have hm := hqPos hqt
+            simp [hpt, hqt]
+            omega
+          · simp [hpt, hqt]
+
 /-- **Direct real-side bad-mass obligation (named residual).** Over the
 audited joint FRAME experiment — honest secret first, exactly as the real
 game draws it — the audited leakage event has probability at most
