@@ -154,8 +154,9 @@ The precise T7 claim is finite and query-bounded: for every `A` with
 asymptotic PPT theorem, or a deployed-cryptography claim; it is the
 mechanized finite counterpart to, not a proof of, `Spec.md`'s literal
 PPT/negligibility clause. The Lean source and final endpoint axioms are
-validated at `abb878f`; “final artifact verified” remains reserved for the
-later documentation/PDF head after regeneration and page-by-page visual QA.
+validated at `abb878f`; the synchronized 12-page PDF was regenerated and
+verified page by page. The exact release SHA is recorded externally after
+the release commit exists.
 
 `Zkpc/Games/FrameAsymptotic.lean` provides only a conditional scaling lift:
 its first theorem transfers an explicit negligibility hypothesis for the

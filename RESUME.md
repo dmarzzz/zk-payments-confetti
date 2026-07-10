@@ -28,9 +28,10 @@ For the source checkpoint, a fresh checkout restored 8,283 cached files and
 completed all 3,595 root build jobs on Lean 4.30.0. The exact T7,
 composition, scaling, and refund-reference axiom capture used only Lean's
 standard axioms; the source scans and diff hygiene checks were clean. This is
-evidence for `abb878f`, not for the later documentation/PDF head. The latter
-will be recorded in the PR and issues after the PDF is rebuilt and visually
-checked. The repository is already public; invitations, posting, and other
+evidence for `abb878f`, not a self-referential SHA for the later release
+commit. The rebuilt 12-page PDF passed page-by-page visual QA; the exact
+release SHA is recorded in the PR and issues after the commit exists. The
+repository is already public; invitations, posting, and other
 outbound delivery remain operator-gated (`DELIVERY.md`, K6).
 
 The eleven B1 rounds, five B3 rounds, K1, and K4 recorded in

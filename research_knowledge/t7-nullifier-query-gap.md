@@ -111,11 +111,17 @@ The pointwise socket is still false: `frameDeferredSampling_refuted` is
 retained, and no claim here supersedes that refutation. Averaging is the
 semantic repair, not a proof convenience.
 
-The displayed result is concrete finite-field/query accounting. No theorem
-in this chain quantifies over a security parameter, derives asymptotic
-negligibility for PPT machines, or instantiates the ideal random oracles with
-a deployed hash.
+The displayed result is concrete finite-field/query accounting. The finite
+chain itself does not classify PPT machines or instantiate the ideal random
+oracles with a deployed hash. `FrameAsymptotic.lean` separately supplies two
+security-parameter-indexed conditional lifts—one assumes negligibility of
+the explicit query/field-size ratio, and its corollary assumes a polynomial
+numerator bound plus negligible inverse field size—but neither derives those
+premises from a PPT/runtime model.
 
-**Evidence status:** final kernel/build/axiom evidence is pending the release
-audit. This reconciliation records the final statement and dependency
-shape, not an unobserved successful command or SHA.
+**Post-reconciliation evidence status (2026-07-10):** the release audit is
+complete at source checkpoint `abb878f`: a fresh Lean 4.30.0 root build
+completed 3,595 jobs, the final T7/composition/scaling axiom capture used
+only Lean's standard axioms, and the source scans were clean. This later
+evidence supersedes the pending-status snapshot above without changing the
+recorded statement boundary.
