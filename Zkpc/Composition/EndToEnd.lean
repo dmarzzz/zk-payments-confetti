@@ -5,6 +5,9 @@ import Zkpc.Refund.Safety
 import Zkpc.Games.T7
 import Zkpc.Games.FrameDeferred
 import Zkpc.Games.Calibration
+import Zkpc.Games.FrameRealBadStep
+import Zkpc.Games.FrameDSCountInduction
+import Zkpc.Games.FrameGoodSliceTapeInduction
 
 /-!
 # Synchronized end-to-end composition
@@ -1134,6 +1137,16 @@ theorem T7Certificate.ofAveraged (mclose : GameMessage)
     (certificate : Games.FrameDeferredSamplingAvg mclose A qb) :
     T7Certificate mclose A qb :=
   ⟨Games.T7_frame_query_bound_avg mclose A qb certificate⟩
+
+/-- The fully discharged route-B proof constructs the scheme-level T7
+certificate directly from the adversary's five query bounds. -/
+theorem T7Certificate.ofQueryBounds (mclose : GameMessage)
+    (A : F → OracleComp (Games.frameSpec F GameMessage) (Games.Evidence F))
+    (qb : Games.FrameQueryBounds A) :
+    T7Certificate mclose A qb :=
+  ⟨Games.T7_frame_query_bound_of_goodSlice_and_dsCount mclose A qb
+    (Games.frameGoodSliceTransfer_of_tape mclose A)
+    (Games.dsBadMassLe_of_queryBounds mclose A qb)⟩
 
 /-- Unified end-to-end guarantee record.  `Operational` is instantiated by
 one of the trace-derived records above; T4 and T7 remain scheme-level game
