@@ -257,6 +257,24 @@ consumption-time slope makes `y = k + a·x` fresh-uniform by the
 `mulRight` bijection, eliminating the eager-read obstruction), after
 which both the good-slice and the real-bad-mass claims transport to the
 landed ghost-side theorems.
+Refined plan after design validation (2026-07-10, second pass): the
+deferred-slope handler is precisely *the ghost handler with the honest
+line value computed as `y = k + a·x` from a consumption-time slope draw*
+(everything else, including `roId`/`roA`/`roE` handling, copies the ghost
+handler; divergences from the real handler occur only on `roNf` probes at
+a deferred slope and on consumption-time slope collisions, both contained
+in `FrameLeakBad`). Never-spent `nfAt` slopes are drawn as a post-run
+tape, exactly as in `FrameBadMass`'s `materializeSlopeTape`. Stage 2 for
+`FrameRealBadMassLe` is then a per-transcript union bound mirroring the
+landed tape kernels plus one new k-root family: for consumed indices the
+slope is the deterministic root `(y_i − k)/x_i`, so each `H_nf` probe and
+each index pair pins the deferred uniform `k` to one point — giving
+`(qA+qE+qId) + qNf·qSig + qSig²` total roots, i.e. `qb.total/|F|`,
+first-order. Stage 1 (real ≡ deferred up to `FrameLeakBad`, exact on the
+good slice) is the remaining custom induction; its divergence events are
+enumerated above and each is chargeable. The same stage 1 + the
+`mulRight` bijection give `FrameGoodSliceTransfer`, so the two open Props
+share all substrate except the final counting step.
 
 ### 2. The ZK bridge, O1 (Class D, high value)
 
