@@ -352,9 +352,24 @@ theorem dsFrameImpl_bad_monotone (k : F) (mclose : M) (op : FrameOp F M)
       subst hz
       exact FrameLeakBad.secret_cons k kq g.audit hbad
 
+/-- Once leakage has been recorded, an arbitrary adaptive continuation of the
+deferred-slope handler remains in the bad set.  This is the handler-specific
+absorbing premise consumed by `relTriple_simulateQ_run_untilAbsorbing`. -/
+theorem dsFrameImpl_run_bad_monotone (k : F) (mclose : M)
+    {α : Type} (oa : OracleComp (frameSpec F M) α)
+    (g : DSFrameSt F M) (hbad : FrameLeakBad k g.audit)
+    (z : α × DSFrameSt F M)
+    (hz : z ∈ support ((simulateQ (dsFrameImpl k mclose) oa).run g)) :
+    FrameLeakBad k z.2.audit :=
+  simulateQ_run_preserves_inv_of_query (dsFrameImpl k mclose)
+    (fun st => FrameLeakBad k st.audit)
+    (fun op st h st' hs => dsFrameImpl_bad_monotone k mclose op st h st' hs)
+    oa g hbad z hz
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Games.relTriple_simulateQ_run_untilAbsorbing
 #print axioms Zkpc.Games.probEvent_le_of_untilAbsorbing
 #print axioms Zkpc.Games.dsFrameImpl_bad_monotone
+#print axioms Zkpc.Games.dsFrameImpl_run_bad_monotone
