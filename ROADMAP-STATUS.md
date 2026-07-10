@@ -165,7 +165,13 @@ open.
    `frame_real_le_ghost_plus_bad` inequality. Its only hypotheses are the
    explicitly named `FrameGoodSliceTransfer` and `FrameBadMassTransfer`, so
    completing the fresh-slope induction plugs directly into the averaged T7
-   endpoint without further game rearrangement.
+   endpoint without further game rearrangement. The run induction now also
+   has its two threadable real-side invariants: every supported step and full
+   adaptive run preserves `FrameLeakBad ∨ FrameAuditComplete`, and every
+   populated `roX` cache entry remains nonzero. The former handles a
+   direct-secret query that becomes bad while materializing an otherwise
+   unaudited slope; the latter justifies the line-value bijection on cache
+   hits as well as fresh digests.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
