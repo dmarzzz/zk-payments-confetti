@@ -789,12 +789,17 @@ B-static and B-rerand (`bIdeal_closeViewSimulatable`, O4). On the refund
 cryptography itself, `Zkpc/Crypto/MaskedEncryption.lean` proves exact
 distributional rerandomization and refund-update privacy for the additive
 masked cipher (`evalDist_rerandomize_cipher_uniform`,
-`evalDist_refundUpdate_cipher_uniform`), and `Zkpc/Crypto/ReceiptMac.lean`
-proves a $1/|F|$ fresh-message forgery bound for the one-time algebraic
-receipt MAC (`mac_forgery_bound`). What remains beyond these
-information-theoretic reference layers is deployment-grade: a concrete
-hash-implementation reduction for the FS layer and multi-query EUF-CMA
-signature/MAC reductions (§6).
+`evalDist_refundUpdate_cipher_uniform`). `Zkpc/Crypto/ElGamal.lean` adds the
+public-key algebra—decryption correctness, homomorphic addition,
+rerandomization, and refund-update correctness—but deliberately makes no
+DDH/IND-CPA claim. `Zkpc/Crypto/ReceiptMac.lean` proves a $1/|F|$ fixed-pair
+bound and a deterministic one-query bound in a reparametrized transcript
+game, plus an $n/|F|$ union bound for independently keyed instances. The
+latter has no shared signing key or cross-link attacker state and is not the
+Spec-B receipt chain's multi-query EUF-CMA theorem. What remains beyond these
+reference layers is deployment-grade: a concrete hash-implementation
+reduction for the FS layer, a DDH/IND-CPA encryption reduction, and a
+shared-key multi-query signature/MAC reduction (§6).
 
 **Executable refinement.** The relational transition systems the theorems
 quantify over are now refined by executable operations:
@@ -1092,9 +1097,9 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | Wire ZK bridges (O1) | `Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Games/SigmaInstance.lean` | `T4_maskedProof_unlinkability`, `maskedProof_zkBridge`, `T4_sigmaFlat_unlinkability`, `sigmaFlat_zkBridge`, `T4_fsFlat_unlinkability`, `fsFlat_zkBridge`, `fullFlat_zkBridge` |
 | Sigma / Fiat–Shamir cores | `Zkpc/Crypto/LinearSigma.lean`, `Zkpc/Crypto/FSRom.lean` | `completeness`, `evalDist_real_eq_simulated`, `special_soundness`, `evalDist_fsProveLazy_eq_simulated`, `fsProgramCollisionBound`, `fsForkChallengeCollisionBound` |
 | B-instance obligations (O2–O4) | `Zkpc/Games/BInstances.lean` | `bRerand_spendBatch_none_zero`, `bIdeal_openCh_adversary_genesis`, `bIdeal_serve_issuer_receipt`, `bIdeal_serve_capable_mono`, `bIdeal_closeViewSimulatable` |
-| Refund crypto references | `Zkpc/Crypto/MaskedEncryption.lean`, `Zkpc/Crypto/ReceiptMac.lean` | `evalDist_rerandomize_cipher_uniform`, `evalDist_refundUpdate_cipher_uniform`, `mac_forgery_bound` |
+| Refund crypto references | `Zkpc/Crypto/{MaskedEncryption,ElGamal,ReceiptMac}.lean` | `evalDist_rerandomize_cipher_uniform`, `evalDist_refundUpdate_cipher_uniform`, `decrypt_encrypt`, `add_encrypt`, `rerandomize_encrypt`, `decrypt_refundUpdate`, `mac_forgery_bound`, `adaptive_mac_forgery_bound`, `adaptive_mac_chain_bound` |
 | Refund cascade | `Zkpc/Refund/Cascade.lean` | `cascade_upgrades_le_understatement`, `cascade_settled_upgrades_eq`, `cascade_terminal_settled`, `cascade_final_payouts`, `execCascade_progress` |
-| Refund fleet aggregation | `Zkpc/Refund/Fleet.lean` | `fleet_no_overspend`, `fleet_conservation`, `fleet_payer_floor` |
+| Refund fleet aggregation | `Zkpc/Refund/{Fleet,AuthenticatedFleet}.lean` | `fleet_no_overspend`, `fleet_conservation`, `fleet_payer_floor`, `authenticated_fleet_security` (independent-key reference bound only) |
 | Fleet recovery (MC19) | `Zkpc/Fleet/Recovery.lean` | `identityRecovery_conservation`, `identityRecovery_capped`, `identityRecovery_all_full`, `preSlash_claim_eligible`, `postSlash_claim_ineligible`, `fundSlashRecovery_full` |
 | Executable refinement | `Zkpc/Core/Refinement.lean`, `Zkpc/Refund/Refinement.lean`, `Zkpc/Fleet/Refinement.lean` | `sweep_refines_trace`, `refined_steps_reachable`, `exec*_refines_step`, `exec_step_reachable` |
 | Multi-recipient network | `Zkpc/Network/State.lean`, `Zkpc/Network/Credential.lean`, `Zkpc/Network/Issuance.lean` | `no_overspend`, `global_dedup`, `redeem_rejects_global_replay`, `credential_payment_end_to_end`, `evalDist_blindRequest_uniform`, `ticket_fork_extracts`, `recipientView_unlinkable` |

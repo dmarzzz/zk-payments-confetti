@@ -22,12 +22,18 @@ pairwise-independent one-time MAC `tag(m) = a·m + b` under payer-issuer key
   slope in the reparametrized view. The forgery pair is a parameter of the
   statement, not adversary output.
 
-* `adaptiveForgeryGame` / `adaptive_mac_forgery_bound` — the actual adaptive
-  one-query EUF game: after seeing the authentic tag, the adversary chooses
-  its fresh-message forgery, and the proof conditions on the observed tag.
+* `adaptiveForgeryGame` / `adaptive_mac_forgery_bound` — a deterministic,
+  fixed-message, one-query game in the reparametrized transcript view: after
+  seeing the authentic tag, the strategy chooses a fresh-message forgery.
 
 * `runForgeryChain_bound` / `adaptive_mac_chain_bound` — composition of
-  independently keyed receipt links, with total failure at most `n/|F|`.
+  independently keyed instances with no cross-link adversarial state, with
+  total failure at most `n/|F|`.
+
+These results are deliberately not a shared-key, multi-query EUF-CMA theorem
+for the Spec-B receipt chain.  Reusing this affine key for two distinct
+messages reveals it; a deployed receipt signature still needs its own
+computational reduction.
 -/
 
 open OracleSpec OracleComp
@@ -120,20 +126,19 @@ theorem mac_forgery_bound (m t m' t' : F) (hne : m' ≠ m) :
         simp
     _ = (Fintype.card F : ENNReal)⁻¹ := by rw [probOutput_uniformSample]
 
-/-- Adaptive one-query EUF game in the reparametrized transcript view.
-The adversary observes the authentic tag `t`, then chooses both the forged
-message and tag.  The hidden slope is sampled only after that choice has been
-fixed; this is distributionally equivalent to sampling the original uniform
-key before revealing its tag by `evalDist_keyTag_eq`. -/
+/-- Deterministic fixed-message one-query game in the reparametrized transcript
+view.  The strategy observes the authentic tag `t`, then chooses both the
+forged message and tag.  The hidden slope is sampled only after that choice;
+`evalDist_keyTag_eq` is the underlying key/tag reparametrization lemma. -/
 def adaptiveForgeryGame (m : F) (forge : F → F × F) : ProbComp Bool := do
   let t ← ($ᵗ F)
   let a ← ($ᵗ F)
   let out := forge t
   pure (decide (verify a (t - a * m) out.1 out.2))
 
-/-- **Adaptive one-query unforgeability.** Even when the forgery is an
-arbitrary function of the observed authentic tag, every fresh-message
-forgery succeeds with probability at most `1/|F|`. -/
+/-- **Reparametrized one-query bound.** For any deterministic forgery function
+of the observed tag whose message is always fresh, success is at most
+`1/|F|`.  This is not a shared-key multi-query EUF-CMA statement. -/
 theorem adaptive_mac_forgery_bound (m : F) (forge : F → F × F)
     (fresh : ∀ t, (forge t).1 ≠ m) :
     Pr[= true | adaptiveForgeryGame m forge]
@@ -197,8 +202,10 @@ theorem runForgeryChain_bound (games : List (ProbComp Bool)) (ε : ENNReal)
       ring_nf
       exact le_rfl
 
-/-- A chain of adaptive one-query receipt forgeries has total failure
-probability at most `n/|F|`. -/
+/-- A finite list of independently keyed, deterministic one-query experiments
+has total failure probability at most `n/|F|`.  Every experiment uses the
+same externally fixed message and receives only its own tag; no cross-link
+attacker state or shared signing key is modeled. -/
 theorem adaptive_mac_chain_bound (m : F) (forges : List (F → F × F))
     (fresh : ∀ forge ∈ forges, ∀ t, (forge t).1 ≠ m) :
     Pr[= true |

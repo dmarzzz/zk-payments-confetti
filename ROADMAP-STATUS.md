@@ -88,7 +88,8 @@ The branch contains source for the following components:
 - the corrected secret-averaged, query-bounded T7 theorem above;
 - refund safety, finite-fleet aggregation, upgrade cascades, and recovery;
 - executable refinement for flat, refund, fleet, and network operations;
-- masked-encryption and receipt-MAC reference constructions;
+- masked-encryption privacy, ElGamal algebra, and narrow independent-key
+  receipt-MAC reference bounds;
 - portable network accounting, credential admission, and finite threshold
   issuance reference constructions;
 - synchronized flat/refund/network composition; and
