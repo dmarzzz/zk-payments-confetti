@@ -177,6 +177,20 @@ theorem auditedFrameImpl_run_audit_bounds (k : F) (mclose : M)
     · simpa [s0, FrameAudit.init] using hslope
     · simpa [s0, FrameAudit.init] using hhonest
 
+/-- The same structural audit bounds after the public commitment is sampled
+inside the complete real run. -/
+theorem auditedFrameRun_audit_bounds (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (z : Evidence F × AuditedFrameSt F M)
+    (hz : z ∈ support (auditedFrameRun mclose A k)) :
+    z.2.audit.secretProbes.length ≤ qb.qA + qb.qE + qb.qId ∧
+    z.2.audit.slopeProbes.length ≤ qb.qNf ∧
+    z.2.audit.honestSlopes.length ≤ qb.qSig := by
+  unfold auditedFrameRun at hz
+  obtain ⟨cm, -, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  exact auditedFrameImpl_run_audit_bounds k mclose A qb cm z hz
+
 /-- **Direct real-side bad-mass obligation (named residual).** Over the
 audited joint FRAME experiment — honest secret first, exactly as the real
 game draws it — the audited leakage event has probability at most
@@ -289,3 +303,4 @@ end Zkpc.Games
 #print axioms Zkpc.Games.isQueryBoundP_or
 #print axioms Zkpc.Games.frameQueryBounds_secret_bound
 #print axioms Zkpc.Games.auditedFrameImpl_run_audit_bounds
+#print axioms Zkpc.Games.auditedFrameRun_audit_bounds
