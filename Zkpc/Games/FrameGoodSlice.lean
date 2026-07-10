@@ -816,4 +816,453 @@ theorem goodSlice_step_le_close_fresh (k : F) (mclose : M)
 
 end FreshSlopeCrux
 
+/-! ## Invariant preservation for the good-slice induction
+
+The induction threads six facts through every good step: audit completeness,
+hidden-slope injectivity, nullifier coverage, digest nonzeroness, absence of
+unconsumed pins, and goodness itself. Completeness (`badOrComplete`),
+injectivity (per-op lemmas of `FrameCoupling`), and nonzeroness are landed;
+this section adds coverage and pin-freeness, plus the injectivity
+dispatcher. -/
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- **No unconsumed pinned slopes.** Every hidden `H_a` entry at or beyond
+the honest counter is unmaterialized: the eager-read obstruction cannot
+arise, because every materialized hidden slope has already been consumed by
+the emission that created it. Maintained by every FRAME operation except the
+MC20 reveal `nfAt` (which is exactly the pin-creating operation). -/
+def NoPending (k : F) (r : AuditedFrameSt F M) : Prop :=
+  ∀ i, r.base.idx ≤ i → r.base.roA (k, i) = none
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- The programmed initial FRAME state has no pinned slopes at all. -/
+theorem noPending_initial (k cm : F) :
+    NoPending k
+      (⟨{ FrameSt.init F M with
+          roId := Function.update (FrameSt.init F M).roId k (some cm) },
+        FrameAudit.init⟩ : AuditedFrameSt F M) := by
+  intro i _
+  rfl
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- The empty audit is good: no leakage branch fires on empty lists. -/
+theorem not_frameLeakBad_init (k : F) :
+    ¬ FrameLeakBad k (FrameAudit.init (F := F)) := by
+  intro hbad
+  rcases hbad with hk | ⟨s, hs1, -⟩ | hdup
+  · simp [FrameAudit.init] at hk
+  · simp [FrameAudit.init] at hs1
+  · exact hdup (by simp [FrameAudit.init])
+
+/-- **Coverage preservation.** Every supported audited step preserves the
+`H_nf` coverage invariant on audit-complete states: adversarial probes are
+recorded before they populate, and honest signal or reveal steps populate
+only at slopes that the audit records (fresh) or already recorded
+(materialized, via completeness). -/
+theorem auditedFrameImpl_roNfCovered_step (k : F) (mclose : M)
+    (op : FrameOp F M) (r : AuditedFrameSt F M)
+    (hc : FrameAuditComplete k r) (hcov : RoNfCovered r)
+    (z : (frameSpec F M).Range op × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) op).run r)) :
+    RoNfCovered z.2 := by
+  unfold auditedFrameImpl at hz
+  simp only [StateT.run_mk] at hz
+  obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst hz
+  cases op with
+  | spend m =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : r.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        intro q v hqv
+        have haud : auditAfter k (.spend m) r.base r.base r.audit = r.audit := by
+          simp [auditAfter, hcl]
+        rw [haud]
+        exact hcov q v hqv
+      · rw [if_neg hcl] at hp
+        have hopen : r.base.closed = false := by simpa using hcl
+        obtain ⟨w, hw, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        unfold emitSignal at hw
+        obtain ⟨xc, hxc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨ac, hac, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨nc, hnc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        rw [support_pure, Set.mem_singleton_iff] at hw
+        subst hw
+        rw [auditAfter_signal_eq k m (.spend m) r.base _ r.audit
+          (Or.inl rfl) hopen]
+        intro q v hqv
+        change nc.2 q = some v at hqv
+        by_cases hq : q = ac.1
+        · subst hq
+          cases hold : r.base.roA (k, r.base.idx) with
+          | some a₀ =>
+              simp only [hold]
+              have hval := lazyRO_support_value_of_entry r.base.roA
+                (k, r.base.idx) ac hac hold
+              exact Or.inr (hval ▸ hc r.base.idx a₀ hold)
+          | none =>
+              have hnew := lazyRO_support_entry r.base.roA (k, r.base.idx)
+                ac hac
+              simp only [hold, hnew]
+              exact Or.inr (List.mem_cons_self ..)
+        · have hold' : r.base.roNf q = some v := by
+            rw [← lazyRO_support_eq_of_ne r.base.roNf ac.1 nc hnc hq]
+            exact hqv
+          rcases hcov q v hold' with h | h
+          · cases hold : r.base.roA (k, r.base.idx) with
+            | some a₀ => simp only [hold]; exact Or.inl h
+            | none =>
+                have hnew := lazyRO_support_entry r.base.roA (k, r.base.idx)
+                  ac hac
+                simp only [hold, hnew]
+                exact Or.inl h
+          · cases hold : r.base.roA (k, r.base.idx) with
+            | some a₀ => simp only [hold]; exact Or.inr h
+            | none =>
+                have hnew := lazyRO_support_entry r.base.roA (k, r.base.idx)
+                  ac hac
+                simp only [hold, hnew]
+                exact Or.inr (List.mem_cons_of_mem _ h)
+  | close =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : r.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        intro q v hqv
+        have haud : auditAfter k .close r.base r.base r.audit = r.audit := by
+          simp [auditAfter, hcl]
+        rw [haud]
+        exact hcov q v hqv
+      · rw [if_neg hcl] at hp
+        have hopen : r.base.closed = false := by simpa using hcl
+        obtain ⟨w, hw, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        unfold emitSignal at hw
+        obtain ⟨xc, hxc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨ac, hac, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨nc, hnc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        rw [support_pure, Set.mem_singleton_iff] at hw
+        subst hw
+        rw [auditAfter_signal_eq k mclose .close r.base _ r.audit
+          (Or.inr rfl) hopen]
+        intro q v hqv
+        change nc.2 q = some v at hqv
+        by_cases hq : q = ac.1
+        · subst hq
+          cases hold : r.base.roA (k, r.base.idx) with
+          | some a₀ =>
+              simp only [hold]
+              have hval := lazyRO_support_value_of_entry r.base.roA
+                (k, r.base.idx) ac hac hold
+              exact Or.inr (hval ▸ hc r.base.idx a₀ hold)
+          | none =>
+              have hnew := lazyRO_support_entry r.base.roA (k, r.base.idx)
+                ac hac
+              simp only [hold, hnew]
+              exact Or.inr (List.mem_cons_self ..)
+        · have hold' : r.base.roNf q = some v := by
+            rw [← lazyRO_support_eq_of_ne r.base.roNf ac.1 nc hnc hq]
+            exact hqv
+          rcases hcov q v hold' with h | h
+          · cases hold : r.base.roA (k, r.base.idx) with
+            | some a₀ => simp only [hold]; exact Or.inl h
+            | none =>
+                have hnew := lazyRO_support_entry r.base.roA (k, r.base.idx)
+                  ac hac
+                simp only [hold, hnew]
+                exact Or.inl h
+          · cases hold : r.base.roA (k, r.base.idx) with
+            | some a₀ => simp only [hold]; exact Or.inr h
+            | none =>
+                have hnew := lazyRO_support_entry r.base.roA (k, r.base.idx)
+                  ac hac
+                simp only [hold, hnew]
+                exact Or.inr (List.mem_cons_of_mem _ h)
+  | nfAt i =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨ac, hac, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      obtain ⟨nc, hnc, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      intro q v hqv
+      change nc.2 q = some v at hqv
+      show q ∈ (auditAfter k (.nfAt i) r.base
+          { r.base with roA := ac.2, roNf := nc.2 } r.audit).slopeProbes ∨
+        q ∈ (auditAfter k (.nfAt i) r.base
+          { r.base with roA := ac.2, roNf := nc.2 } r.audit).honestSlopes
+      unfold auditAfter
+      by_cases hq : q = ac.1
+      · subst hq
+        cases hold : r.base.roA (k, i) with
+        | some a₀ =>
+            simp only [hold]
+            have hval := lazyRO_support_value_of_entry r.base.roA (k, i)
+              ac hac hold
+            exact Or.inr (hval ▸ hc i a₀ hold)
+        | none =>
+            have hnew := lazyRO_support_entry r.base.roA (k, i) ac hac
+            simp only [hold, hnew]
+            exact Or.inr (List.mem_cons_self ..)
+      · have hold' : r.base.roNf q = some v := by
+          rw [← lazyRO_support_eq_of_ne r.base.roNf ac.1 nc hnc hq]
+          exact hqv
+        rcases hcov q v hold' with h | h
+        · cases hold : r.base.roA (k, i) with
+          | some a₀ => simp only [hold]; exact Or.inl h
+          | none =>
+              have hnew := lazyRO_support_entry r.base.roA (k, i) ac hac
+              simp only [hold, hnew]
+              exact Or.inl h
+        · cases hold : r.base.roA (k, i) with
+          | some a₀ => simp only [hold]; exact Or.inr h
+          | none =>
+              have hnew := lazyRO_support_entry r.base.roA (k, i) ac hac
+              simp only [hold, hnew]
+              exact Or.inr (List.mem_cons_of_mem _ h)
+  | roA kq n =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      intro q v hqv
+      change r.base.roNf q = some v at hqv
+      rcases hcov q v hqv with h | h
+      · exact Or.inl h
+      · exact Or.inr h
+  | roX m =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      intro q v hqv
+      change r.base.roNf q = some v at hqv
+      rcases hcov q v hqv with h | h
+      · exact Or.inl h
+      · exact Or.inr h
+  | roNf aq =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      intro q v hqv
+      change c.2 q = some v at hqv
+      by_cases hq : q = aq
+      · subst hq
+        exact Or.inl (List.mem_cons_self ..)
+      · have hold' : r.base.roNf q = some v := by
+          rw [← lazyRO_support_eq_of_ne r.base.roNf aq c hcm hq]
+          exact hqv
+        rcases hcov q v hold' with h | h
+        · exact Or.inl (List.mem_cons_of_mem _ h)
+        · exact Or.inr h
+  | roE kq e =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      intro q v hqv
+      change r.base.roNf q = some v at hqv
+      rcases hcov q v hqv with h | h
+      · exact Or.inl h
+      · exact Or.inr h
+  | roId kq =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      intro q v hqv
+      change r.base.roNf q = some v at hqv
+      rcases hcov q v hqv with h | h
+      · exact Or.inl h
+      · exact Or.inr h
+
+/-- **Pin-freeness preservation off the reveal oracle.** Every supported
+audited step of an operation other than `nfAt` preserves the absence of
+unconsumed pinned slopes on good outcomes: honest emissions consume the
+entry they materialize, public queries never touch the hidden row, and a
+direct hidden-row probe is an immediately-bad branch. -/
+theorem auditedFrameImpl_noPending_step (k : F) (mclose : M)
+    (op : FrameOp F M) (hop : ∀ i, op ≠ .nfAt i)
+    (r : AuditedFrameSt F M) (hnp : NoPending k r)
+    (z : (frameSpec F M).Range op × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) op).run r))
+    (hgoodz : ¬ FrameLeakBad k z.2.audit) :
+    NoPending k z.2 := by
+  unfold auditedFrameImpl at hz
+  simp only [StateT.run_mk] at hz
+  obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst hz
+  cases op with
+  | nfAt i => exact absurd rfl (hop i)
+  | spend m =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : r.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hnp
+      · rw [if_neg hcl] at hp
+        obtain ⟨w, hw, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        unfold emitSignal at hw
+        obtain ⟨xc, hxc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨ac, hac, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨nc, hnc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        rw [support_pure, Set.mem_singleton_iff] at hw
+        subst hw
+        intro i hi
+        change r.base.idx + 1 ≤ i at hi
+        change ac.2 (k, i) = none
+        have hne : (k, i) ≠ (k, r.base.idx) := fun h => by
+          have := congrArg Prod.snd h
+          simp only at this
+          omega
+        rw [lazyRO_support_eq_of_ne r.base.roA (k, r.base.idx) ac hac hne]
+        exact hnp i (by omega)
+  | close =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : r.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hnp
+      · rw [if_neg hcl] at hp
+        obtain ⟨w, hw, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        unfold emitSignal at hw
+        obtain ⟨xc, hxc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨ac, hac, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        obtain ⟨nc, hnc, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+        rw [support_pure, Set.mem_singleton_iff] at hw
+        subst hw
+        intro i hi
+        change r.base.idx + 1 ≤ i at hi
+        change ac.2 (k, i) = none
+        have hne : (k, i) ≠ (k, r.base.idx) := fun h => by
+          have := congrArg Prod.snd h
+          simp only at this
+          omega
+        rw [lazyRO_support_eq_of_ne r.base.roA (k, r.base.idx) ac hac hne]
+        exact hnp i (by omega)
+  | roA kq n =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      by_cases hk : kq = k
+      · exfalso
+        subst hk
+        exact hgoodz (auditAfter_direct_secret_bad kq n r.base _ r.audit)
+      · intro i hi
+        change c.2 (k, i) = none
+        have hne : (k, i) ≠ (kq, n) := fun h =>
+          hk ((congrArg Prod.fst h).symm)
+        rw [lazyRO_support_eq_of_ne r.base.roA (kq, n) c hcm hne]
+        exact hnp i hi
+  | roX m =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hnp
+  | roNf aq =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hnp
+  | roE kq e =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hnp
+  | roId kq =>
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hnp
+
+/-- **Injectivity dispatcher.** Hidden-slope injectivity is preserved by
+every supported audited step whose outcome stays good, assembled from the
+per-operation lemmas of `FrameCoupling`. -/
+theorem auditedFrameImpl_hiddenSlopeInj_step (k : F) (mclose : M)
+    (op : FrameOp F M) (r : AuditedFrameSt F M)
+    (hc : FrameAuditComplete k r) (hinj : HiddenSlopeInj k r)
+    (z : (frameSpec F M).Range op × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) op).run r))
+    (hgoodz : ¬ FrameLeakBad k z.2.audit) :
+    HiddenSlopeInj k z.2 := by
+  cases op with
+  | roA kq n => exact hiddenSlopeInj_roA_step k mclose kq n r hinj z hz hgoodz
+  | roX m =>
+      exact hiddenSlopeInj_public_step k mclose (.roX m) trivial r hinj z hz
+  | roNf aq =>
+      exact hiddenSlopeInj_public_step k mclose (.roNf aq) trivial r hinj z hz
+  | roE kq e =>
+      exact hiddenSlopeInj_public_step k mclose (.roE kq e) trivial r hinj z hz
+  | roId kq =>
+      exact hiddenSlopeInj_public_step k mclose (.roId kq) trivial r hinj z hz
+  | nfAt i => exact hiddenSlopeInj_nfAt_step k mclose i r hc hinj z hz hgoodz
+  | spend m =>
+      unfold auditedFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : r.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hinj
+      · rw [if_neg hcl] at hp
+        have hopen : r.base.closed = false := by simpa using hcl
+        obtain ⟨w, hw, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hiddenSlopeInj_emitSignal k m (.spend m) r hc hinj
+          (Or.inl rfl) hopen w hw hgoodz
+  | close =>
+      unfold auditedFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : r.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hinj
+      · rw [if_neg hcl] at hp
+        have hopen : r.base.closed = false := by simpa using hcl
+        obtain ⟨w, hw, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hiddenSlopeInj_emitSignal k mclose .close r hc hinj
+          (Or.inr rfl) hopen w hw hgoodz
+
 end Zkpc.Games

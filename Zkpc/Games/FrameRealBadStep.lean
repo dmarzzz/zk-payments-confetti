@@ -514,7 +514,7 @@ theorem realDSStep_spend_closed (k : F) (mclose m : M)
 omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- A fresh honest slope that misses all recorded probes and slopes
 preserves goodness of the audit. -/
-theorem not_frameLeakBad_honest_cons {k a : F} {audit : FrameAudit F}
+theorem notFrameLeakBad_freshSlope_cons {k a : F} {audit : FrameAudit F}
     (hbad : ¬ FrameLeakBad k audit)
     (hp : a ∉ audit.slopeProbes) (hh : a ∉ audit.honestSlopes) :
     ¬ FrameLeakBad k
@@ -690,7 +690,7 @@ theorem realDSStep_nfAt (k : F) (mclose : M) (i : ℕ)
         cases hnf'
         refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, ?_,
           by rw [hc.audit]⟩, ?_, ?_, ?_,
-          not_frameLeakBad_honest_cons hbad hmp hmh⟩⟩)
+          notFrameLeakBad_freshSlope_cons hbad hmp hmh⟩⟩)
         · rw [← hc.ideal]
           apply IdealFrameSt.ext <;> try rfl
           · funext q
@@ -1013,7 +1013,7 @@ theorem realDSStep_spend_open (k : F) (mclose m : M)
           cases hnf'
           refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, ?_,
             by rw [hc.audit]⟩, ?_, ?_, ?_,
-            not_frameLeakBad_honest_cons hbad hmp hmh⟩⟩)
+            notFrameLeakBad_freshSlope_cons hbad hmp hmh⟩⟩)
           · rw [← hc.ideal]
             apply IdealFrameSt.ext <;> try rfl
             · funext q
@@ -1361,7 +1361,7 @@ theorem realDSStep_close_open (k : F) (mclose : M)
           cases hnf'
           refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, ?_,
             by rw [hc.audit]⟩, ?_, ?_, ?_,
-            not_frameLeakBad_honest_cons hbad hmp hmh⟩⟩)
+            notFrameLeakBad_freshSlope_cons hbad hmp hmh⟩⟩)
           · rw [← hc.ideal]
             apply IdealFrameSt.ext <;> try rfl
             · funext q
