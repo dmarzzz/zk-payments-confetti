@@ -15,6 +15,7 @@ import Zkpc.Crypto.MaskedEncryption
 import Zkpc.Crypto.ElGamal
 import Zkpc.Crypto.ElGamalDDH
 import Zkpc.Crypto.ReceiptMac
+import Zkpc.Crypto.SchnorrReceipt
 import Zkpc.Core.Flat
 import Zkpc.Core.Refinement
 import Zkpc.Core.Composition
