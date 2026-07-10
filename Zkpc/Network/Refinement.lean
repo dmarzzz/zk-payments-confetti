@@ -77,7 +77,7 @@ theorem execTrace_reachable {D : ℕ} {s t : St Recipient Nf Payload}
       cases hstep : execStep s a with
       | none => simp
       | some s' =>
-          simp only [hstep, Option.bind_some]
+          simp only [Option.bind_some]
           intro htail
           exact ih (Reach.step hreach (execStep_sound hstep)) htail
 
