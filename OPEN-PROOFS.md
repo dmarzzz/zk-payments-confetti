@@ -223,6 +223,26 @@ and the `qNf*qSig`/`qSig^2` kernels are already proved). No other
 probability algebra or game rearrangement remains between those three Props
 and the unconditional Spec.md S7 T7 endpoint.
 
+**Route-B assembly + `FrameBadMassTransfer` warning (2026-07-10,
+`Zkpc/Games/FrameTransfer.lean`):** `FrameBadMassTransfer` (real-bad <=
+ghost-bad, k-averaged) is *not per-transcript dominated*: conditioned on a
+generic two-signal transcript with one `H_nf` probe, the real leakage mass
+is exactly `3/|F|` (three deterministic k-roots) while the ghost mass is
+`3/|F| - 2/|F|^2` (independent ghost slopes, inclusion-exclusion), so any
+proof of that transfer must carry exact second-order cancellation — no
+per-step or per-transcript coupling can close it, and it may fail. The
+safer, first-order target is the *direct* real-side bound
+`FrameRealBadMassLe` (`Pr[FrameLeakBad] <= qb.total/|F|` over the audited
+joint experiment): under the answer-transcript re-parameterization every
+leakage branch pins the deferred secret or one fresh slope to a single
+root per budget pair, so plain union bounds suffice.
+`frameDeferredSamplingAvg_of_goodSlice_and_realBad` and
+`T7_frame_query_bound_of_goodSlice_and_realBad` land the corresponding
+assembly: the unconditional endpoint now follows from
+`FrameGoodSliceTransfer` plus *either* route A
+(`FrameBadMassTransfer` + `GhostSlopeBadBounds`) *or* route B
+(`FrameRealBadMassLe`). Recommended: discharge route B.
+
 ### 2. The ZK bridge, O1 (Class D, high value)
 
 `Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
