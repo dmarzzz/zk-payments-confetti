@@ -61,6 +61,7 @@ import Zkpc.Games.BInstances
 import Zkpc.Games.Calibration
 import Zkpc.Games.FrameComplete
 import Zkpc.Games.FrameAsymptotic
+import Zkpc.Games.FramePPT
 import Zkpc.Refund.State
 import Zkpc.Refund.Safety
 import Zkpc.Refund.Fleet
