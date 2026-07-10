@@ -81,8 +81,9 @@ socket and matches the probability sampled by the game.
 - `FrameComplete.lean` exposes `frameDeferredSamplingAvg_holds` and the final
   `T7_frame_query_bound_unconditional` theorem.
 - `Zkpc/Composition/EndToEnd.lean` consumes that theorem through
-  `T7Certificate.ofQueryBounds` and the premise-free flat/refund composition
-  endpoints.
+  `T7Certificate.ofQueryBounds` and the T7-residual-free flat/refund
+  composition endpoints. Those endpoints still require the operational
+  trace and completion premises in their signatures.
 
 The load-bearing final chain is:
 
@@ -103,9 +104,17 @@ full root build, repository token scan, headline axiom printouts, and diff
 check. Until then, describe the endpoint as implemented in source and subject
 to final release validation.
 
-The formal statement is finite and query-bounded. It does not formalize a
+The base endpoint is finite and query-bounded. It does not itself formalize a
 security-parameter family, PPT adversary class, asymptotic negligibility, or
-a concrete deployed-hash assumption.
+a concrete deployed-hash assumption. It is the finite mechanized counterpart
+to, not a proof of, `Spec.md`'s literal PPT/negligibility T7 clause.
+
+`FrameAsymptotic.lean` is a conditional lift, not a PPT reduction. It assumes
+per-parameter `FrameQueryBounds` and either negligibility of the displayed
+query/field-size ratio, or an explicit polynomial numerator bound together
+with negligible inverse field size. It supplies no PPT classifier and no
+PPT-to-query-bound theorem. Its release status is covered by the same pending
+clean-build and axiom-audit boundary above.
 
 ---
 

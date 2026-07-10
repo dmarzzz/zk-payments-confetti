@@ -9,17 +9,23 @@ query-bound certificate"), branch `codex/end-to-end-zk-payments`.
 Freeze baseline: `28b7f80`. The live tree had
 `Zkpc/Games/FrameDSCountInduction.lean` mid-edit throughout the audit.
 
+**Current-status note.** F1 below is intentionally preserved as a finding
+about the named historical commits. Later source contains a repair, described
+in “Post-F1 reconciliation” at the end. Because the exact-candidate clean
+build, axiom output, scans, and SHA are still pending, neither historical F1
+nor mere source presence should be paraphrased as the final release verdict.
+
 ---
 
-## **FINDING F1 — the advertised unconditional T7 closure is NOT kernel-checked in any committed state**
+## **FINDING F1 — the advertised unconditional T7 closure was not kernel-checked in the audited commits**
 
 **`Zkpc/Games/FrameDSCountInduction.lean` fails to compile at both the
 discharge commit `ecdbcec` and HEAD `acba6cf`. Therefore
 `Zkpc.Games.dsBadMassLe_of_queryBounds` (the stage-2 counting discharge)
 and its dependent `Zkpc.Composition.T7Certificate.ofQueryBounds` (the
-"unconditional bound from `FrameQueryBounds` alone") have never been
-verified by the Lean kernel in committed history. The T7 endpoint remains
-CONDITIONAL on the named residual `DSBadMassLe`.**
+"unconditional bound from `FrameQueryBounds` alone") were not verified by
+the Lean kernel at either audited commit. At those commits, the verified T7
+endpoint remained CONDITIONAL on the named residual `DSBadMassLe`.**
 
 Failing statements, from clean rebuilds in the isolated worktree:
 
@@ -51,10 +57,11 @@ no build check, and the grep guardrails (which do pass) cannot detect
 non-compiling proofs. Broken proof code has been committed at least twice
 on this branch (`ecdbcec`, `acba6cf`).
 
-**Action required:** repair `FrameDSCountInduction.lean` (the live tree is
-visibly mid-repair — the wrong glyphs are already gone there), rebuild,
-and only then claim the unconditional closure. Until then the honest
-status line is: *T7 = conditional on `DSBadMassLe` only* (see F2).
+**Historical action required at audit time:** repair
+`FrameDSCountInduction.lean` (the live tree was visibly mid-repair — the
+wrong glyphs were already gone there), rebuild, and only then claim the
+unconditional closure. At that time the honest status line was: *T7 =
+conditional on `DSBadMassLe` only* (see F2).
 
 ## FINDING F2 — what IS kernel-verified (all axiom-clean)
 
@@ -178,17 +185,20 @@ All three CI greps clean at `acba6cf`: `sorry` — clean; `axiom` outside
 F1: the greps pass while the build is red; CI's `lake build` job does not
 run on this branch.)
 
-### 8. `T7Certificate.ofQueryBounds` — statement PASS, verification FAIL
+### 8. `T7Certificate.ofQueryBounds` — statement PASS, verification FAIL at the audited commits
 
 Statement (`Zkpc/Composition/EndToEnd.lean`, identical at `ecdbcec` and
 `acba6cf`): `(mclose)(A)(qb : FrameQueryBounds A) : T7Certificate mclose A qb`
 where `T7Certificate ... := frameWinProb mclose A ≤ (qb.total + 1)/|F|`.
 Hypotheses beyond `qb`: none — only the ambient typeclass instances needed
-to state the game. If its dependency compiled, this would be the
-unconditional Spec.md §7 T7 endpoint (any PPT adversary carries a
-polynomial `qb`, giving `negl`). It does not currently compile (F1); its
-sibling `T7Certificate.ofAveraged` (from any `FrameDeferredSamplingAvg`)
-is verified.
+to state the game. If its dependency compiled, this would give the exact
+finite, secret-averaged query inequality corresponding to the mechanized T7
+target. It would **not** by itself prove Spec.md's literal PPT/negligibility
+statement: no theorem here classifies adversaries as PPT, derives polynomial
+query certificates from PPT, or proves the necessary field growth. It does
+not compile at the historical commits audited in F1; its sibling
+`T7Certificate.ofAveraged` (from any `FrameDeferredSamplingAvg`) is verified
+there.
 
 ---
 
@@ -237,8 +247,15 @@ pointwise socket: `frameDeferredSampling_refuted` remains valid and
 
 The endpoint should not be paraphrased as more than it says. It is an
 exact finite-field/query-budget theorem in the ideal random-oracle model;
-there is no formal security-parameter/PPT asymptotic layer and no reduction
-for a deployed hash function.
+it supplies no PPT/runtime classifier, no PPT-to-query theorem, and no
+reduction for a deployed hash function.
+
+The later `FrameAsymptotic.lean` wrapper is conditional and does not erase
+that boundary. Its first theorem assumes directly that the explicit
+query/field-size error sequence is negligible. Its polynomial corollary
+assumes a polynomial numerator bound and negligible inverse field size.
+Both require per-parameter `FrameQueryBounds`; neither defines PPT or proves
+PPT-to-query boundedness.
 
 ### Evidence required before superseding F1's kernel-status verdict
 
@@ -252,6 +269,9 @@ for a deployed hash function.
   `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`,
   `T7_frame_query_bound_unconditional`, and
   `T7Certificate.ofQueryBounds`;
+- [pending] exact `#print axioms` output for the flat/refund end-to-end
+  wrappers and, if retained in the candidate, both `FrameAsymptotic`
+  theorems;
 - [pending] final forbidden-token greps and diff hygiene checks.
 
 Until those observations are filled from real command output, this section

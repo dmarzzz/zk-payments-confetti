@@ -10,7 +10,7 @@ composition endpoint:
 * the **master factorization** `frame_real_le_ghost_plus_bad`
   (`Zkpc/Games/FrameFactor.lean`): the k-averaged real slash probability is
   bounded by the deferred-secret ghost win mass plus the deferred-secret
-  ghost bad mass, given the two named transfer residuals
+  ghost bad mass, given the two route-A transfer interfaces
   `FrameGoodSliceTransfer` / `FrameBadMassTransfer`;
 * the **ghost bad-mass budget** `ghostFrameRun_leak_bad_bound`
   (`Zkpc/Games/FrameGhostBounds.lean`): the deferred-secret ghost leakage
@@ -96,7 +96,7 @@ theorem ghostFrameRun_leakBad_decide_le (mclose : M)
   exact ghostFrameRun_leak_bad_bound mclose A qb hs
 
 /-- **Assembly of the corrected T7 certificate** (Spec.md §7 T7). For every
-query-bounded FRAME adversary, the two run-level transfer residuals and the
+query-bounded FRAME adversary, the two run-level transfer interfaces and the
 ghost slope socket construct the k-averaged deferred-sampling certificate
 outright: the secret-independent generator is the ghost evidence process,
 the win mass transports through the ghost erasure and secret commutation,
@@ -115,12 +115,14 @@ noncomputable def frameDeferredSamplingAvg_of_transfers (mclose : M)
       (le_of_eq (ghostFrameRun_win_eq_certificate_form mclose A))
       (ghostFrameRun_leakBad_decide_le mclose A qb hs)
 
-/-- **The corrected FRAME bound from the named residuals** (Spec.md §7 T7).
+/-- **The corrected FRAME bound through the route-A interfaces** (Spec.md §7 T7).
 For every query-bounded adversary, the two run-level transfer inequalities
 and the ghost slope socket yield the complete corrected exculpability bound
-`(qb.total + 1)/|F|`: the whole remaining unconditional T7 obligation is
-exactly `FrameGoodSliceTransfer ∧ FrameBadMassTransfer ∧
-GhostSlopeBadBounds`. -/
+`(qb.total + 1)/|F|`.  This historical theorem exposes
+`FrameGoodSliceTransfer ∧ FrameBadMassTransfer ∧ GhostSlopeBadBounds` as its
+explicit interface; the final route-B theorem in `FrameComplete.lean`
+bypasses the unneeded `FrameBadMassTransfer` interface and has no residual
+coupling or counting premise. -/
 theorem T7_frame_query_bound_of_transfers (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (qb : FrameQueryBounds A)

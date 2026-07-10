@@ -18,12 +18,15 @@ exculpability of the honest closer (T1 exculpability clause).
 `wire_endToEnd_composition` bundles the wire-protocol guarantees for the
 same protocol object family: perfect spend unlinkability for the verified
 Fiat--Shamir wire (T4 on `fsFlatInstance`) together with its zero-loss ZK
-bridge to the proof-free game (O1). The remaining conditional guarantee —
-the unconditional T7 FRAME bound — is exactly issue #3
-(`FrameDeferredSampling`); its conditional form `T7_frame_bound` and its
-query-budget form `T7_frame_query_bound` are already kernel-checked in
-`Zkpc/Games/T7.lean` and compose with this bundle once the handler coupling
-lands.
+bridge to the proof-free game (O1).  Earlier revisions left the concrete T7
+FRAME theorem outside this bundle.  That historical gap is now closed by
+`T7_frame_query_bound_unconditional` in `FrameComplete.lean`, and the
+synchronized product endpoints `flat_endToEnd_unconditional` and
+`refund_endToEnd_unconditional` in `Zkpc/Composition/EndToEnd.lean` combine
+their operational traces, T4 theorem, and query-bounded T7 certificate.  The
+T7 field is the finite, uniform-secret bound `(qb.total + 1)/|F|` for an
+adversary carrying `FrameQueryBounds`; it is not an asymptotic PPT or
+deployed-primitive claim.
 -/
 
 namespace Zkpc.Core

@@ -23,7 +23,9 @@ secret-averaged bound $(q_A+q_E+q_{Id}+q_{Nf}q_{sig}+q_{sig}^2+1)/|F|$
 for adversaries carrying the five structural query certificates), and the
 refund variant's safety and conservation theorems — now including the full
 failed-upgrade cascade and finite-fleet aggregation — are machine-checked
-with zero `sorry` and no axiom beyond Lean's three standard ones. The
+with zero `sorry`, and the source declares no project-specific axioms. The
+previous K2 capture reports only Lean's standard axioms; release capture for
+the final T7 endpoint remains pending. The
 model-to-real bridges are no longer stated obligations: proof-bearing wire
 instances (a masked-proof encoding, an interactive Sigma protocol, and a
 lazy-random-oracle Fiat–Shamir compilation with explicit programming and
@@ -32,13 +34,15 @@ loss; an executable ledger refines every relational transition; a
 multi-recipient portable-deposit accounting layer with a threshold-issuance
 reference construction closes the definitional half of the named open
 problem; and one-trace composition theorems deliver the channel and wire
-guarantee bundles simultaneously on a single reachable trace. A third,
+guarantee bundles, while synchronized flat/refund product endpoints combine
+trace-derived operational guarantees with separate T4 and finite-query T7
+game claims. A third,
 post-quantum instantiation — Buterin's unidirectional nullifier-chain
 channel — is placed in the design space and its core is machine-checked
 too: balance safety, both directions of the collision-based stale-close
 mechanism, refund liveness, and per-request anonymity at advantage
 exactly zero. The definition went
-through eleven rounds of independent adversarial review, producing concrete
+through eleven rounds of independent agent adversarial review, producing concrete
 counterexamples against ten successive revisions; the repairs
 those counterexamples forced — gateway-bound messages, close-time netting,
 verifiable spend counts at close — are, we argue, design requirements for any
@@ -106,13 +110,15 @@ surface.
    covering variable-cost metering — with the safety, liveness, fleet, and
    *privacy* theorems for the flat-ticket instantiation kernel-checked in
    Lean 4 over [VCV-io](https://eprint.iacr.org/2026/899.pdf): the
-   spend-unlinkability advantage is proved exactly zero and the framing
-   probability at most 1/|F|, alongside a built-in calibration pair that
+   spend-unlinkability advantage is proved exactly zero; for every adversary
+   carrying `FrameQueryBounds`, the secret-averaged framing probability is
+   at most $(qb.total+1)/|F|$. This is a finite-query theorem, not the full
+   asymptotic PPT/negligibility statement. A built-in calibration pair
    separates the broken and fixed refund designs. §5 states exactly what is
    proved and what is not.
 
 One methodological remark belongs up front. The definition in §2 is revision
-eleven. Eleven independent review rounds against earlier revisions produced
+eleven. Eleven independent agent-review rounds against earlier revisions produced
 concrete counterexamples against ten successive revisions — protocols and
 adversary schedules, not quibbles — and three of the resulting repairs
 (gateway-bound messages,
@@ -120,7 +126,9 @@ close-time netting for the refund variant, verifiable spend counts at close)
 change protocol behaviour, not merely its description. We present these as
 design requirements discovered by adversarial definition review, with the
 counterexamples that forced them, because any construction of this shape
-that omits them is broken in the demonstrated way. The full review record,
+that omits them is broken in the demonstrated way. These agent reviews do not
+constitute the independent human sign-off prescribed by the project gate;
+that human gate remains pending. The full review record,
 with every counterexample, is in the repository.
 
 **Honest scope.** The formalization covers the protocol layer over an
@@ -354,9 +362,9 @@ threat model — the fleet's own operators.
 ### 2.4 Three repairs, with the counterexamples that forced them
 
 The specification records twenty modeling choices; three changed protocol
-behaviour and generalize beyond this protocol. Each was found by a reviewer
-who did not write the definition, as a concrete adversary schedule against
-the previous revision.
+behaviour and generalize beyond this protocol. Each was found by an agent
+reviewer that did not write the definition, as a concrete adversary schedule
+against the previous revision.
 
 **Replay across payees (gateway-bound messages).** In the first revision,
 a spend message was just the request payload. The counterexample: replay
@@ -372,7 +380,7 @@ index *forces* distinct $x$ — a conflicting pair — and the detection
 argument becomes sound. The general lesson: in any multi-verifier
 deployment of a nullifier scheme, replay across verifiers is value-bearing
 unless the verifier identity is inside the proof's message. Three
-independent reviewers found this; it is the record's canonical
+independent agent reviewers found this; it is the record's canonical
 wrong-definition-nearly-proved case.
 
 **The gap-index close (verifiable spend counts).** Through five revisions,
@@ -417,11 +425,15 @@ We formalize the protocol layer over the idealized ledger and idealized
 cryptography, in the random-oracle model. The NIZK relation is the
 mathematical statement above; the fidelity of any circuit to it is out of
 scope — the repository's own wording is that anyone claiming it verifies
-SNARKs is misreading it. Named assumptions (knowledge soundness, zero
-knowledge, PRF/ROM with domain separation, EUF-CMA receipts, re-randomizable
-encryption, and a separately named `single_signal_hiding` — the additive,
-KDM-flavoured key use in $y = k + a \cdot x$ is not implied by standard PRF
-security) are confined to one audited registry file. Explicitly out of
+SNARKs is misreading it. `Zkpc/Assumptions.lean` is a data registry, not a
+set of logical assumptions. Knowledge soundness and receipt unforgeability
+are idealized as model guards (the latter supports T1-B, T2-B, and T3-B);
+zero knowledge is discharged by exact simulator equalities for the masked,
+interactive-Sigma, and lazy-ROM Fiat–Shamir wires; and the random-oracle
+model covers the domain-separated $H_a,H_e,H_{nf},H_x,H_{id}$ surfaces.
+Re-randomization privacy and the separately named `single_signal_hiding`
+property are proved by the reference layers. Deployed-primitive reductions
+remain outside the model. Explicitly out of
 scope: circuit correctness, network-level timing and content fingerprints,
 funding-graph leakage at Open, a global passive adversary, relationship
 anonymity (the transport layer's property), and the policy stake of the
@@ -585,19 +597,20 @@ machine-checked (§5).
 
 ## 5. Results: what is machine-checked
 
-Everything in this section refers to Lean declarations in the repository,
-building with zero `sorry` under CI that also forbids `axiom` outside the
-assumptions registry and forbids `admit`/`native_decide` outright. The
-development in fact contains **no `axiom` declarations at all**: each named
-assumption is discharged by construction in the idealized model (knowledge
-soundness as transition guards — an accepted ticket *is* its extracted
-witness; zero knowledge as proof-free adversary views; hashes as lazily
-sampled random oracles), so `#print axioms` on every theorem shows only
-Lean's `propext`/`Quot.sound`/`Classical.choice`. This was audited
-declaration by declaration (K2): the unlinkability, framing, calibration,
-and refund theorems each reduce to exactly those three standard Lean axioms
-and nothing more. The trust surface is the definitions, which is where the
-review effort went.
+Everything in this section refers to Lean declarations in the repository.
+CI is configured to build them and reject `sorry`, project-specific `axiom`
+declarations, `admit`, and `native_decide`. The source currently declares no
+project axioms. The assumption registry is audit data: knowledge soundness
+and receipt EUF-CMA are model guards; the latter is the idealized boundary
+used by T1-B, T2-B, and T3-B. Zero knowledge is realized by proved exact
+transcript simulations for the masked, interactive-Sigma, and lazy-ROM
+Fiat–Shamir wires. The ROM surface includes the domain-separated
+$H_a,H_e,H_{nf},H_x,H_{id}$ interfaces, and the reference layers prove
+re-randomization privacy and `single_signal_hiding`. Existing captured K2
+outputs list only Lean's `propext`/`Quot.sound`/`Classical.choice`; the
+release addendum has not yet captured the final T7 endpoint, so this paper
+does not present that broader audit as complete. The trust surface is the
+idealized definitions and the statements, which is where review belongs.
 
 The model boundary bears repeating before the list: idealized ledger,
 random-oracle model, no circuits. These are theorems about the protocol
@@ -684,9 +697,11 @@ by type; the abort/evict wrapper `withEvict`), and both are proved.
   matches the uniform-secret average used by FRAME and preserves the same
   finite query bound; the completed proof constructs it from `frameImpl`
   with no residual coupling or counting hypothesis. This is a concrete
-  finite-query theorem: the development does not formalize an asymptotic
-  PPT/negligibility wrapper or a reduction for deployed hash or signature
-  implementations. Three *must-win*
+  finite-query theorem. `Zkpc/Games/FrameAsymptotic.lean` lifts it to a
+  negligible family when the certified query numerator is polynomially
+  bounded and inverse field cardinality is negligible; that scaling bridge
+  does not classify adversary runtime as PPT or reduce deployed hash or
+  signature implementations. Three *must-win*
   calibration adversaries confirm the game has teeth: `frameWinProb_YK_eq_one`
   (degenerate $y = k$) and `frameWinProb_aReuse_eq_one` ($a$ reused across
   indices) each frame with probability exactly $1$; a third,
@@ -821,8 +836,18 @@ honest payer with a posted close reaches a settled successor state of the
 payer floor (T5+T3), every member satisfies no-overspend (T1), the payee is
 settled exactly (T2), and the honest closer is unslashed (exculpability).
 `wire_endToEnd_composition`: for the verified Fiat–Shamir wire family,
-perfect T4 unlinkability and the zero-loss ZK bridge hold together. Both
-are axiom-clean.
+perfect T4 unlinkability and the zero-loss ZK bridge hold together.
+`Zkpc/Composition/EndToEnd.lean` adds synchronized product traces:
+`flat_endToEnd_unconditional` combines the Core–Fleet–Network operational
+guarantees with Fiat–Shamir T4 and `T7Certificate.ofQueryBounds`, while
+`refund_endToEnd_unconditional` combines the Refund–Network operational
+guarantees with the re-randomized-refund T4 theorem and the same T7
+certificate. The operational fields are trace-derived; T4 and T7 remain
+scheme-level games, not consequences of the symbolic trace. The T7 field is
+the secret-averaged finite-query bound for an adversary carrying
+`FrameQueryBounds`; these composition theorems do not add an asymptotic PPT
+or deployed-hash claim. Their source contains no project-specific axiom;
+the final release-wide K2 capture remains pending.
 
 **Machine-checked nullifier-chain channel (instantiation C).** The §4
 design is formalized in `Zkpc/Chain/` with the signature scheme idealized
@@ -860,21 +885,25 @@ it was discharged before the proofs landed (`zkBridgeObligation` as the
 stated bridge, adversary-issued genesis, the `nfAt` superset, the `roId`
 commitment surface).
 
-What stands today: every one of the seven security statements is
-machine-checked on the flat-ticket instantiation; the refund variant's
+What stands today: six of the seven Spec security statements are
+machine-checked on the flat-ticket instantiation. For T7, the kernel checks
+the concrete secret-averaged finite-query bound for `FrameQueryBounds`, not
+the Spec's full asymptotic PPT/negligibility statement. The refund variant's
 safety, conservation, failed-upgrade cascade, and finite-fleet aggregation
 are machine-checked; the O1–O4 model-to-real bridges are discharged with
 zero loss for three concrete wire encodings and the B instantiation; the
 executable layer refines the relational one; the calibration battery
-confirms the games are not vacuous; the channel and wire guarantees compose
-on one trace; and the whole tree is axiom-clean (K2). T7's
+confirms the games are not vacuous; and the channel and wire guarantees
+compose on one trace. T7's
 secret-averaged handler coupling and adaptive count are discharged at the
 concrete finite-field query bound, while the stronger pointwise certificate
 remains kernel-refuted. The result is not a formal asymptotic PPT theorem.
-Everything else that remains is deployment-grade cryptography — concrete
-hash/signature reductions
-behind the ideal reference layers — and circuits are out of the model
-boundary (§2.5).
+The release K2 addendum for the final endpoint is tracked separately and is
+not claimed complete here.
+Remaining formal work includes a PPT-to-query/runtime bridge, the adaptive
+multi-session network composition named in §6, and deployment-grade
+hash/signature reductions behind the ideal reference layers. Circuits remain
+out of the model boundary (§2.5).
 
 ## 6. Honest limits
 
@@ -1052,7 +1081,7 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | Game framework | `Zkpc/Games/Framework.lean` | `guessGap`, `guessGap_eq`, `hiddenBitAdvantage_eq_half_boolDistAdvantage`, `hiddenBitAdvantage_const`, `hiddenBitAdvantage_eq_zero_of_distEquiv`, `ChalAdversary`, `withEvict` |
 | T4 (unlinkability) | `Zkpc/Games/T4.lean`, `Zkpc/Games/Unlink.lean` | `T4_flat_unlinkability` (= 0), `unlinkGame`, `unlinkAdvantage`, `UnlinkScheme`, `flat_closeViewSimulatable` |
 | T7 (framing) | `Zkpc/Games/T7.lean`, `Zkpc/Games/Frame.lean` | `T7_frame_bound` (≤ 1/\|F\| under `hobliv`), `frameWinProb_YK_eq_one`, `frameWinProb_aReuse_eq_one`, `frameWinProb_slopeReveal_eq_one`, `frameGame`, `frameWinProb`, `Slashes` |
-| T7 query-budget composition | `Zkpc/Games/{T7,FrameDeferred,FrameRealBadStep,FrameDSCountInduction,FrameGoodSliceTapeInduction,FrameComplete}.lean`, `Zkpc/Composition/EndToEnd.lean` | `FrameQueryBounds`, `frameDeferredSampling_refuted`, `FrameDeferredSamplingAvg`, `frameGoodSliceTransfer_of_tape`, `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`, `T7Certificate.ofQueryBounds` |
+| T7 query-budget composition and scaling | `Zkpc/Games/{T7,FrameDeferred,FrameRealBadStep,FrameDSCountInduction,FrameGoodSliceTapeInduction,FrameComplete,FrameAsymptotic}.lean`, `Zkpc/Composition/EndToEnd.lean` | `FrameQueryBounds`, `frameDeferredSampling_refuted`, `FrameDeferredSamplingAvg`, `frameGoodSliceTransfer_of_tape`, `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`, `T7Certificate.ofQueryBounds`, `frameWinProb_negligible_of_query_bound`, `frameWinProb_negligible_of_polynomial_query_bound` |
 | Wire ZK bridges (O1) | `Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Games/SigmaInstance.lean` | `T4_maskedProof_unlinkability`, `maskedProof_zkBridge`, `T4_sigmaFlat_unlinkability`, `sigmaFlat_zkBridge`, `T4_fsFlat_unlinkability`, `fsFlat_zkBridge`, `fullFlat_zkBridge` |
 | Sigma / Fiat–Shamir cores | `Zkpc/Crypto/LinearSigma.lean`, `Zkpc/Crypto/FSRom.lean` | `completeness`, `evalDist_real_eq_simulated`, `special_soundness`, `evalDist_fsProveLazy_eq_simulated`, `fsProgramCollisionBound`, `fsForkChallengeCollisionBound` |
 | B-instance obligations (O2–O4) | `Zkpc/Games/BInstances.lean` | `bRerand_spendBatch_none_zero`, `bIdeal_openCh_adversary_genesis`, `bIdeal_serve_issuer_receipt`, `bIdeal_serve_capable_mono`, `bIdeal_closeViewSimulatable` |
@@ -1062,7 +1091,7 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | Fleet recovery (MC19) | `Zkpc/Fleet/Recovery.lean` | `identityRecovery_conservation`, `identityRecovery_capped`, `identityRecovery_all_full`, `preSlash_claim_eligible`, `postSlash_claim_ineligible`, `fundSlashRecovery_full` |
 | Executable refinement | `Zkpc/Core/Refinement.lean`, `Zkpc/Refund/Refinement.lean`, `Zkpc/Fleet/Refinement.lean` | `sweep_refines_trace`, `refined_steps_reachable`, `exec*_refines_step`, `exec_step_reachable` |
 | Multi-recipient network | `Zkpc/Network/State.lean`, `Zkpc/Network/Credential.lean`, `Zkpc/Network/Issuance.lean` | `no_overspend`, `global_dedup`, `redeem_rejects_global_replay`, `credential_payment_end_to_end`, `evalDist_blindRequest_uniform`, `ticket_fork_extracts`, `recipientView_unlinkable` |
-| One-trace composition | `Zkpc/Core/Composition.lean` | `channel_endToEnd_composition`, `wire_endToEnd_composition` |
+| One-trace composition | `Zkpc/Core/Composition.lean`, `Zkpc/Composition/EndToEnd.lean` | `channel_endToEnd_composition`, `wire_endToEnd_composition`, `flat_endToEnd_unconditional`, `refund_endToEnd_unconditional` |
 | Nullifier-chain channel (C) | `Zkpc/Chain/{State,Collision,Anonymity,Refinement}.lean` | `chain_no_overspend`, `bob_never_loses`, `honest_close_exact`, `alice_refund_liveness`, `conservation`, `no_overpay_recovery`, `stale_close_detectable`, `honest_close_unchallengeable`, `collision_iff_stale`, `honest_close_never_slashed`, `chain_two_payment_anonymity` |
 | Calibration | `Zkpc/Games/Calibration.lean` | `unlinkAdvantage_staticDistinguisher_eq_half`, `unlinkAdvantage_bRerand_eq_zero`, `unlinkAdvantage_aIndexLeak`, `unlinkAdvantage_nfeReuse`, `unlinkAdvantage_multTagDistinguisher_eq_half` |
 | Refund variant (B, N=1) | `Zkpc/Refund/Safety.lean`, `Zkpc/Refund/State.lean` | `T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed` |
@@ -1070,10 +1099,11 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | State machines | `Zkpc/Core/State.lean`, `Zkpc/Core/Flat.lean`, `Zkpc/Fleet/Basic.lean` | transition systems the above quantify over |
 
 The specification of record is `Spec.md` (revision 11); every Lean
-definition is traceable to it, and the full adversarial review record —
-eleven rounds against the specification, three against the Lean games, plus
-independent statement (K1), axiom (K2), and external-cryptographer (K4)
-audits, with every counterexample — is `research_knowledge/gates.md`. TLA+
+definition is traceable to it. The agent adversarial-review record — eleven
+rounds against the specification, five against the Lean games, plus agent
+K1/K3/K4 exercises and every counterexample — is
+`research_knowledge/gates.md`. It is not independent human sign-off. The K2
+record contains an earlier capture and a pending final-T7 addendum. TLA+
 models of the flat and fleet state machines, including ablation
 configurations that replay the gateway-binding and merge-evidence
 counterexamples (`tla/ZkpcFleetNoBind.cfg`, `tla/ZkpcFleetNoMergeEv.cfg`),

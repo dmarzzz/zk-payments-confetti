@@ -87,10 +87,10 @@ def ghostDeferredRun (mclose : M)
     ProbComp ((Evidence F × GhostFrameSt F M) × F) :=
   ghostFrameRun mclose A >>= fun z => ($ᵗ F) >>= fun k => pure (z, k)
 
-/-- The two genuinely slope-dependent probability obligations.  Keeping them
-together makes the remaining T7 boundary precise: the direct-secret term is
-already discharged above, while these fields are supplied by the forthcoming
-continuation-level hidden-slope argument. -/
+/-- The two slope-dependent probability fields used by the historical ghost
+bad-mass assembly.  The direct-secret term is discharged above, and
+`ghostSlopeBadBounds_holds` in `FrameBadMass.lean` supplies both fields by the
+completed slope-tape induction. -/
 structure GhostSlopeBadBounds (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (qb : FrameQueryBounds A) : Prop where

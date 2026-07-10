@@ -6,9 +6,9 @@ import Zkpc.Games.FrameGhostBounds
 
 The corrected T7 accounting compares the real FRAME run against the ghost
 run of `Zkpc.Games.FrameGhost` and pays the *k-averaged* probability of the
-ghost leakage event `GhostLeakBad`. This file develops the source-valid
-substrate for that budget, with the honest secret drawn uniformly **after**
-the entirely `k`-free ghost run. The eventual leakage bound splits as
+ghost leakage event `GhostLeakBad`. This file proves that budget, with the
+honest secret drawn uniformly **after** the entirely `k`-free ghost run. The
+completed leakage bound splits as
 
 * **direct secret probes** — `k` lands in the recorded `roA`/`roE`/`roId`
   candidate list: at most `(qA + qE + qId)/|F|` (deferred counting, via
@@ -35,7 +35,8 @@ rest of the run. This is formalized in two moves:
    `honestSlopes` audit list, which nothing reads during the run.
 2. **Slope-tape substrate**: fresh-tape counting kernels, tape commutation,
    and the value-erased `skelFrameImpl` isolate slope values in the write-only
-   audit. The remaining adaptive induction is deliberately not claimed here.
+   audit. The adaptive induction later in this file closes both slope masses
+   and yields `ghostFrameRun_leakBad_le` with no additional hypothesis.
 -/
 
 open OracleSpec OracleComp
