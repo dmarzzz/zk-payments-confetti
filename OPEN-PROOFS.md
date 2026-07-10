@@ -121,8 +121,30 @@ handler factorization as a typed certificate tied to the actual
 `FrameQueryBounds`; `frameQueryCharge_eq` combines all leakage terms; and
 `T7_frame_query_bound` derives `(qb.total + 1)/|F|`, where `qb.total` includes
 `q_Nf*q_sig + q_sig^2`. Thus the structural budgets are no longer
-disconnected metadata. The sole residual is constructing
-`FrameDeferredSampling` from `frameImpl` by a stateful transcript coupling.
+disconnected metadata.
+
+**Pointwise certificate REFUTED; averaged socket landed (2026-07-09,
+`Zkpc/Games/FrameDeferred.lean`):** the pointwise-in-`k` `close` field of
+`FrameDeferredSampling` is *unsatisfiable*: `frameDeferredSampling_refuted`
+is a kernel-checked proof that the two-probe adversary (`roId` at two
+constants, `qId = 2`, `total = 2`) admits no certificate over any field with
+more than five elements — its real win probabilities at the two probed
+secrets are `1` and `≥ 1 − 1/|F|`, while the two slash slices are disjoint,
+so no single generator can dominate both pointwise. The finding is recorded
+in `research_knowledge/gates.md` (Round 4). The corrected socket is
+`FrameDeferredSamplingAvg` (the same comparison averaged over the uniform
+secret — exactly the quantity the FRAME experiment produces), with
+`T7_frame_query_bound_avg` deriving the identical final bound
+`(qb.total + 1)/|F|` and `FrameDeferredSampling.toAvg` showing the averaged
+form is weaker. The residual open obligation is therefore constructing
+`FrameDeferredSamplingAvg` from `frameImpl` by the stateful transcript
+coupling; on the real side, VCV-io's
+`probOutput_simulateQ_run'_le_add_bad_add_slack` (heterogeneous bad + slack)
+matches the needed per-`k` shape with `bad := FrameLeakBad k` and `ε := 0`,
+leaving the `k`-averaged bad-mass bound
+`E_k[Pr[FrameLeakBad k]] ≤ qb.total/|F|` as the quantitative kernel (note it
+is genuinely *only* true on average: the refuting adversary forces
+`Pr[FrameLeakBad c₁] = 1` pointwise).
 
 **Corrected coupling substrate landed:** `uniformSlopeProbeBound` proves the
 adaptive multi-target `q_Nf*q_sig/|F|` term. The honest-slope birthday term
