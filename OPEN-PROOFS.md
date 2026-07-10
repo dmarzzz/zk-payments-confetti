@@ -206,6 +206,23 @@ duplication branches are absorbed into `FrameLeakBad`).
    world before applying the hidden-target bounds
    (`uniformSecretProbeBound` / `uniformSlopeProbeBound`).
 
+**Endpoint assembly landed (2026-07-10,
+`Zkpc/Games/FrameAssembly.lean`):** the three lanes are now stitched to the
+composition endpoint. `ghostFrameRun_win_eq_certificate_form` transports the
+deferred-secret ghost win mass into the certificate shape (ghost erasure +
+secret commutation); `frameDeferredSamplingAvg_of_transfers` constructs
+`FrameDeferredSamplingAvg` for every query-bounded adversary from exactly
+three named residuals; and `T7_frame_query_bound_of_transfers` derives the
+complete corrected FRAME bound `(qb.total + 1)/|F|` from them. The whole
+remaining unconditional T7 obligation is therefore precisely:
+`FrameGoodSliceTransfer` and `FrameBadMassTransfer` (the run-level off-bad
+real/ghost coupling induction of `Zkpc/Games/FrameFactor.lean`) plus
+`GhostSlopeBadBounds` (the ghost slope-tape masses, whose closing induction
+is in progress in `Zkpc/Games/FrameBadMass.lean`; its direct-secret summand
+and the `qNf*qSig`/`qSig^2` kernels are already proved). No other
+probability algebra or game rearrangement remains between those three Props
+and the unconditional Spec.md S7 T7 endpoint.
+
 ### 2. The ZK bridge, O1 (Class D, high value)
 
 `Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
