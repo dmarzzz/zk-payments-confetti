@@ -630,6 +630,227 @@ theorem frameLeakBad_shadow_charged (k : F) (vs D P : List F)
             exact Or.inl (List.mem_flatMap.2 ⟨e', he', hb⟩)
         · exact lift (ih hxr hsepr (Or.inr (Or.inr h)))
 
+/-! ### Coordinate hygiene of the charge lists -/
+
+/-- All tape coordinates referenced by a shadow, in order. -/
+def entryCoords (shadow : List (DSEntry F)) : List ℕ :=
+  shadow.filterMap DSEntry.coord
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- A pair coordinate-equality charge names the two entries' coordinates. -/
+theorem pairVsEq_mem_spec {e e' : DSEntry F} {b : ℕ × ℕ}
+    (hb : b ∈ pairVsEq e e') :
+    e.coord = some b.1 ∧ e'.coord = some b.2 := by
+  cases e <;> cases e' <;> simp only [pairVsEq] at hb
+  all_goals (try split_ifs at hb)
+  all_goals simp_all [DSEntry.coord]
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- A pair tape-membership charge names one of the two entries'
+coordinates. -/
+theorem pairVsMem_mem_spec {e e' : DSEntry F} {b : ℕ × List F}
+    (hb : b ∈ pairVsMem e e') :
+    e.coord = some b.1 ∨ e'.coord = some b.1 := by
+  cases e <;> cases e' <;> simp only [pairVsMem] at hb
+  all_goals (try split_ifs at hb)
+  all_goals simp_all [DSEntry.coord]
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- Every tape-membership charge of a shadow references a shadow
+coordinate. -/
+theorem shadowVsMem_coord_spec (P : List F) (shadow : List (DSEntry F)) :
+    ∀ b ∈ shadowVsMem P shadow, b.1 ∈ entryCoords shadow := by
+  induction shadow with
+  | nil => simp [shadowVsMem]
+  | cons e rest ih =>
+      intro b hb
+      have hmem : ∀ {j : ℕ}, DSEntry.coord e = some j →
+          j ∈ entryCoords (e :: rest) := by
+        intro j hj
+        simp [entryCoords, List.filterMap_cons, hj]
+      have hrest : ∀ {j : ℕ}, j ∈ entryCoords rest →
+          j ∈ entryCoords (e :: rest) := by
+        intro j hj
+        simp only [entryCoords, List.filterMap_cons]
+        cases hce : DSEntry.coord e
+        · exact hj
+        · exact List.mem_cons_of_mem _ hj
+      simp only [shadowVsMem, List.mem_append] at hb
+      rcases hb with (hb | hb) | hb
+      · -- probe charge on the head
+        cases e <;> simp only [probeVsMem] at hb
+        · cases hb
+        · rw [List.mem_singleton] at hb
+          subst hb
+          exact hmem rfl
+        · cases hb
+      · obtain ⟨e', he', hb⟩ := List.mem_flatMap.1 hb
+        rcases pairVsMem_mem_spec hb with h | h
+        · exact hmem h
+        · refine hrest ?_
+          simp only [entryCoords, List.mem_filterMap]
+          exact ⟨e', he', h⟩
+      · exact hrest (ih b hb)
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- Every coordinate-equality charge of a shadow references two distinct
+shadow coordinates, provided the shadow coordinates are distinct. -/
+theorem shadowVsEq_coord_spec (shadow : List (DSEntry F))
+    (hnd : (entryCoords shadow).Nodup) :
+    ∀ b ∈ shadowVsEq shadow,
+      b.1 ∈ entryCoords shadow ∧ b.2 ∈ entryCoords shadow ∧ b.1 ≠ b.2 := by
+  induction shadow with
+  | nil => simp [shadowVsEq]
+  | cons e rest ih =>
+      intro b hb
+      have hmem : ∀ {j : ℕ}, DSEntry.coord e = some j →
+          j ∈ entryCoords (e :: rest) := by
+        intro j hj
+        simp [entryCoords, List.filterMap_cons, hj]
+      have hrest : ∀ {j : ℕ}, j ∈ entryCoords rest →
+          j ∈ entryCoords (e :: rest) := by
+        intro j hj
+        simp only [entryCoords, List.filterMap_cons]
+        cases hce : DSEntry.coord e
+        · exact hj
+        · exact List.mem_cons_of_mem _ hj
+      have hndr : (entryCoords rest).Nodup := by
+        simp only [entryCoords, List.filterMap_cons] at hnd
+        cases hce : DSEntry.coord e <;> rw [hce] at hnd
+        · exact hnd
+        · exact (List.nodup_cons.1 hnd).2
+      simp only [shadowVsEq, List.mem_append] at hb
+      rcases hb with hb | hb
+      · obtain ⟨e', he', hb⟩ := List.mem_flatMap.1 hb
+        obtain ⟨h1, h2⟩ := pairVsEq_mem_spec hb
+        have hb2 : b.2 ∈ entryCoords rest := by
+          simp only [entryCoords, List.mem_filterMap]
+          exact ⟨e', he', h2⟩
+        refine ⟨hmem h1, hrest hb2, ?_⟩
+        -- head coordinate is fresh relative to the tail coordinates
+        simp only [entryCoords, List.filterMap_cons, h1] at hnd
+        intro hcontra
+        exact (List.nodup_cons.1 hnd).1 (hcontra ▸ hb2)
+      · obtain ⟨h1, h2, h3⟩ := ih hndr b hb
+        exact ⟨hrest h1, hrest h2, h3⟩
+
+/-! ### The leaf probability bound -/
+
+omit [Field F] [DecidableEq F] [SampleableType F] [Fintype F] in
+/-- Sum of a constant map. -/
+theorem list_sum_map_const {β : Type} (l : List β) (c : ENNReal) :
+    (l.map fun _ => c).sum = (l.length : ℕ) * c := by
+  induction l with
+  | nil => simp
+  | cons b l ih =>
+      simp only [List.map_cons, List.sum_cons, ih, List.length_cons]
+      push_cast
+      ring
+
+omit [Field F] [DecidableEq F] [SampleableType F] [Fintype F] in
+/-- Sum of a mapped constant multiple. -/
+theorem list_sum_map_mul_const {β : Type} (l : List β) (f : β → ℕ)
+    (c : ENNReal) :
+    (l.map (fun b => (f b : ENNReal) * c)).sum
+      = ((l.map f).sum : ℕ) * c := by
+  induction l with
+  | nil => simp
+  | cons b l ih =>
+      simp only [List.map_cons, List.sum_cons, ih]
+      push_cast
+      ring
+
+/-- **Leaf bound (Spec.md §7 T7).** With the shadow transcript fixed, a
+fresh hole tape and a last-sampled deferred secret raise the reconstructed
+FRAME leakage event with probability at most
+`(|D| + |P|·t + scCount)/|F|`: every branch pins the secret to one root
+per charge, or fires one elementary tape event. -/
+theorem dsShadow_leaf_le (D P : List F) (shadow : List (DSEntry F)) (m : ℕ)
+    (hx : ∀ e ∈ shadow, e.XNe0)
+    (hsep : shadow.Pairwise DSEntry.Sep)
+    (hlt : ∀ j ∈ entryCoords shadow, j < m)
+    (hnd : (entryCoords shadow).Nodup) :
+    Pr[fun w : List F × F =>
+        FrameLeakBad w.2 ⟨D, P, shadow.map (DSEntry.eval w.2 w.1)⟩ |
+        drawList ($ᵗ F) m >>= fun vs => ($ᵗ F) >>= fun k => pure (vs, k)]
+      ≤ ((D.length + P.length * shadow.length + scCount shadow : ℕ) : ENNReal)
+          * (Fintype.card F : ENNReal)⁻¹ := by
+  classical
+  set c : ENNReal := (Fintype.card F : ENNReal)⁻¹ with hc
+  set asg := shadowVsMem P shadow with hasg
+  set eqs := shadowVsEq shadow with heqs
+  -- monotone pass to the charged form
+  have hmono : Pr[fun w : List F × F =>
+        FrameLeakBad w.2 ⟨D, P, shadow.map (DSEntry.eval w.2 w.1)⟩ |
+        drawList ($ᵗ F) m >>= fun vs => ($ᵗ F) >>= fun k => pure (vs, k)]
+      ≤ Pr[fun w : List F × F =>
+          (w.2 ∈ D ++ shadowKRoots P w.1 shadow)
+            ∨ (VsMemFires w.1 asg ∨ VsEqFires w.1 eqs) |
+          drawList ($ᵗ F) m >>= fun vs => ($ᵗ F) >>= fun k => pure (vs, k)] := by
+    refine probEvent_mono fun w _ hbad => ?_
+    rcases frameLeakBad_shadow_charged w.2 w.1 D P shadow hx hsep hbad with
+      h | h | h
+    · exact Or.inl h
+    · exact Or.inr (Or.inl h)
+    · exact Or.inr (Or.inr h)
+  refine le_trans hmono ?_
+  refine le_trans (probEvent_or_le _ _ _) ?_
+  refine le_trans (add_le_add le_rfl (probEvent_or_le _ _ _)) ?_
+  -- the deferred-secret root mass, uniformly over the tape
+  have hk : Pr[fun w : List F × F => w.2 ∈ D ++ shadowKRoots P w.1 shadow |
+        drawList ($ᵗ F) m >>= fun vs => ($ᵗ F) >>= fun k => pure (vs, k)]
+      ≤ ((D.length + P.length * shadow.length + scCount shadow
+            - asgSize asg - eqs.length : ℕ) : ENNReal) * c := by
+    refine probEvent_bind_le_of_forall_le fun vs _ => ?_
+    rw [show (fun k : F => (pure (vs, k) : ProbComp (List F × F)))
+        = pure ∘ (fun k : F => (vs, k)) from rfl, probEvent_bind_pure_comp]
+    refine le_trans (le_of_eq (probEvent_ext
+      (q := fun k : F => k ∈ D ++ shadowKRoots P vs shadow)
+      (fun k _ => Iff.rfl))) ?_
+    refine le_trans (probEvent_uniform_mem_list_le _) ?_
+    refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+    have hcount := shadow_charge_count P vs shadow
+    rw [← hasg, ← heqs] at hcount
+    simp only [List.length_append]
+    omega
+  -- the tape-membership mass
+  have hasgmass : Pr[fun w : List F × F => VsMemFires w.1 asg |
+        drawList ($ᵗ F) m >>= fun vs => ($ᵗ F) >>= fun k => pure (vs, k)]
+      ≤ ((asgSize asg : ℕ) : ENNReal) * c := by
+    rw [probEvent_bind_pair_uniform_fst (F := F) (drawList ($ᵗ F) m)
+      (fun vs => VsMemFires vs asg)]
+    refine le_trans (probEvent_exists_mem_le (drawList ($ᵗ F) m) asg
+      (fun b vs => vs.getD b.1 0 ∈ b.2)
+      (fun b => (b.2.length : ENNReal) * c) ?_) ?_
+    · intro b hb
+      exact probEvent_drawList_getD_mem_le b.1 m
+        (hlt b.1 (shadowVsMem_coord_spec P shadow b hb)) b.2
+    · rw [list_sum_map_mul_const asg (fun b => b.2.length) c]
+      exact le_of_eq rfl
+  -- the coordinate-equality mass
+  have heqmass : Pr[fun w : List F × F => VsEqFires w.1 eqs |
+        drawList ($ᵗ F) m >>= fun vs => ($ᵗ F) >>= fun k => pure (vs, k)]
+      ≤ ((eqs.length : ℕ) : ENNReal) * c := by
+    rw [probEvent_bind_pair_uniform_fst (F := F) (drawList ($ᵗ F) m)
+      (fun vs => VsEqFires vs eqs)]
+    refine le_trans (probEvent_exists_mem_le (drawList ($ᵗ F) m) eqs
+      (fun b vs => vs.getD b.1 0 = vs.getD b.2 0)
+      (fun _ => c) ?_) ?_
+    · intro b hb
+      obtain ⟨h1, h2, h3⟩ := shadowVsEq_coord_spec shadow hnd b hb
+      exact probEvent_drawList_getD_eq_le b.1 b.2 m h3 (hlt _ h1) (hlt _ h2)
+    · rw [list_sum_map_const eqs c]
+  refine le_trans (add_le_add hk (add_le_add hasgmass heqmass)) ?_
+  have hle : asgSize asg + eqs.length
+      ≤ D.length + P.length * shadow.length + scCount shadow := by
+    have hcount := shadow_charge_count P ([] : List F) shadow
+    rw [← hasg, ← heqs] at hcount
+    omega
+  rw [← add_mul, ← add_mul]
+  refine mul_le_mul_right' (le_of_eq ?_) _
+  norm_cast
+  omega
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
@@ -642,3 +863,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.pair_eval_eq_charged
 #print axioms Zkpc.Games.probe_eval_charged
 #print axioms Zkpc.Games.frameLeakBad_shadow_charged
+#print axioms Zkpc.Games.shadowVsMem_coord_spec
+#print axioms Zkpc.Games.shadowVsEq_coord_spec
+#print axioms Zkpc.Games.dsShadow_leaf_le
