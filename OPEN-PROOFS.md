@@ -458,3 +458,10 @@ shielded-pool integration, δ-correlation and timing across payments with
 *distinct* public prices, and real signature/STARK reductions (a deployed
 scheme replaces the ideal guards/commitments and pays its own
 unforgeability/knowledge-soundness/hiding bounds).
+
+**Lane re-claim (2026-07-10, continuation):** `FrameRealBadComponents` — in
+progress, continuation of the e17023c/0ac9005 architecture (stage 1: real ≡
+deferred-slope handler up to `FrameLeakBad`; stage 2: per-transcript k-root
+union bound mirroring the landed tape kernels). New work goes in
+`Zkpc/Games/FrameRealBad.lean`; `FrameTransfer.lean` is not edited by this
+lane.
