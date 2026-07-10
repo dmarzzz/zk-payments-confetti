@@ -8,8 +8,10 @@ import Zkpc.Core.T3
 import Zkpc.Core.T5
 import Zkpc.Crypto.LinearSigma
 import Zkpc.Crypto.MaskedEncryption
+import Zkpc.Crypto.ReceiptMac
 import Zkpc.Core.Flat
 import Zkpc.Core.Refinement
+import Zkpc.Core.Composition
 import Zkpc.Games.RLN
 import Zkpc.Games.SigmaInstance
 import Zkpc.Fleet.Basic
@@ -20,6 +22,7 @@ import Zkpc.Games.Framework
 import Zkpc.Games.Unlink
 import Zkpc.Network.State
 import Zkpc.Network.Credential
+import Zkpc.Network.Issuance
 import Zkpc.Games.Frame
 import Zkpc.Games.FrameAudit
 import Zkpc.Games.FrameIdeal
