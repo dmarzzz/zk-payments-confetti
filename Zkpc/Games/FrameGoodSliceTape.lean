@@ -412,4 +412,513 @@ theorem dsFrameImpl_run_evidence_eq_future (k : F) (mclose : M)
   simpa only [← evalDist_map, Functor.map_map, Prod.map_apply,
     Function.comp_apply, id_eq] using h
 
+/-! ## Pending-slope tape -/
+
+/-- Draw independent uniform slope values for a finite list of pending
+indices and materialize them as a function-backed cache. -/
+noncomputable def drawPendingSlopes : List ℕ → ProbComp (ℕ → Option F)
+  | [] => pure (fun _ => none)
+  | i :: is => do
+      let a ← ($ᵗ F)
+      let gs ← drawPendingSlopes is
+      pure (Function.update gs i (some a))
+
+omit [Field F] [DecidableEq F] [DecidableEq M] in
+@[simp] theorem probFailure_drawPendingSlopes (is : List ℕ) :
+    Pr[⊥ | drawPendingSlopes (F := F) is] = 0 := by
+  induction is with
+  | nil => simp [drawPendingSlopes]
+  | cons i is ih => simp [drawPendingSlopes]
+
+omit [Field F] [DecidableEq F] [DecidableEq M] in
+/-- A supported pending-slope cache is populated exactly on the named
+pending indices. -/
+theorem drawPendingSlopes_support_none_iff (is : List ℕ)
+    (gs : ℕ → Option F) (hgs : gs ∈ support (drawPendingSlopes (F := F) is))
+    (i : ℕ) : gs i = none ↔ i ∉ is := by
+  induction is generalizing gs with
+  | nil =>
+      rw [drawPendingSlopes, support_pure, Set.mem_singleton_iff] at hgs
+      subst gs
+      simp
+  | cons j is ih =>
+      unfold drawPendingSlopes at hgs
+      obtain ⟨a, -, hgs⟩ := (mem_support_bind_iff _ _ _).1 hgs
+      obtain ⟨tail, htail, hgs⟩ := (mem_support_bind_iff _ _ _).1 hgs
+      rw [support_pure, Set.mem_singleton_iff] at hgs
+      subst gs
+      by_cases hij : i = j
+      · subst i
+        simp
+      · rw [Function.update_of_ne hij]
+        simpa [hij] using ih tail htail
+
+omit [Field F] [DecidableEq F] [DecidableEq M] in
+/-- Grow the pending tape by one first-touch coordinate. -/
+theorem evalDist_drawPendingSlopes_cons {beta : Type} (is : List ℕ)
+    (i : ℕ) (G : (ℕ → Option F) → ProbComp beta) :
+    𝒟[drawPendingSlopes (F := F) is >>= fun gs =>
+        ($ᵗ F) >>= fun a => G (Function.update gs i (some a))] =
+      𝒟[drawPendingSlopes (F := F) (i :: is) >>= G] := by
+  rw [drawPendingSlopes]
+  simp only [bind_assoc, pure_bind]
+  exact OracleComp.DeferredSampling.evalDist_bind_comm
+    (drawPendingSlopes (F := F) is) ($ᵗ F)
+      (fun gs a => G (Function.update gs i (some a)))
+
+omit [DecidableEq M] in
+/-- Extract one pending coordinate, transport it through a bijection, and
+leave an independent fresh tape for the remaining pending indices. -/
+theorem evalDist_drawPendingSlopes_extract_bij [Finite F] {beta : Type}
+    (is : List ℕ) (i : ℕ) (hmem : i ∈ is) (hnd : is.Nodup)
+    (phi : F → F) (hphi : Function.Bijective phi)
+    (G : F → (ℕ → Option F) → ProbComp beta) :
+    𝒟[drawPendingSlopes (F := F) is >>= fun gs =>
+        G (phi ((gs i).getD 0)) (Function.update gs i none)] =
+      𝒟[($ᵗ F) >>= fun y =>
+        drawPendingSlopes (F := F) (is.erase i) >>= fun gs => G y gs] := by
+  induction is generalizing G with
+  | nil => simp at hmem
+  | cons j is ih =>
+      have hnot : j ∉ is := (List.nodup_cons.mp hnd).1
+      have hnd' : is.Nodup := (List.nodup_cons.mp hnd).2
+      by_cases hij : i = j
+      · subst i
+        have hclean : ∀ gs ∈ support (drawPendingSlopes (F := F) is),
+            Function.update gs j none = gs := by
+          intro gs hgs
+          have hjnone := (drawPendingSlopes_support_none_iff is gs hgs j).2 hnot
+          funext q
+          by_cases hq : q = j
+          · subst q
+            simp [hjnone]
+          · simp [Function.update_of_ne hq]
+        rw [drawPendingSlopes]
+        simp only [bind_assoc, pure_bind, Function.update_self,
+          Option.getD_some, Function.update_idem]
+        calc
+          𝒟[($ᵗ F) >>= fun a =>
+              drawPendingSlopes (F := F) is >>= fun gs =>
+                G (phi a) (Function.update gs j none)] =
+            𝒟[($ᵗ F) >>= fun a =>
+              drawPendingSlopes (F := F) is >>= fun gs => G (phi a) gs] := by
+                refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
+                refine evalDist_bind_congr
+                  (mx := drawPendingSlopes (F := F) is) fun gs hgs => ?_
+                rw [hclean gs hgs]
+          _ = 𝒟[($ᵗ F) >>= fun y =>
+              drawPendingSlopes (F := F) is >>= fun gs => G y gs] := by
+                have hp := evalDist_bind_bijective_add_right_uniform F
+                  phi hphi 0 (fun y =>
+                    drawPendingSlopes (F := F) is >>= fun gs => G y gs)
+                simpa using hp
+          _ = 𝒟[($ᵗ F) >>= fun y =>
+              drawPendingSlopes (F := F) ((j :: is).erase j) >>= fun gs =>
+                G y gs] := by simp [hnot]
+      · have himem : i ∈ is := by simpa [hij] using hmem
+        rw [drawPendingSlopes]
+        simp only [bind_assoc, pure_bind]
+        have hcomm : ∀ (gs : ℕ → Option F) (a : F),
+            Function.update (Function.update gs j (some a)) i none =
+              Function.update (Function.update gs i none) j (some a) := by
+          intro gs a
+          exact Function.update_comm (Ne.symm hij) (some a) none gs
+        simp_rw [Function.update_of_ne hij]
+        simp_rw [hcomm]
+        calc
+          𝒟[($ᵗ F) >>= fun a =>
+              drawPendingSlopes (F := F) is >>= fun gs =>
+                G (phi ((gs i).getD 0))
+                  (Function.update (Function.update gs i none) j (some a))] =
+            𝒟[($ᵗ F) >>= fun a => ($ᵗ F) >>= fun y =>
+              drawPendingSlopes (F := F) (is.erase i) >>= fun gs =>
+                G y (Function.update gs j (some a))] := by
+                  refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
+                  exact ih himem hnd'
+                    (fun y gs => G y (Function.update gs j (some a)))
+          _ = 𝒟[($ᵗ F) >>= fun y => ($ᵗ F) >>= fun a =>
+              drawPendingSlopes (F := F) (is.erase i) >>= fun gs =>
+                G y (Function.update gs j (some a))] :=
+                OracleComp.DeferredSampling.evalDist_bind_comm
+                  ($ᵗ F) ($ᵗ F) _
+          _ = 𝒟[($ᵗ F) >>= fun y =>
+              drawPendingSlopes (F := F) ((j :: is).erase i) >>= fun gs =>
+                G y gs] := by
+                  refine evalDist_bind_congr' ($ᵗ F) fun y => ?_
+                  rw [show (j :: is).erase i = j :: is.erase i by
+                    simp only [List.erase]
+                    split <;> simp_all]
+                  rw [drawPendingSlopes]
+                  simp only [bind_assoc, pure_bind]
+
+/-! ## The slope-free pending-index core -/
+
+/-- Secret-free core state: ideal caches plus the finite set (represented
+without duplication as a list) of indices touched by `nfAt` but not yet
+consumed by an honest signal. -/
+structure PendingFrameSt (F M : Type) where
+  ideal : IdealFrameSt F M
+  pending : List ℕ
+
+/-- Empty pending-index state. -/
+def PendingFrameSt.init (F M : Type) : PendingFrameSt F M :=
+  ⟨IdealFrameSt.init F M, []⟩
+
+/-- The pending list is duplicate-free and every pending index can still be
+consumed. -/
+def PendingValid (p : PendingFrameSt F M) : Prop :=
+  p.pending.Nodup ∧ ∀ i ∈ p.pending, p.ideal.idx ≤ i
+
+omit [Field F] [DecidableEq F] [SampleableType F] [DecidableEq M] in
+theorem pendingValid_init : PendingValid (PendingFrameSt.init F M) := by
+  constructor <;> simp [PendingFrameSt.init]
+
+/-- Slope-free handler.  A live first `nfAt` touch records only its index.
+Signals sample their public ordinate directly and retire the current index.
+All answer and ideal-cache behavior is exactly `idealFrameImpl`. -/
+def pendingFrameImpl (mclose : M) :
+    QueryImpl.Stateful unifSpec (frameSpec F M) (PendingFrameSt F M)
+  | .spend m => StateT.mk fun p =>
+      if p.ideal.closed then pure (none, p)
+      else do
+        let (x, cX) ← lazyROX p.ideal.roX m
+        let y ← ($ᵗ F)
+        let (nf, cNf) ← lazyRO p.ideal.honestNf p.ideal.idx
+        pure (some ⟨x, y, nf⟩,
+          ⟨{ p.ideal with
+              idx := p.ideal.idx + 1
+              roX := cX
+              honestNf := cNf },
+            p.pending.erase p.ideal.idx⟩)
+  | .close => StateT.mk fun p =>
+      if p.ideal.closed then pure (none, p)
+      else do
+        let (x, cX) ← lazyROX p.ideal.roX mclose
+        let y ← ($ᵗ F)
+        let (nf, cNf) ← lazyRO p.ideal.honestNf p.ideal.idx
+        pure (some ⟨x, y, nf⟩,
+          ⟨{ p.ideal with
+              idx := p.ideal.idx + 1
+              closed := true
+              roX := cX
+              honestNf := cNf },
+            p.pending.erase p.ideal.idx⟩)
+  | .nfAt i => StateT.mk fun p => do
+      let (nf, cNf) ← lazyRO p.ideal.honestNf i
+      let pending' :=
+        if i < p.ideal.idx ∨ i ∈ p.pending then p.pending
+        else i :: p.pending
+      pure (nf, ⟨{ p.ideal with honestNf := cNf }, pending'⟩)
+  | .roA kq i => StateT.mk fun p => do
+      let (v, c) ← lazyRO p.ideal.roA (kq, i)
+      pure (v, ⟨{ p.ideal with roA := c }, p.pending⟩)
+  | .roX m => StateT.mk fun p => do
+      let (v, c) ← lazyROX p.ideal.roX m
+      pure (v, ⟨{ p.ideal with roX := c }, p.pending⟩)
+  | .roNf aq => StateT.mk fun p => do
+      let (v, c) ← lazyRO p.ideal.roNf aq
+      pure (v, ⟨{ p.ideal with roNf := c }, p.pending⟩)
+  | .roE kq e => StateT.mk fun p => do
+      let (v, c) ← lazyRO p.ideal.roE (kq, e)
+      pure (v, ⟨{ p.ideal with roE := c }, p.pending⟩)
+  | .roId kq => StateT.mk fun p => do
+      let (v, c) ← lazyRO p.ideal.roId kq
+      pure (v, ⟨{ p.ideal with roId := c }, p.pending⟩)
+
+/-- Per-step erasure of the pending-index ornament. -/
+theorem pendingFrameImpl_erase_step (mclose : M) (op : FrameOp F M)
+    (p : PendingFrameSt F M) :
+    𝒟[Prod.map id PendingFrameSt.ideal <$>
+        ((pendingFrameImpl mclose) op).run p] =
+      𝒟[((idealFrameImpl mclose) op).run p.ideal] := by
+  cases op with
+  | spend m | close =>
+      unfold pendingFrameImpl idealFrameImpl emitIdealSignal
+      simp only [StateT.run_mk]
+      by_cases hc : p.ideal.closed <;>
+        simp [hc, map_bind, map_pure, Prod.map]
+  | nfAt i | roA kq i | roX i | roNf i | roE kq i | roId i =>
+      simp [pendingFrameImpl, idealFrameImpl, StateT.run_mk]
+
+/-- Full-run erasure of the pending-index ornament. -/
+theorem pendingFrameImpl_run_erase (mclose : M) {alpha : Type}
+    (oa : OracleComp (frameSpec F M) alpha) (p : PendingFrameSt F M) :
+    𝒟[Prod.map id PendingFrameSt.ideal <$>
+        (simulateQ (pendingFrameImpl mclose) oa).run p] =
+      𝒟[(simulateQ (idealFrameImpl mclose) oa).run p.ideal] :=
+  map_run_simulateQ_evalDist_eq_of_step
+    (pendingFrameImpl mclose) (idealFrameImpl mclose)
+    PendingFrameSt.ideal (pendingFrameImpl_erase_step mclose) oa p
+
+/-- Evidence alone is unchanged by pending-index erasure. -/
+theorem pendingFrameImpl_run_evidence_eq_ideal (mclose : M)
+    (oa : OracleComp (frameSpec F M) (Evidence F)) (p : PendingFrameSt F M) :
+    𝒟[Prod.fst <$> (simulateQ (pendingFrameImpl mclose) oa).run p] =
+      𝒟[Prod.fst <$> (simulateQ (idealFrameImpl mclose) oa).run p.ideal] := by
+  have h := congrArg (fun D => Prod.fst <$> D)
+    (pendingFrameImpl_run_erase mclose oa p)
+  simpa only [← evalDist_map, Functor.map_map, Prod.map_apply,
+    Function.comp_apply, id_eq] using h
+
+/-! ## Run-level tape/pad induction -/
+
+section TapeInduction
+
+variable [Fintype F]
+
+set_option maxHeartbeats 600000 in
+/-- A front tape of independent pending slopes turns the live deferred
+handler into the slope-free pending handler for every adaptive adversary
+computation. -/
+theorem futureDSFrameImpl_run_evidence_eq_pending (k : F) (mclose : M) :
+    ∀ (oa : OracleComp (frameSpec F M) (Evidence F))
+      (p : PendingFrameSt F M), PendingValid p →
+      𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+        Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose) oa).run
+          ⟨p.ideal, gs⟩] =
+      𝒟[Prod.fst <$>
+        (simulateQ (pendingFrameImpl mclose) oa).run p] := by
+  intro oa
+  induction oa using OracleComp.inductionOn with
+  | pure ev =>
+      intro p hp
+      simp only [simulateQ_pure, StateT.run_pure, map_pure]
+      exact OracleComp.DeferredSampling.evalDist_bind_const_neverFails
+        (drawPendingSlopes (F := F) p.pending)
+        (probFailure_drawPendingSlopes p.pending) _
+  | query_bind op cont ih =>
+      intro p hp
+      simp only [simulateQ_query_bind, OracleQuery.input_query,
+        monadLift_self, StateT.run_bind, map_bind]
+      cases op with
+      | spend m =>
+          simp [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk]
+      | close =>
+          simp [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk]
+      | nfAt i =>
+          simp only [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk,
+            bind_assoc, pure_bind]
+          let step := lazyRO p.ideal.honestNf i
+          change 𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+              step >>= fun pn =>
+                (if i < p.ideal.idx then
+                    Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+                      (cont pn.1)).run
+                        ⟨{ p.ideal with honestNf := pn.2 }, gs⟩
+                  else lazyRO gs i >>= fun q =>
+                    Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+                      (cont pn.1)).run
+                        ⟨{ p.ideal with honestNf := pn.2 }, q.2⟩)] =
+            𝒟[step >>= fun pn => Prod.fst <$>
+              (simulateQ (pendingFrameImpl mclose) (cont pn.1)).run
+                ⟨{ p.ideal with honestNf := pn.2 },
+                  if i < p.ideal.idx ∨ i ∈ p.pending then p.pending
+                  else i :: p.pending⟩]
+          calc
+            _ = 𝒟[step >>= fun pn =>
+                drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                  (if i < p.ideal.idx then
+                      Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+                        (cont pn.1)).run
+                          ⟨{ p.ideal with honestNf := pn.2 }, gs⟩
+                    else lazyRO gs i >>= fun q =>
+                      Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+                        (cont pn.1)).run
+                          ⟨{ p.ideal with honestNf := pn.2 }, q.2⟩)] :=
+              OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+            _ = _ := by
+              refine evalDist_bind_congr' step fun pn => ?_
+              let ideal' := { p.ideal with honestNf := pn.2 }
+              let futureCont : (ℕ → Option F) → ProbComp (Evidence F) :=
+                fun gs => Prod.fst <$>
+                  (simulateQ (futureDSFrameImpl k mclose) (cont pn.1)).run
+                    ⟨ideal', gs⟩
+              by_cases hi : i < p.ideal.idx
+              · simp only [hi, if_pos, true_or]
+                simpa [ideal', futureCont] using ih pn.1
+                  (⟨ideal', p.pending⟩ : PendingFrameSt F M) hp
+              · have hle : p.ideal.idx ≤ i := Nat.le_of_not_gt hi
+                by_cases hm : i ∈ p.pending
+                · simp only [hi, hm, if_false, or_true, if_true]
+                  calc
+                    𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                        lazyRO gs i >>= fun q => futureCont q.2] =
+                      𝒟[drawPendingSlopes (F := F) p.pending >>=
+                        futureCont] := by
+                          refine evalDist_bind_congr
+                            (mx := drawPendingSlopes (F := F) p.pending)
+                              fun gs hgs => ?_
+                          have hn : gs i ≠ none := by
+                            intro hnone
+                            exact ((drawPendingSlopes_support_none_iff
+                              p.pending gs hgs i).1 hnone) hm
+                          cases hsi : gs i with
+                          | none => exact absurd hsi hn
+                          | some a => simp [lazyRO, hsi]
+                    _ = 𝒟[Prod.fst <$>
+                        (simulateQ (pendingFrameImpl mclose) (cont pn.1)).run
+                          ⟨ideal', p.pending⟩] := by
+                            simpa [futureCont] using ih pn.1
+                              (⟨ideal', p.pending⟩ : PendingFrameSt F M) hp
+                · simp only [hi, hm, if_false, or_false]
+                  have hpcons : PendingValid
+                      (⟨ideal', i :: p.pending⟩ : PendingFrameSt F M) := by
+                    refine ⟨List.nodup_cons.mpr ⟨hm, hp.1⟩, ?_⟩
+                    intro j hj
+                    rcases List.mem_cons.mp hj with rfl | hj
+                    · exact hle
+                    · exact hp.2 j hj
+                  calc
+                    𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                        lazyRO gs i >>= fun q => futureCont q.2] =
+                      𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                        ($ᵗ F) >>= fun a =>
+                          futureCont (Function.update gs i (some a))] := by
+                            refine evalDist_bind_congr
+                              (mx := drawPendingSlopes (F := F) p.pending)
+                                fun gs hgs => ?_
+                            have hnone :=
+                              (drawPendingSlopes_support_none_iff
+                                p.pending gs hgs i).2 hm
+                            simp [lazyRO, hnone]
+                    _ = 𝒟[drawPendingSlopes (F := F) (i :: p.pending) >>=
+                        futureCont] :=
+                          evalDist_drawPendingSlopes_cons p.pending i futureCont
+                    _ = 𝒟[Prod.fst <$>
+                        (simulateQ (pendingFrameImpl mclose) (cont pn.1)).run
+                          ⟨ideal', i :: p.pending⟩] := by
+                            simpa [futureCont] using ih pn.1
+                              (⟨ideal', i :: p.pending⟩ :
+                                PendingFrameSt F M) hpcons
+      | roA kq i =>
+          simp only [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk,
+            bind_assoc, pure_bind]
+          let step := lazyRO p.ideal.roA (kq, i)
+          let next : (F × (F × ℕ → Option F)) ×
+              (ℕ → Option F) → ProbComp (Evidence F) :=
+            fun z => Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+              (cont z.1.1)).run
+                ⟨{ p.ideal with roA := z.1.2 }, z.2⟩
+          change 𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+              step >>= fun a => next (a, gs)] =
+            𝒟[step >>= fun a => Prod.fst <$>
+              (simulateQ (pendingFrameImpl mclose) (cont a.1)).run
+                ⟨{ p.ideal with roA := a.2 }, p.pending⟩]
+          calc
+            𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                step >>= fun a => next (a, gs)] =
+              𝒟[step >>= fun a =>
+                drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                  next (a, gs)] :=
+                OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+            _ = 𝒟[step >>= fun a => Prod.fst <$>
+                (simulateQ (pendingFrameImpl mclose) (cont a.1)).run
+                  ⟨{ p.ideal with roA := a.2 }, p.pending⟩] := by
+              refine evalDist_bind_congr' step fun a => ?_
+              simpa [next] using ih a.1
+                (⟨{ p.ideal with roA := a.2 }, p.pending⟩ :
+                  PendingFrameSt F M) hp
+      | roX m =>
+          simp only [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk,
+            bind_assoc, pure_bind]
+          let step := lazyROX p.ideal.roX m
+          let next : (F × (M → Option F)) × (ℕ → Option F) →
+              ProbComp (Evidence F) := fun z =>
+            Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+              (cont z.1.1)).run ⟨{ p.ideal with roX := z.1.2 }, z.2⟩
+          change 𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+              step >>= fun a => next (a, gs)] =
+            𝒟[step >>= fun a => Prod.fst <$>
+              (simulateQ (pendingFrameImpl mclose) (cont a.1)).run
+                ⟨{ p.ideal with roX := a.2 }, p.pending⟩]
+          calc
+            𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                step >>= fun a => next (a, gs)] =
+              𝒟[step >>= fun a =>
+                drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                  next (a, gs)] :=
+                OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+            _ = _ := by
+              refine evalDist_bind_congr' step fun a => ?_
+              simpa [next] using ih a.1
+                (⟨{ p.ideal with roX := a.2 }, p.pending⟩ :
+                  PendingFrameSt F M) hp
+      | roNf aq =>
+          simp only [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk,
+            bind_assoc, pure_bind]
+          let step := lazyRO p.ideal.roNf aq
+          let next : (F × (F → Option F)) × (ℕ → Option F) →
+              ProbComp (Evidence F) := fun z =>
+            Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+              (cont z.1.1)).run ⟨{ p.ideal with roNf := z.1.2 }, z.2⟩
+          change 𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+              step >>= fun a => next (a, gs)] =
+            𝒟[step >>= fun a => Prod.fst <$>
+              (simulateQ (pendingFrameImpl mclose) (cont a.1)).run
+                ⟨{ p.ideal with roNf := a.2 }, p.pending⟩]
+          calc
+            𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                step >>= fun a => next (a, gs)] =
+              𝒟[step >>= fun a =>
+                drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                  next (a, gs)] :=
+                OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+            _ = _ := by
+              refine evalDist_bind_congr' step fun a => ?_
+              simpa [next] using ih a.1
+                (⟨{ p.ideal with roNf := a.2 }, p.pending⟩ :
+                  PendingFrameSt F M) hp
+      | roE kq e =>
+          simp only [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk,
+            bind_assoc, pure_bind]
+          let step := lazyRO p.ideal.roE (kq, e)
+          let next : (F × (F × ℕ → Option F)) ×
+              (ℕ → Option F) → ProbComp (Evidence F) := fun z =>
+            Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+              (cont z.1.1)).run ⟨{ p.ideal with roE := z.1.2 }, z.2⟩
+          change 𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+              step >>= fun a => next (a, gs)] =
+            𝒟[step >>= fun a => Prod.fst <$>
+              (simulateQ (pendingFrameImpl mclose) (cont a.1)).run
+                ⟨{ p.ideal with roE := a.2 }, p.pending⟩]
+          calc
+            𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                step >>= fun a => next (a, gs)] =
+              𝒟[step >>= fun a =>
+                drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                  next (a, gs)] :=
+                OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+            _ = _ := by
+              refine evalDist_bind_congr' step fun a => ?_
+              simpa [next] using ih a.1
+                (⟨{ p.ideal with roE := a.2 }, p.pending⟩ :
+                  PendingFrameSt F M) hp
+      | roId kq =>
+          simp only [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk,
+            bind_assoc, pure_bind]
+          let step := lazyRO p.ideal.roId kq
+          let next : (F × (F → Option F)) × (ℕ → Option F) →
+              ProbComp (Evidence F) := fun z =>
+            Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose)
+              (cont z.1.1)).run ⟨{ p.ideal with roId := z.1.2 }, z.2⟩
+          change 𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+              step >>= fun a => next (a, gs)] =
+            𝒟[step >>= fun a => Prod.fst <$>
+              (simulateQ (pendingFrameImpl mclose) (cont a.1)).run
+                ⟨{ p.ideal with roId := a.2 }, p.pending⟩]
+          calc
+            𝒟[drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                step >>= fun a => next (a, gs)] =
+              𝒟[step >>= fun a =>
+                drawPendingSlopes (F := F) p.pending >>= fun gs =>
+                  next (a, gs)] :=
+                OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+            _ = _ := by
+              refine evalDist_bind_congr' step fun a => ?_
+              simpa [next] using ih a.1
+                (⟨{ p.ideal with roId := a.2 }, p.pending⟩ :
+                  PendingFrameSt F M) hp
+
+end TapeInduction
+
 end Zkpc.Games
