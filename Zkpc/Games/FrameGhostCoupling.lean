@@ -97,10 +97,10 @@ theorem RealGhostCoupled.frameCoupled {k : F} {r : AuditedFrameSt F M}
   rw [← h.ideal]
   exact frameCoupled_idealize k r
 
+omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- Ghost-slope completeness transfers to the audited real state.  This is
 the prerequisite consumed by the materialized-`nfAt` and fresh-nullifier
 coupling lemmas. -/
-omit [Field F] [SampleableType F] [DecidableEq M] in
 theorem RealGhostCoupled.frameAuditComplete {k : F}
     {r : AuditedFrameSt F M} {g : GhostFrameSt F M}
     (h : RealGhostCoupled k r g) (hg : GhostSlopesComplete g) :
@@ -111,6 +111,78 @@ theorem RealGhostCoupled.frameAuditComplete {k : F}
     exact ha
   exact (h.honestSlopes a).2 (hg i a hga)
 
+/-- All public FRAME operations have exactly the same answer and
+secret-erased-state distribution in the real and ghost worlds while the
+coupling stays good. Direct secret probes are excluded, and `roNf` is
+excluded exactly when it hits a recorded honest slope; those are precisely
+branches of the shared bad event. -/
+theorem realGhost_public_step_erase_evalDist_eq (k : F) (mclose : M)
+    (op : FrameOp F M) (r : AuditedFrameSt F M) (g : GhostFrameSt F M)
+    (h : RealGhostCoupled k r g)
+    (hop : match op with
+      | .roX _ => True
+      | .roA kq _ => kq ≠ k
+      | .roNf aq => aq ∉ r.audit.honestSlopes
+      | .roE kq _ => kq ≠ k
+      | .roId kq => kq ≠ k
+      | _ => False)
+    (hc : FrameAuditComplete k r) :
+    𝒟[Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) op).run r] =
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+        ((ghostFrameImpl mclose) op).run g] := by
+  have hghost (op : FrameOp F M) :
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+          ((ghostFrameImpl mclose) op).run g] =
+        𝒟[((idealFrameImpl mclose) op).run (idealizeFrame k r)] := by
+    rw [ghostFrameImpl_erase_step]
+    rw [h.ideal]
+  cases op with
+  | spend m => exact False.elim hop
+  | close => exact False.elim hop
+  | nfAt i => exact False.elim hop
+  | roX m =>
+      rw [idealize_roX_step]
+      exact (hghost (.roX m)).symm
+  | roA kq i =>
+      rw [idealize_roA_step k mclose kq i r hop]
+      exact (hghost (.roA kq i)).symm
+  | roNf aq =>
+      rw [idealize_roNf_step k mclose aq r hc hop]
+      exact (hghost (.roNf aq)).symm
+  | roE kq e =>
+      rw [idealize_roE_step k mclose kq e r hop]
+      exact (hghost (.roE kq e)).symm
+  | roId kq =>
+      rw [idealize_roId_step k mclose kq r hop]
+      exact (hghost (.roId kq)).symm
+
+/-- A materialized `nfAt` query also has exactly matching answer and erased
+state distributions. Both the cached-nullifier and fresh-nullifier branches
+are covered; only materializing a brand-new hidden slope remains in the
+quantitative lane. -/
+theorem realGhost_nfAt_materialized_erase_evalDist_eq (k : F) (mclose : M)
+    (i : ℕ) (a : F) (r : AuditedFrameSt F M) (g : GhostFrameSt F M)
+    (h : RealGhostCoupled k r g) (ha : r.base.roA (k, i) = some a)
+    (hc : FrameAuditComplete k r) (hinj : HiddenSlopeInj k r) :
+    𝒟[Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.nfAt i)).run r] =
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+        ((ghostFrameImpl mclose) (.nfAt i)).run g] := by
+  have hghost :
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+          ((ghostFrameImpl mclose) (.nfAt i)).run g] =
+        𝒟[((idealFrameImpl mclose) (.nfAt i)).run (idealizeFrame k r)] := by
+    rw [ghostFrameImpl_erase_step]
+    rw [h.ideal]
+  cases hnf : r.base.roNf a with
+  | some nf =>
+      rw [idealize_nfAt_step_cached k mclose i r ha hnf]
+      exact hghost.symm
+  | none =>
+      rw [idealize_nfAt_step_freshNf k mclose i r ha hnf hc hinj]
+      exact hghost.symm
+
 end Zkpc.Games
 
 #print axioms Zkpc.Games.realGhostCoupled_initial
@@ -118,3 +190,5 @@ end Zkpc.Games
 #print axioms Zkpc.Games.not_frameLeakBad_iff_not_ghostLeakBad
 #print axioms Zkpc.Games.RealGhostCoupled.frameCoupled
 #print axioms Zkpc.Games.RealGhostCoupled.frameAuditComplete
+#print axioms Zkpc.Games.realGhost_public_step_erase_evalDist_eq
+#print axioms Zkpc.Games.realGhost_nfAt_materialized_erase_evalDist_eq

@@ -148,7 +148,12 @@ open.
    equivalence, and transfer of ghost slope completeness to the audited real
    state. The next coupling step can therefore reuse the arbitrary-state
    public and materialized-`nfAt` lemmas without paying a second bad-event
-   loss.
+   loss. The reuse is now explicit: `realGhost_public_step_erase_evalDist_eq`
+   covers every good `roX`/`roA`/`roE`/`roId`/`roNf` operation, and
+   `realGhost_nfAt_materialized_erase_evalDist_eq` covers both cached and
+   fresh-nullifier branches whenever the hidden slope is already
+   materialized. Only operations that create a fresh hidden slope remain in
+   the probabilistic step relation.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
