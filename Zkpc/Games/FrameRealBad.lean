@@ -178,7 +178,6 @@ theorem frameLeakBad_iff_dsFrameLeakBad {k : F} {r : AuditedFrameSt F M}
     FrameLeakBad k r.audit ↔ FrameLeakBad k d.audit := by
   rw [h.audit]
 
-omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- Goodness is likewise shared exactly by coupled states. -/
 theorem not_frameLeakBad_iff_not_dsFrameLeakBad {k : F}
     {r : AuditedFrameSt F M} {d : DSFrameSt F M}
@@ -266,6 +265,19 @@ def dsFrameRun (k : F) (mclose : M)
   let cm ← ($ᵗ F)
   (simulateQ (dsFrameImpl k mclose) (A cm)).run (DSFrameSt.init F M)
 
+/-- Every direct public-oracle step of the deferred-slope handler projects
+exactly to the corresponding ideal-handler step.  The slope tape and audit
+are write-only decorations for these operations. -/
+theorem dsFrameImpl_public_project_step (k : F) (mclose : M)
+    (op : FrameOp F M) (d : DSFrameSt F M)
+    (hop : match op with
+      | .roA _ _ | .roX _ | .roNf _ | .roE _ _ | .roId _ => True
+      | _ => False) :
+    Prod.map id DSFrameSt.ideal <$>
+        ((dsFrameImpl k mclose) op).run d =
+      ((idealFrameImpl mclose) op).run d.ideal := by
+  cases op <;> simp_all [dsFrameImpl, idealFrameImpl, StateT.run_mk]
+
 /-- Hidden-slope coverage for the deferred handler: every pinned slope is a
 recorded honest slope. -/
 def DSSlopesCovered (g : DSFrameSt F M) : Prop :=
@@ -321,6 +333,29 @@ theorem dsTouch_support (gs : ℕ → Option F) (audit : FrameAudit F) (i : ℕ)
     rw [support_pure, Set.mem_singleton_iff] at hz
     subst hz
     exact Or.inr ⟨h, rfl⟩
+
+/-- A lazy slope touch preserves coverage: a cache hit changes nothing,
+while a fresh sample is simultaneously pinned and consed onto the honest
+slope audit. -/
+theorem dsTouch_slopesCovered (gs : ℕ → Option F)
+    (audit : FrameAudit F) (i : ℕ)
+    (hcov : ∀ j a, gs j = some a → a ∈ audit.honestSlopes)
+    (z : F × (ℕ → Option F) × FrameAudit F)
+    (hz : z ∈ support (dsTouch gs audit i)) :
+    ∀ j a, z.2.1 j = some a → a ∈ z.2.2.honestSlopes := by
+  rcases dsTouch_support gs audit i z hz with ⟨-, hz⟩ | ⟨-, hz⟩
+  · rw [hz]
+    exact hcov
+  · rw [hz]
+    intro j a ha
+    by_cases hji : j = i
+    · subst j
+      simp only [Function.update_self, Option.some.injEq] at ha
+      subst a
+      simp
+    · have hold : gs j = some a := by
+        simpa [Function.update_of_ne hji] using ha
+      exact List.mem_cons_of_mem z.1 (hcov j a hold)
 
 /-- Every supported deferred-slope step preserves an already-raised leakage
 event: audit lists only grow. -/
@@ -436,5 +471,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.realDSCoupled_initial
 #print axioms Zkpc.Games.frameLeakBad_iff_dsFrameLeakBad
 #print axioms Zkpc.Games.not_frameLeakBad_iff_not_dsFrameLeakBad
+#print axioms Zkpc.Games.dsFrameImpl_public_project_step
 #print axioms Zkpc.Games.dsFrameImpl_bad_monotone
 #print axioms Zkpc.Games.dsFrameImpl_run_bad_monotone
