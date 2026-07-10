@@ -437,3 +437,28 @@ keyed at the preimage, no new k-extraction channel. Minors O4-a..d
 (docstring/register syncs, incl. aligning O4's satisfaction text to
 rev-11's true-count scoping) routed to the H-phase alongside instance
 work. **The T4/T7 proof phase is unblocked.**
+
+### Round 4 — 2026-07-09: **FINDING** — the pointwise deferred-sampling
+certificate is unsatisfiable (T7 composition layer)
+
+`FrameDeferredSampling` (Zkpc/Games/T7.lean) demands one secret-independent
+`idealEvidence` dominating the real conditional slash probability
+**pointwise in `k`** up to `qb.total/|F|`. Kernel-checked refutation
+(`Zkpc/Games/FrameDeferred.lean`, `frameDeferredSampling_refuted`): the
+two-probe adversary (`roId` at constants `c₁ ≠ c₂`, budget `qId = 2`,
+`total = 2`) wins with probability `1` at `k = c₁` and `≥ 1 − 1/|F|` at
+`k = c₂`; since `Slashes c₁ ·` and `Slashes c₂ ·` are disjoint evidence
+events, any single generator can grant the two slices total mass at most
+`1`, forcing `|F| ≤ 5`. So no certificate exists over any field with more
+than five elements. The game definitions and `Spec.md` T7 are untouched:
+the flaw is only in the *shape* of the (unconsumed-in-any-final-theorem)
+certificate structure, whose pointwise `close` field was strictly stronger
+than what `T7_frame_query_bound` needs. Corrected socket landed in the
+same file: `FrameDeferredSamplingAvg` states the comparison averaged over
+the uniform secret (exactly what the FRAME experiment produces and what a
+lazy-ROM identical-until-bad argument yields), `T7_frame_query_bound_avg`
+composes it to the full corrected bound `(qb.total + 1)/|F|`, and
+`FrameDeferredSampling.toAvg` proves the averaged form is implied by the
+pointwise one, so the composition endpoint loses nothing. The remaining
+open T7 work is constructing `FrameDeferredSamplingAvg` from `frameImpl`
+for query-bounded adversaries.

@@ -29,6 +29,7 @@ import Zkpc.Games.FullTicketInstance
 import Zkpc.Games.T4
 import Zkpc.Games.T4Fires
 import Zkpc.Games.T7
+import Zkpc.Games.FrameDeferred
 import Zkpc.Games.BInstances
 import Zkpc.Games.Calibration
 import Zkpc.Refund.State
