@@ -100,6 +100,83 @@ theorem isQueryBoundP_or {ι α : Type} {spec : OracleSpec ι}
             omega
           · simp [hpt, hqt]
 
+/-- The three direct-secret query budgets combine into the aggregate audit
+classifier used by `FrameAudit.secretProbes`. -/
+theorem frameQueryBounds_secret_bound
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F) :
+    OracleComp.IsQueryBoundP (A cm)
+      (fun t => decide ((isDirectRoAQuery t = true ∨
+        isDirectRoEQuery t = true) ∨ isDirectRoIdQuery t = true) = true)
+      (qb.qA + qb.qE + qb.qId) := by
+  have hAE := isQueryBoundP_or (A cm)
+    (fun t => isDirectRoAQuery t = true)
+    (fun t => isDirectRoEQuery t = true) qb.qA qb.qE
+    (qb.roA_bound cm) (qb.roE_bound cm)
+  have hAEI := isQueryBoundP_or (A cm)
+    (fun t => isDirectRoAQuery t = true ∨ isDirectRoEQuery t = true)
+    (fun t => isDirectRoIdQuery t = true) (qb.qA + qb.qE) qb.qId
+    hAE (qb.roId_bound cm)
+  simpa only [decide_eq_true_eq, Nat.add_assoc] using hAEI
+
+/-- Structural audit bounds for a fixed-secret, fixed-commitment audited run.
+These are the support invariants consumed by each real bad-mass component
+induction. -/
+theorem auditedFrameImpl_run_audit_bounds (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F)
+    (z : Evidence F × AuditedFrameSt F M)
+    (hz : z ∈ support ((simulateQ (auditedFrameImpl k mclose) (A cm)).run
+      ⟨{ FrameSt.init F M with
+          roId := Function.update (FrameSt.init F M).roId k (some cm) },
+        FrameAudit.init⟩)) :
+    z.2.audit.secretProbes.length ≤ qb.qA + qb.qE + qb.qId ∧
+    z.2.audit.slopeProbes.length ≤ qb.qNf ∧
+    z.2.audit.honestSlopes.length ≤ qb.qSig := by
+  let s0 : AuditedFrameSt F M :=
+    ⟨{ FrameSt.init F M with
+        roId := Function.update (FrameSt.init F M).roId k (some cm) },
+      FrameAudit.init⟩
+  have hsecret := support_measure_le_of_isQueryBoundP
+    (auditedFrameImpl k mclose) (fun s => s.audit.secretProbes.length)
+    (fun t => (isDirectRoAQuery t = true ∨ isDirectRoEQuery t = true) ∨
+      isDirectRoIdQuery t = true)
+    (fun t s y hy => by
+      change y.2.audit.secretProbes.length ≤
+        s.audit.secretProbes.length +
+          if decide ((isDirectRoAQuery t = true ∨ isDirectRoEQuery t = true) ∨
+            isDirectRoIdQuery t = true) = true then 1 else 0
+      rw [auditedFrameImpl_support_audit k mclose t s y hy]
+      have ha := auditAfter_secret_length_le k t s.base y.2.base s.audit
+      cases t <;> simpa [isSecretProbe, isDirectRoAQuery, isDirectRoEQuery,
+        isDirectRoIdQuery] using ha)
+    (A cm) (frameQueryBounds_secret_bound A qb cm) s0 z hz
+  have hslope := support_measure_le_of_isQueryBoundP
+    (auditedFrameImpl k mclose) (fun s => s.audit.slopeProbes.length)
+    isSlopeProbe
+    (fun t s y hy => by
+      change y.2.audit.slopeProbes.length ≤
+        s.audit.slopeProbes.length + if isSlopeProbe t then 1 else 0
+      rw [auditedFrameImpl_support_audit k mclose t s y hy]
+      exact auditAfter_slope_length_le k t s.base y.2.base s.audit)
+    (A cm) (by simpa [isSlopeProbe, isDirectRoNfQuery] using qb.roNf_bound cm)
+    s0 z hz
+  have hhonest := support_measure_le_of_isQueryBoundP
+    (auditedFrameImpl k mclose) (fun s => s.audit.honestSlopes.length)
+    isHonestSignalOp
+    (fun t s y hy => by
+      change y.2.audit.honestSlopes.length ≤
+        s.audit.honestSlopes.length + if isHonestSignalOp t then 1 else 0
+      rw [auditedFrameImpl_support_audit k mclose t s y hy]
+      exact auditAfter_honest_length_le k t s.base y.2.base s.audit)
+    (A cm) (by simpa [isHonestSignalOp, isSignalQuery] using qb.signal_bound cm)
+    s0 z hz
+  constructor
+  · simpa [s0, FrameAudit.init] using hsecret
+  · constructor
+    · simpa [s0, FrameAudit.init] using hslope
+    · simpa [s0, FrameAudit.init] using hhonest
+
 /-- **Direct real-side bad-mass obligation (named residual).** Over the
 audited joint FRAME experiment — honest secret first, exactly as the real
 game draws it — the audited leakage event has probability at most
