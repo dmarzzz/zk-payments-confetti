@@ -838,6 +838,139 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                 rw [DSShadowSt.seed_slope, hi]
                 simp only [Option.map_none, dsTouch, bind_assoc, pure_bind,
                   DSShadowSt.seed_audit, OracleQuery.cont_query]
+                refine probEvent_kTape_core_swap_le m
+                  (lazyROX sigma.ideal.roX msg) _ dsSeededBad _ ?_
+                intro xc hxc
+                have hx := lazyROX_support_nonzero hInv.hroX msg xc hxc
+                let cF : ENNReal := (Fintype.card F : ENNReal)⁻¹
+                let goodBudget : ENNReal :=
+                  (dsBudget
+                    (sigma.insertEntry sigma.ideal.idx (.line xc.1 0))
+                    nA nE nId nNf (nSig - 1) : ENNReal) * cF
+                let dupBudget : ENNReal :=
+                  ((dupTargets xc.1 sigma.shadow).length : ENNReal) * cF
+                have hcanon :
+                    Pr[dsSeededBad | ($ᵗ F) >>= fun k =>
+                      drawList ($ᵗ F) m >>= fun vs =>
+                      ($ᵗ F) >>= fun y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.insertEntry sigma.ideal.idx
+                            (.line xc.1 y)).setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z)] ≤
+                      (dsBudget sigma nA nE nId nNf nSig : ENNReal) * cF := by
+                  refine le_trans (probEvent_kTape_core_split_le m ($ᵗ F)
+                    (fun k vs y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.insertEntry sigma.ideal.idx
+                            (.line xc.1 y)).setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z))
+                    dsSeededBad (fun y => y ∈ dupTargets xc.1 sigma.shadow)
+                    goodBudget dupBudget
+                    (by
+                      dsimp [dupBudget, cF]
+                      exact probEvent_uniform_mem_list_le _)
+                    (fun y _ hy => ?_)) ?_
+                  · refine probEvent_kTape_core_swap_le m
+                      (lazyRO sigma.ideal.honestNf sigma.ideal.idx)
+                      (fun k vs nc =>
+                        (simulateQ (dsFrameImpl k mclose)
+                          (cont (some ⟨xc.1, y, nc.1⟩))).run
+                            (((sigma.insertEntry sigma.ideal.idx
+                              (.line xc.1 y)).setIdeal
+                                { sigma.ideal with
+                                  idx := sigma.ideal.idx + 1
+                                  roX := xc.2
+                                  honestNf := nc.2 }).seed k vs) >>= fun z =>
+                              pure (k, z)) dsSeededBad goodBudget ?_
+                    intro nc hnc
+                    let ideal' : IdealFrameSt F M :=
+                      { sigma.ideal with
+                        idx := sigma.ideal.idx + 1
+                        roX := xc.2
+                        honestNf := nc.2 }
+                    let sigma' := (sigma.insertEntry sigma.ideal.idx
+                      (.line xc.1 y)).setIdeal ideal'
+                    have hinv : DSShadowInvStrong sigma' m :=
+                      hInv.insertLine_advance ideal' xc.1 y hi rfl hx.2 hx.1 hy
+                    have hih := ih (some ⟨xc.1, y, nc.1⟩) sigma' m
+                      nA nE nId nNf (nSig - 1) hinv
+                      (by simpa [isDirectRoAQuery] using
+                        hA.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoEQuery] using
+                        hE.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoIdQuery] using
+                        hId.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoNfQuery] using
+                        hNf.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isSignalQuery] using
+                        hSig.2 (some ⟨xc.1, y, nc.1⟩))
+                    have hbud := dsBudget_insertLine_y_eq sigma
+                      sigma.ideal.idx xc.1 y 0 nA nE nId nNf (nSig - 1)
+                    dsimp [sigma', ideal', goodBudget, cF] at hih ⊢
+                    rw [dsBudget_setIdeal, hbud] at hih
+                    simpa [dsSeededRun] using hih
+                  · dsimp [dupBudget, goodBudget, cF]
+                    have hsum := dsBudget_insertLine_add_dupTargets sigma
+                      sigma.ideal.idx xc.1 0 nA nE nId nNf (nSig - 1)
+                    rw [Nat.sub_add_cancel hposSig] at hsum
+                    rw [← Nat.cast_add, hsum]
+                refine le_trans (le_of_eq ?_) hcanon
+                refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
+                  (fun k => ?_)
+                refine probEvent_bind_congr_inner (drawList ($ᵗ F) m)
+                  _ _ dsSeededBad (fun vs => ?_)
+                refine probEvent_congr' (fun _ _ => Iff.rfl) ?_
+                let G : F → ProbComp (F × (alpha × DSFrameSt F M)) :=
+                  fun y =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1, y, nc.1⟩))).run
+                        (((sigma.insertEntry sigma.ideal.idx
+                          (.line xc.1 y)).setIdeal
+                            { sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              roX := xc.2
+                              honestNf := nc.2 }).seed k vs) >>= fun z =>
+                          pure (k, z)
+                calc
+                  𝓓[($ᵗ F) >>= fun a =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, rlnY k a xc.1, nc.1⟩))).run
+                          ⟨{ sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              roX := xc.2
+                              honestNf := nc.2 },
+                            Function.update (sigma.seed k vs).slope
+                              sigma.ideal.idx (some a),
+                            { (sigma.seed k vs).audit with
+                              honestSlopes := a ::
+                                (sigma.seed k vs).audit.honestSlopes }⟩
+                            >>= fun z => pure (k, z)] =
+                      𝓓[($ᵗ F) >>= fun a => G (rlnY k a xc.1)] := by
+                        refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
+                        dsimp [G]
+                        refine evalDist_bind_congr'
+                          (lazyRO sigma.ideal.honestNf sigma.ideal.idx)
+                          fun nc => ?_
+                        rw [DSShadowSt.seed_setIdeal,
+                          seed_insertLine sigma sigma.ideal.idx k xc.1
+                            (rlnY k a xc.1) vs hi]
+                        simp [rlnY, hx.1]
+                    _ = 𝓓[($ᵗ F) >>= G] :=
+                      evalDist_rlnY_uniform k xc.1 hx.1 G
             | some e =>
                 simp only [DSShadowSt.seed_slope, hi, Option.map_some,
                   dsTouch, bind_assoc, pure_bind, DSShadowSt.seed_audit,
