@@ -213,4 +213,126 @@ theorem framePointwiseGoodSlice_of_idealDom (mclose : M)
               (IdealFrameSt.init F M)] *
             (if Slashes k w.1 then 1 else 0) := h cm
 
+/-! ## Generic dominance machinery
+
+Three reusable kernels: the guarded expectation of a generator that is
+support-wise bad vanishes; a run from an already-bad audited state has zero
+good-slice mass; and an exact idealization equality of one step upgrades to
+the guarded step dominance. -/
+
+/-- A guarded expectation vanishes when every supported outcome trips the
+leakage event: the guard zeroes every term with positive probability. -/
+theorem tsum_goodGuard_zero_of_support_bad {α : Type} (k : F)
+    (oc : ProbComp (α × AuditedFrameSt F M))
+    (hsupp : ∀ z ∈ support oc, FrameLeakBad k z.2.audit)
+    (X : α × AuditedFrameSt F M → ENNReal) :
+    (∑' z : α × AuditedFrameSt F M,
+      Pr[= z | oc] * (if FrameLeakBad k z.2.audit then 0 else X z)) = 0 := by
+  refine ENNReal.tsum_eq_zero.mpr fun z => ?_
+  by_cases hz : z ∈ support oc
+  · rw [if_pos (hsupp z hz), mul_zero]
+  · rw [(probOutput_eq_zero_iff _ _).mpr hz, zero_mul]
+
+/-- **The bad-state kill.** A full audited run started from a state whose
+audit has already tripped the leakage event contributes no good-slice mass:
+the audited bad event is monotone, so the final guard vanishes on the whole
+support. -/
+theorem goodSlice_run_zero_of_bad (k : F) (mclose : M) {α : Type}
+    (oa : OracleComp (frameSpec F M) α) (r : AuditedFrameSt F M)
+    (hbad : FrameLeakBad k r.audit) (X : α × AuditedFrameSt F M → ENNReal) :
+    (∑' z : α × AuditedFrameSt F M,
+      Pr[= z | (simulateQ (auditedFrameImpl k mclose) oa).run r] *
+        (if FrameLeakBad k z.2.audit then 0 else X z)) = 0 :=
+  tsum_goodGuard_zero_of_support_bad k _
+    (fun z hz => auditedFrameImpl_run_bad_monotone k mclose oa r hbad z hz) X
+
+/-- **Exact-step upgrade.** Whenever one audited step commutes exactly with
+canonical secret erasure (the landed `idealize_*_step` equalities), the
+guarded real expectation of any payoff of the answer and erased state is
+dominated by the ideal expectation: drop the guard and push forward. -/
+theorem goodSlice_step_le_of_idealize_eq (k : F) (mclose : M)
+    {op : FrameOp F M} (r : AuditedFrameSt F M)
+    (heq : Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) op).run r =
+      ((idealFrameImpl mclose) op).run (idealizeFrame k r))
+    (G : (frameSpec F M).Range op × IdealFrameSt F M → ENNReal) :
+    (∑' z : (frameSpec F M).Range op × AuditedFrameSt F M,
+      Pr[= z | ((auditedFrameImpl k mclose) op).run r] *
+        (if FrameLeakBad k z.2.audit then 0 else G (z.1, idealizeFrame k z.2)))
+      ≤ ∑' w : (frameSpec F M).Range op × IdealFrameSt F M,
+          Pr[= w | ((idealFrameImpl mclose) op).run (idealizeFrame k r)] *
+            G w := by
+  rw [← heq, tsum_probOutput_map_mul]
+  refine ENNReal.tsum_le_tsum fun z => mul_le_mul_right ?_ _
+  show (if FrameLeakBad k z.2.audit then 0 else G (z.1, idealizeFrame k z.2))
+    ≤ G (z.1, idealizeFrame k z.2)
+  split
+  · exact zero_le
+  · exact le_rfl
+
+/-! ## Support-wise bad extraction for the secret-touching operations -/
+
+/-- Every outcome of a direct `H_a` probe at the honest secret is bad. -/
+theorem auditedFrameImpl_support_bad_roA (k : F) (mclose : M) (i : ℕ)
+    (r : AuditedFrameSt F M)
+    (z : F × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) (.roA k i)).run r)) :
+    FrameLeakBad k z.2.audit := by
+  exact (auditedFrameImpl_support_audit k mclose (.roA k i) r z hz).symm ▸
+    auditAfter_direct_secret_bad k i r.base z.2.base r.audit
+
+/-- Every outcome of a direct `H_e` probe at the honest secret is bad. -/
+theorem auditedFrameImpl_support_bad_roE (k : F) (mclose : M) (e : ℕ)
+    (r : AuditedFrameSt F M)
+    (z : F × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) (.roE k e)).run r)) :
+    FrameLeakBad k z.2.audit := by
+  exact (auditedFrameImpl_support_audit k mclose (.roE k e) r z hz).symm ▸
+    auditAfter_epoch_secret_bad k e r.base z.2.base r.audit
+
+/-- Every outcome of a direct `H_id` probe at the honest secret is bad. -/
+theorem auditedFrameImpl_support_bad_roId (k : F) (mclose : M)
+    (r : AuditedFrameSt F M)
+    (z : F × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) (.roId k)).run r)) :
+    FrameLeakBad k z.2.audit := by
+  exact (auditedFrameImpl_support_audit k mclose (.roId k) r z hz).symm ▸
+    auditAfter_identity_secret_bad k r.base z.2.base r.audit
+
+/-- Every outcome of a direct `H_nf` probe at an exposed honest slope is
+bad. -/
+theorem auditedFrameImpl_support_bad_roNf (k : F) (mclose : M) (aq : F)
+    (r : AuditedFrameSt F M) (ha : aq ∈ r.audit.honestSlopes)
+    (z : F × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) (.roNf aq)).run r)) :
+    FrameLeakBad k z.2.audit := by
+  exact (auditedFrameImpl_support_audit k mclose (.roNf aq) r z hz).symm ▸
+    auditAfter_slope_hit_bad k aq r.base z.2.base r.audit ha
+
+/-! ## Closed-member signal steps: exact idealization -/
+
+/-- A `spend` query on a closed member is a pure no-op on both sides and
+commutes exactly with canonical secret erasure. -/
+theorem idealize_spend_step_closed (k : F) (mclose m : M)
+    (r : AuditedFrameSt F M) (hcl : r.base.closed = true) :
+    Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.spend m)).run r =
+      ((idealFrameImpl mclose) (.spend m)).run (idealizeFrame k r) := by
+  have hicl : (idealizeFrame k r).closed = true := hcl
+  unfold auditedFrameImpl idealFrameImpl frameImpl
+  simp only [StateT.run_mk, hcl, hicl, if_pos, pure_bind, map_pure, auditAfter]
+  rfl
+
+/-- A legacy `close` query on a closed member is a pure no-op on both sides
+and commutes exactly with canonical secret erasure. -/
+theorem idealize_close_step_closed (k : F) (mclose : M)
+    (r : AuditedFrameSt F M) (hcl : r.base.closed = true) :
+    Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) .close).run r =
+      ((idealFrameImpl mclose) .close).run (idealizeFrame k r) := by
+  have hicl : (idealizeFrame k r).closed = true := hcl
+  unfold auditedFrameImpl idealFrameImpl frameImpl
+  simp only [StateT.run_mk, hcl, hicl, if_pos, pure_bind, map_pure, auditAfter]
+  rfl
+
 end Zkpc.Games
