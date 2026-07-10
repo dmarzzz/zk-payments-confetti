@@ -76,7 +76,88 @@ theorem extract_never_fails (base : G) :
   intro challenge₁ response₁ challenge₂ response₂
   simp [protocol]
 
+section HVZK
+
+variable [Fintype F]
+
+/-- Standard witness-free Schnorr transcript simulator: choose challenge and
+response, then solve the verification equation for the commitment. -/
+def simulatedTranscript (base publicKey : G) : ProbComp (G × F × F) := do
+  let challenge ← ($ᵗ F)
+  let response ← ($ᵗ F)
+  pure (response • base - challenge • publicKey, challenge, response)
+
+/-- **Perfect Schnorr HVZK.** For every valid discrete-log pair, the honest
+transcript distribution equals the witness-free simulator exactly. -/
+theorem perfectHVZK (base : G) :
+    (protocol (F := F) base).PerfectHVZK (simulatedTranscript (F := F) base) := by
+  intro publicKey secret hrel
+  have hpk : publicKey = secret • base := by
+    simp only [relation, decide_eq_true_eq] at hrel
+    exact hrel
+  simp only [SigmaProtocol.realTranscript, protocol, simulatedTranscript,
+    bind_assoc, pure_bind]
+  change 𝒟[do
+      let nonce ← ($ᵗ F)
+      let challenge ← ($ᵗ F)
+      pure (nonce • base, challenge, nonce + challenge * secret)] =
+    𝒟[do
+      let challenge ← ($ᵗ F)
+      let response ← ($ᵗ F)
+      pure (response • base - challenge • publicKey, challenge, response)]
+  calc
+    𝒟[do
+        let nonce ← ($ᵗ F)
+        let challenge ← ($ᵗ F)
+        pure (nonce • base, challenge, nonce + challenge * secret)] =
+      𝒟[do
+        let challenge ← ($ᵗ F)
+        let nonce ← ($ᵗ F)
+        pure (nonce • base, challenge, nonce + challenge * secret)] :=
+      evalDist_bind_bind_swap ($ᵗ F) ($ᵗ F)
+        (fun nonce challenge =>
+          pure (nonce • base, challenge, nonce + challenge * secret))
+    _ = 𝒟[do
+        let challenge ← ($ᵗ F)
+        let response ← ($ᵗ F)
+        pure (response • base - challenge • publicKey, challenge, response)] := by
+      refine evalDist_bind_congr' ($ᵗ F) fun challenge => ?_
+      let cont : F → ProbComp (G × F × F) := fun response =>
+        pure ((response - challenge * secret) • base, challenge, response)
+      calc
+        𝒟[do
+            let nonce ← ($ᵗ F)
+            pure (nonce • base, challenge, nonce + challenge * secret)] =
+          𝒟[do
+            let nonce ← ($ᵗ F)
+            cont (nonce + challenge * secret)] := by
+              refine evalDist_bind_congr' ($ᵗ F) fun nonce => ?_
+              simp only [cont]
+              congr 3
+              · rw [add_sub_cancel_right]
+        _ = 𝒟[do let response ← ($ᵗ F); cont response] :=
+          evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+            Function.bijective_id (challenge * secret) cont
+        _ = 𝒟[do
+            let response ← ($ᵗ F)
+            pure (response • base - challenge • publicKey,
+              challenge, response)] := by
+              refine evalDist_bind_congr' ($ᵗ F) fun response => ?_
+              simp only [cont, hpk, sub_smul, mul_smul]
+
+/-- Exact HVZK implies the zero-loss premise used by the generic EUF-CMA
+reduction. -/
+theorem hvzk_zero (base : G) :
+    (protocol (F := F) base).HVZK (simulatedTranscript (F := F) base) 0 :=
+  ((SigmaProtocol.perfectHVZK_iff_hvzk_zero
+    (protocol (F := F) base) (simulatedTranscript (F := F) base)).mp
+      (perfectHVZK (F := F) base))
+
+end HVZK
+
 end Zkpc.Crypto.SchnorrSigma
 
 #print axioms Zkpc.Crypto.SchnorrSigma.speciallySound
 #print axioms Zkpc.Crypto.SchnorrSigma.extract_never_fails
+#print axioms Zkpc.Crypto.SchnorrSigma.perfectHVZK
+#print axioms Zkpc.Crypto.SchnorrSigma.hvzk_zero
