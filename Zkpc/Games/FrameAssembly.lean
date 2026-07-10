@@ -133,6 +133,31 @@ theorem T7_frame_query_bound_of_transfers (mclose : M)
   T7_frame_query_bound_avg mclose A qb
     (frameDeferredSamplingAvg_of_transfers mclose A qb hgood hbad hs)
 
+/-- The corrected deferred-sampling certificate now needs only the two
+real/ghost transfer lemmas: the ghost slope socket is unconditional. -/
+noncomputable def frameDeferredSamplingAvg_of_realGhostTransfers (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (hgood : FrameGoodSliceTransfer mclose A)
+    (hbad : FrameBadMassTransfer mclose A) :
+    FrameDeferredSamplingAvg mclose A qb :=
+  frameDeferredSamplingAvg_of_transfers mclose A qb hgood hbad
+    (ghostSlopeBadBounds_holds mclose A qb)
+
+/-- **Unconditional ghost-side T7 assembly.** Once the two real/ghost
+identical-until-bad transfers are proved, no quantitative or slope-dependent
+hypothesis remains. -/
+theorem T7_frame_query_bound_of_realGhostTransfers (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (hgood : FrameGoodSliceTransfer mclose A)
+    (hbad : FrameBadMassTransfer mclose A) :
+    frameWinProb mclose A
+      ≤ ((qb.total + 1 : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ :=
+  T7_frame_query_bound_of_transfers mclose A qb hgood hbad
+    (ghostSlopeBadBounds_holds mclose A qb)
+
 end Assembly
 
 end Zkpc.Games
@@ -140,3 +165,4 @@ end Zkpc.Games
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Games.ghostFrameRun_win_eq_certificate_form
 #print axioms Zkpc.Games.T7_frame_query_bound_of_transfers
+#print axioms Zkpc.Games.T7_frame_query_bound_of_realGhostTransfers
