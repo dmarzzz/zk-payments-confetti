@@ -333,4 +333,486 @@ theorem idealize_close_step_closed (k : F) (mclose : M)
   simp only [StateT.run_mk, hcl, hicl, if_pos, pure_bind, map_pure, auditAfter]
   rfl
 
+/-! ## Audit-extension lemmas for a fresh honest slope -/
+
+omit [Field F] [DecidableEq F] [SampleableType F] [DecidableEq M] in
+/-- Recording a fresh honest slope that was neither probed nor previously
+exposed keeps the audit good: no leakage branch can fire on the extension. -/
+theorem not_frameLeakBad_honest_cons (k a : F) (audit : FrameAudit F)
+    (hgood : ¬ FrameLeakBad k audit) (hp : a ∉ audit.slopeProbes)
+    (hh : a ∉ audit.honestSlopes) :
+    ¬ FrameLeakBad k { audit with honestSlopes := a :: audit.honestSlopes } := by
+  intro hbad
+  rcases hbad with hk | ⟨s, hs1, hs2⟩ | hdup
+  · exact hgood (Or.inl hk)
+  · rcases List.mem_cons.mp hs2 with rfl | hs2'
+    · exact hp hs1
+    · exact hgood (Or.inr (Or.inl ⟨s, hs1, hs2'⟩))
+  · have hnd : audit.honestSlopes.Nodup := by
+      by_contra hnd
+      exact hgood (Or.inr (Or.inr hnd))
+    exact hdup (List.nodup_cons.mpr ⟨hh, hnd⟩)
+
+omit [Field F] [SampleableType F] in
+/-- On a covered state, an unprobed and unexposed slope has no public
+nullifier-cache entry — the contrapositive of `RoNfCovered` that turns the
+fresh-slope collision branch into a detected bad event. -/
+theorem roNf_none_of_unrecorded (r : AuditedFrameSt F M) (hcov : RoNfCovered r)
+    {a : F} (hp : a ∉ r.audit.slopeProbes) (hh : a ∉ r.audit.honestSlopes) :
+    r.base.roNf a = none := by
+  cases hv : r.base.roNf a with
+  | none => rfl
+  | some v =>
+      rcases hcov a v hv with h | h
+      · exact absurd h hp
+      · exact absurd h hh
+
+/-! ## The line-value uniformization -/
+
+/-- **The slope-to-line-value reindexing** (Spec.md §3, the RLN line). For a
+nonzero abscissa `x`, the map `a ↦ k + a·x` is a bijection of `F`, so summing
+any payoff of the emitted line value against the uniform hidden slope equals
+summing it against a uniform line value directly. This is the tsum-level form
+of the one-time-pad step used by `freshRealSignal_evalDist_eq`. -/
+theorem tsum_uniform_rlnY_reindex [Fintype F] (k x : F) (hx : x ≠ 0)
+    (T : F → ENNReal) :
+    (∑' a : F, Pr[= a | ($ᵗ F)] * T (rlnY k a x))
+      = ∑' y : F, Pr[= y | ($ᵗ F)] * T y := by
+  have hbij : Function.Bijective (fun a : F => rlnY k a x) := by
+    constructor
+    · intro a b hab
+      simp only [rlnY, add_right_inj] at hab
+      exact mul_right_cancel₀ hx hab
+    · intro y
+      refine ⟨(y - k) / x, ?_⟩
+      simp only [rlnY]
+      rw [div_mul_cancel₀ _ hx]
+      ring
+  simp only [probOutput_uniformSample]
+  calc (∑' a : F, (Fintype.card F : ENNReal)⁻¹ * T (rlnY k a x))
+      = ∑' a : F, (fun y => (Fintype.card F : ENNReal)⁻¹ * T y)
+          ((Equiv.ofBijective _ hbij) a) := tsum_congr fun a => rfl
+    _ = ∑' y : F, (Fintype.card F : ENNReal)⁻¹ * T y :=
+        Equiv.tsum_eq (Equiv.ofBijective _ hbij)
+          (fun y => (Fintype.card F : ENNReal)⁻¹ * T y)
+
+/-! ## Secret erasure of a fresh-slope successor state -/
+
+omit [SampleableType F] in
+/-- **Fresh-slope idealization algebra.** Materializing a fresh hidden slope
+`a` (unexposed, unprobed, no public nullifier entry) with its fresh nullifier
+`nf` at index `i`, and recording it in the audit, idealizes to a single
+per-index nullifier update: the new `H_a` entry sits in the masked hidden
+row, the new `H_nf` entry sits at the newly masked honest slope, and audit
+completeness confines the composed-nullifier change to index `i`. The
+counter, closed flag, and digest cache ride along unchanged. -/
+theorem idealize_freshSlope_state (k a nf : F) (i n : ℕ) (cl : Bool)
+    (cX : M → Option F) (r : AuditedFrameSt F M)
+    (hc : FrameAuditComplete k r)
+    (hh : a ∉ r.audit.honestSlopes) (hnfa : r.base.roNf a = none) :
+    idealizeFrame k
+      (⟨{ r.base with
+          idx := n
+          closed := cl
+          roA := Function.update r.base.roA (k, i) (some a)
+          roX := cX
+          roNf := Function.update r.base.roNf a (some nf) },
+        { r.audit with honestSlopes := a :: r.audit.honestSlopes }⟩ :
+          AuditedFrameSt F M)
+      = { idealizeFrame k r with
+          idx := n
+          closed := cl
+          roX := cX
+          honestNf :=
+            Function.update (idealizeFrame k r).honestNf i (some nf) } := by
+  apply IdealFrameSt.ext
+  · rfl
+  · rfl
+  · funext q
+    by_cases hq : q.1 = k
+    · simp [idealizeFrame, hq]
+    · have hne : q ≠ (k, i) := fun h => hq (by rw [h])
+      simp [idealizeFrame, hq, Function.update_of_ne hne]
+  · rfl
+  · funext q
+    by_cases hqm : q ∈ r.audit.honestSlopes
+    · simp [idealizeFrame, hqm, List.mem_cons]
+    · by_cases hqa : q = a
+      · subst hqa
+        simp [idealizeFrame, hqm, hnfa]
+      · simp [idealizeFrame, hqm, hqa, Function.update_of_ne hqa]
+  · funext q
+    simp [idealizeFrame]
+  · funext q
+    simp [idealizeFrame]
+  · funext j
+    by_cases hj : j = i
+    · subst hj
+      simp [idealizeFrame]
+    · have hpair : (k, j) ≠ (k, i) := fun h => hj (congrArg Prod.snd h)
+      simp only [idealizeFrame, Function.update_of_ne hpair,
+        Function.update_of_ne hj]
+      cases hb : r.base.roA (k, j) with
+      | none => simp
+      | some b =>
+          have hba : b ≠ a := fun h => hh (h ▸ hc j b hb)
+          simp [Function.update_of_ne hba]
+
+/-! ## The fresh-slope step-dominance cruxes -/
+
+section FreshSlopeCrux
+
+variable [Fintype F]
+
+/-- **MC20 reveal at a fresh index (crux, Spec.md §7 T7).** An `nfAt i` query
+whose hidden slope is not yet materialized dominates into the ideal per-index
+reveal: the fresh slope either collides with recorded audit data — a detected
+leakage branch whose good-slice mass is zero — or is genuinely new, in which
+case the drawn nullifier couples exactly and the slope disappears under
+secret erasure. Unlike the pinned-emission case, the slope value never
+reaches an answer here, so the dominance holds pointwise at every covered,
+audit-complete, still-good state. -/
+theorem goodSlice_step_le_nfAt_fresh (k : F) (mclose : M) (i : ℕ)
+    (r : AuditedFrameSt F M) (ha : r.base.roA (k, i) = none)
+    (hc : FrameAuditComplete k r) (hcov : RoNfCovered r)
+    (hgood : ¬ FrameLeakBad k r.audit)
+    (G : F × IdealFrameSt F M → ENNReal) :
+    (∑' z : F × AuditedFrameSt F M,
+      Pr[= z | ((auditedFrameImpl k mclose) (.nfAt i)).run r] *
+        (if FrameLeakBad k z.2.audit then 0 else G (z.1, idealizeFrame k z.2)))
+      ≤ ∑' w : F × IdealFrameSt F M,
+          Pr[= w | ((idealFrameImpl mclose) (.nfAt i)).run (idealizeFrame k r)] *
+            G w := by
+  have hreal : ((auditedFrameImpl k mclose) (.nfAt i)).run r
+      = (($ᵗ F) >>= fun a => lazyRO r.base.roNf a >>= fun q =>
+          pure ((q.1 : F),
+            (⟨{ r.base with
+                roA := Function.update r.base.roA (k, i) (some a)
+                roNf := q.2 },
+              { r.audit with
+                  honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                AuditedFrameSt F M))) := by
+    unfold auditedFrameImpl frameImpl
+    simp only [StateT.run_mk]
+    rw [lazyRO_eq_of_none ha]
+    simp only [bind_assoc, pure_bind]
+    refine bind_congr fun a => ?_
+    refine bind_congr fun q => ?_
+    simp [auditAfter, ha, Function.update_self]
+  have hnfI : (idealizeFrame k r).honestNf i = none := by
+    simp [idealizeFrame, ha]
+  have hideal : ((idealFrameImpl mclose) (.nfAt i)).run (idealizeFrame k r)
+      = (($ᵗ F) >>= fun nf =>
+          pure ((nf : F),
+            ({ idealizeFrame k r with
+                honestNf := Function.update (idealizeFrame k r).honestNf i
+                  (some nf) } : IdealFrameSt F M))) := by
+    unfold idealFrameImpl
+    simp only [StateT.run_mk]
+    rw [lazyRO_eq_of_none hnfI]
+    simp only [bind_assoc, pure_bind]
+  rw [hreal, hideal]
+  simp only [tsum_probOutput_bind_mul, tsum_probOutput_pure_mul]
+  have hstep : ∀ a : F,
+      (∑' q : F × (F → Option F),
+        Pr[= q | lazyRO r.base.roNf a] *
+          (if FrameLeakBad k
+              { r.audit with honestSlopes := a :: r.audit.honestSlopes }
+            then 0
+            else G (q.1, idealizeFrame k
+              (⟨{ r.base with
+                  roA := Function.update r.base.roA (k, i) (some a)
+                  roNf := q.2 },
+                { r.audit with
+                    honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                  AuditedFrameSt F M))))
+        ≤ ∑' nf : F, Pr[= nf | ($ᵗ F)] *
+            G (nf, { idealizeFrame k r with
+              honestNf := Function.update (idealizeFrame k r).honestNf i
+                (some nf) }) := by
+    intro a
+    by_cases hrec : a ∈ r.audit.slopeProbes ∨ a ∈ r.audit.honestSlopes
+    · have hbad : FrameLeakBad k
+          { r.audit with honestSlopes := a :: r.audit.honestSlopes } :=
+        FrameLeakBad.honest_collision k a r.audit hrec
+      refine le_trans (le_of_eq (ENNReal.tsum_eq_zero.mpr fun q => ?_)) zero_le'
+      rw [if_pos hbad, mul_zero]
+    · rw [not_or] at hrec
+      obtain ⟨hprobe, hhon⟩ := hrec
+      have hnfa : r.base.roNf a = none :=
+        roNf_none_of_unrecorded r hcov hprobe hhon
+      have hgood' : ¬ FrameLeakBad k
+          { r.audit with honestSlopes := a :: r.audit.honestSlopes } :=
+        not_frameLeakBad_honest_cons k a r.audit hgood hprobe hhon
+      rw [lazyRO_eq_of_none hnfa]
+      simp only [tsum_probOutput_bind_mul, tsum_probOutput_pure_mul]
+      refine le_of_eq (tsum_congr fun nf => ?_)
+      rw [if_neg hgood',
+        idealize_freshSlope_state k a nf i r.base.idx r.base.closed r.base.roX
+          r hc hhon hnfa]
+      rfl
+      simp [idealizeFrame]
+  refine le_trans (ENNReal.tsum_le_tsum fun a =>
+    mul_le_mul_right (hstep a) _) ?_
+  rw [ENNReal.tsum_mul_right]
+  refine le_trans (mul_le_mul' tsum_probOutput_le_one le_rfl) ?_
+  rw [one_mul]
+
+/-- **Fresh-slope honest emission (crux, Spec.md §7 T7).** An `Ospend(m)`
+query at an open state whose next-index hidden slope is unmaterialized
+dominates into the ideal emission: the digest draw is shared verbatim; the
+fresh hidden slope either collides with recorded audit data — detected, zero
+good-slice mass — or is new, in which case the recorded slope masks away and
+the emitted line value `y = k + a·x` reindexes along the bijection
+`a ↦ k + a·x` (`x ≠ 0`) onto the ideal's uniform line value. This is the
+general-state form of the atomic `initial_spend_deferredSecret_ghost_eq`,
+here pointwise in `k` because the slope is consumed at its own draw. -/
+theorem goodSlice_step_le_spend_fresh (k : F) (mclose m : M)
+    (r : AuditedFrameSt F M)
+    (hopen : r.base.closed = false)
+    (ha : r.base.roA (k, r.base.idx) = none)
+    (hc : FrameAuditComplete k r) (hcov : RoNfCovered r)
+    (hx0 : RoXCacheNonzero r.base.roX)
+    (hgood : ¬ FrameLeakBad k r.audit)
+    (G : Option (Signal F) × IdealFrameSt F M → ENNReal) :
+    (∑' z : Option (Signal F) × AuditedFrameSt F M,
+      Pr[= z | ((auditedFrameImpl k mclose) (.spend m)).run r] *
+        (if FrameLeakBad k z.2.audit then 0 else G (z.1, idealizeFrame k z.2)))
+      ≤ ∑' w : Option (Signal F) × IdealFrameSt F M,
+          Pr[= w | ((idealFrameImpl mclose) (.spend m)).run
+              (idealizeFrame k r)] * G w := by
+  have hreal : ((auditedFrameImpl k mclose) (.spend m)).run r
+      = (lazyROX r.base.roX m >>= fun p =>
+          ($ᵗ F) >>= fun a => lazyRO r.base.roNf a >>= fun q =>
+            pure ((some ⟨p.1, rlnY k a p.1, q.1⟩ : Option (Signal F)),
+              (⟨{ r.base with
+                  idx := r.base.idx + 1
+                  roA := Function.update r.base.roA (k, r.base.idx) (some a)
+                  roX := p.2
+                  roNf := q.2 },
+                { r.audit with
+                    honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                  AuditedFrameSt F M))) := by
+    unfold auditedFrameImpl frameImpl emitSignal
+    simp only [StateT.run_mk, hopen, Bool.false_eq_true, ↓reduceIte]
+    rw [lazyRO_eq_of_none ha]
+    refine bind_congr fun p => ?_
+    obtain ⟨x, cX⟩ := p
+    refine bind_congr fun a => ?_
+    refine bind_congr fun q => ?_
+    obtain ⟨nf, cNf⟩ := q
+    simp [auditAfter, hopen, ha, Function.update_self]
+  have hopen' : (idealizeFrame k r).closed = false := hopen
+  have hrx : (idealizeFrame k r).roX = r.base.roX := rfl
+  have hidx : (idealizeFrame k r).idx = r.base.idx := rfl
+  have hnfI : (idealizeFrame k r).honestNf r.base.idx = none := by
+    simp [idealizeFrame, ha]
+  have hideal : ((idealFrameImpl mclose) (.spend m)).run (idealizeFrame k r)
+      = (lazyROX r.base.roX m >>= fun p =>
+          ($ᵗ F) >>= fun y => ($ᵗ F) >>= fun nf =>
+            pure ((some ⟨p.1, y, nf⟩ : Option (Signal F)),
+              ({ idealizeFrame k r with
+                  idx := r.base.idx + 1
+                  roX := p.2
+                  honestNf := Function.update (idealizeFrame k r).honestNf
+                    r.base.idx (some nf) } : IdealFrameSt F M))) := by
+    unfold idealFrameImpl emitIdealSignal
+    simp only [StateT.run_mk, hopen', Bool.false_eq_true, ↓reduceIte]
+    rw [hrx, hidx, lazyRO_eq_of_none hnfI]
+    simp only [bind_assoc, pure_bind]
+  rw [hreal, hideal]
+  simp only [tsum_probOutput_bind_mul, tsum_probOutput_pure_mul]
+  refine ENNReal.tsum_le_tsum fun p => ?_
+  by_cases hp : p ∈ support (lazyROX r.base.roX m)
+  · obtain ⟨hx, -⟩ := lazyROX_support_nonzero hx0 m p hp
+    refine mul_le_mul_right ?_ _
+    have hstep : ∀ a : F,
+        (∑' q : F × (F → Option F),
+          Pr[= q | lazyRO r.base.roNf a] *
+            (if FrameLeakBad k
+                { r.audit with honestSlopes := a :: r.audit.honestSlopes }
+              then 0
+              else G ((some ⟨p.1, rlnY k a p.1, q.1⟩ : Option (Signal F)),
+                idealizeFrame k
+                  (⟨{ r.base with
+                      idx := r.base.idx + 1
+                      roA := Function.update r.base.roA (k, r.base.idx)
+                        (some a)
+                      roX := p.2
+                      roNf := q.2 },
+                    { r.audit with
+                        honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                      AuditedFrameSt F M))))
+          ≤ ∑' nf : F, Pr[= nf | ($ᵗ F)] *
+              G ((some ⟨p.1, rlnY k a p.1, nf⟩ : Option (Signal F)),
+                { idealizeFrame k r with
+                    idx := r.base.idx + 1
+                    roX := p.2
+                    honestNf := Function.update (idealizeFrame k r).honestNf
+                      r.base.idx (some nf) }) := by
+      intro a
+      by_cases hrec : a ∈ r.audit.slopeProbes ∨ a ∈ r.audit.honestSlopes
+      · have hbad : FrameLeakBad k
+            { r.audit with honestSlopes := a :: r.audit.honestSlopes } :=
+          FrameLeakBad.honest_collision k a r.audit hrec
+        refine le_trans (le_of_eq (ENNReal.tsum_eq_zero.mpr fun q => ?_))
+          zero_le'
+        rw [if_pos hbad, mul_zero]
+      · rw [not_or] at hrec
+        obtain ⟨hprobe, hhon⟩ := hrec
+        have hnfa : r.base.roNf a = none :=
+          roNf_none_of_unrecorded r hcov hprobe hhon
+        have hgood' : ¬ FrameLeakBad k
+            { r.audit with honestSlopes := a :: r.audit.honestSlopes } :=
+          not_frameLeakBad_honest_cons k a r.audit hgood hprobe hhon
+        rw [lazyRO_eq_of_none hnfa]
+        simp only [tsum_probOutput_bind_mul, tsum_probOutput_pure_mul]
+        refine le_of_eq (tsum_congr fun nf => ?_)
+        rw [if_neg hgood',
+          idealize_freshSlope_state k a nf r.base.idx (r.base.idx + 1)
+            r.base.closed p.2 r hc hhon hnfa]
+        rfl
+        simp [idealizeFrame]
+    refine le_trans (ENNReal.tsum_le_tsum fun a =>
+      mul_le_mul_right (hstep a) _) ?_
+    exact le_of_eq (tsum_uniform_rlnY_reindex k p.1 hx
+      (fun y => ∑' nf : F, Pr[= nf | ($ᵗ F)] *
+        G ((some ⟨p.1, y, nf⟩ : Option (Signal F)),
+          { idealizeFrame k r with
+              idx := r.base.idx + 1
+              roX := p.2
+              honestNf := Function.update (idealizeFrame k r).honestNf
+                r.base.idx (some nf) })))
+  · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+    simp
+
+/-- **Fresh-slope legacy close (crux, Spec.md §7 T7).** The legacy `Oclose`
+surplus signal at an open state with an unmaterialized next-index slope: the
+same dominance as `goodSlice_step_le_spend_fresh` on the distinguished close
+message, with the closed flag set on both sides. -/
+theorem goodSlice_step_le_close_fresh (k : F) (mclose : M)
+    (r : AuditedFrameSt F M)
+    (hopen : r.base.closed = false)
+    (ha : r.base.roA (k, r.base.idx) = none)
+    (hc : FrameAuditComplete k r) (hcov : RoNfCovered r)
+    (hx0 : RoXCacheNonzero r.base.roX)
+    (hgood : ¬ FrameLeakBad k r.audit)
+    (G : Option (Signal F) × IdealFrameSt F M → ENNReal) :
+    (∑' z : Option (Signal F) × AuditedFrameSt F M,
+      Pr[= z | ((auditedFrameImpl k mclose) .close).run r] *
+        (if FrameLeakBad k z.2.audit then 0 else G (z.1, idealizeFrame k z.2)))
+      ≤ ∑' w : Option (Signal F) × IdealFrameSt F M,
+          Pr[= w | ((idealFrameImpl mclose) .close).run
+              (idealizeFrame k r)] * G w := by
+  have hreal : ((auditedFrameImpl k mclose) .close).run r
+      = (lazyROX r.base.roX mclose >>= fun p =>
+          ($ᵗ F) >>= fun a => lazyRO r.base.roNf a >>= fun q =>
+            pure ((some ⟨p.1, rlnY k a p.1, q.1⟩ : Option (Signal F)),
+              (⟨{ r.base with
+                  idx := r.base.idx + 1
+                  closed := true
+                  roA := Function.update r.base.roA (k, r.base.idx) (some a)
+                  roX := p.2
+                  roNf := q.2 },
+                { r.audit with
+                    honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                  AuditedFrameSt F M))) := by
+    unfold auditedFrameImpl frameImpl emitSignal
+    simp only [StateT.run_mk, hopen, Bool.false_eq_true, ↓reduceIte]
+    rw [lazyRO_eq_of_none ha]
+    refine bind_congr fun p => ?_
+    obtain ⟨x, cX⟩ := p
+    refine bind_congr fun a => ?_
+    refine bind_congr fun q => ?_
+    obtain ⟨nf, cNf⟩ := q
+    simp [auditAfter, hopen, ha, Function.update_self]
+  have hopen' : (idealizeFrame k r).closed = false := hopen
+  have hrx : (idealizeFrame k r).roX = r.base.roX := rfl
+  have hidx : (idealizeFrame k r).idx = r.base.idx := rfl
+  have hnfI : (idealizeFrame k r).honestNf r.base.idx = none := by
+    simp [idealizeFrame, ha]
+  have hideal : ((idealFrameImpl mclose) .close).run (idealizeFrame k r)
+      = (lazyROX r.base.roX mclose >>= fun p =>
+          ($ᵗ F) >>= fun y => ($ᵗ F) >>= fun nf =>
+            pure ((some ⟨p.1, y, nf⟩ : Option (Signal F)),
+              ({ idealizeFrame k r with
+                  idx := r.base.idx + 1
+                  closed := true
+                  roX := p.2
+                  honestNf := Function.update (idealizeFrame k r).honestNf
+                    r.base.idx (some nf) } : IdealFrameSt F M))) := by
+    unfold idealFrameImpl emitIdealSignal
+    simp only [StateT.run_mk, hopen', Bool.false_eq_true, ↓reduceIte]
+    rw [hrx, hidx, lazyRO_eq_of_none hnfI]
+    simp only [bind_assoc, pure_bind]
+  rw [hreal, hideal]
+  simp only [tsum_probOutput_bind_mul, tsum_probOutput_pure_mul]
+  refine ENNReal.tsum_le_tsum fun p => ?_
+  by_cases hp : p ∈ support (lazyROX r.base.roX mclose)
+  · obtain ⟨hx, -⟩ := lazyROX_support_nonzero hx0 mclose p hp
+    refine mul_le_mul_right ?_ _
+    have hstep : ∀ a : F,
+        (∑' q : F × (F → Option F),
+          Pr[= q | lazyRO r.base.roNf a] *
+            (if FrameLeakBad k
+                { r.audit with honestSlopes := a :: r.audit.honestSlopes }
+              then 0
+              else G ((some ⟨p.1, rlnY k a p.1, q.1⟩ : Option (Signal F)),
+                idealizeFrame k
+                  (⟨{ r.base with
+                      idx := r.base.idx + 1
+                      closed := true
+                      roA := Function.update r.base.roA (k, r.base.idx)
+                        (some a)
+                      roX := p.2
+                      roNf := q.2 },
+                    { r.audit with
+                        honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                      AuditedFrameSt F M))))
+          ≤ ∑' nf : F, Pr[= nf | ($ᵗ F)] *
+              G ((some ⟨p.1, rlnY k a p.1, nf⟩ : Option (Signal F)),
+                { idealizeFrame k r with
+                    idx := r.base.idx + 1
+                    closed := true
+                    roX := p.2
+                    honestNf := Function.update (idealizeFrame k r).honestNf
+                      r.base.idx (some nf) }) := by
+      intro a
+      by_cases hrec : a ∈ r.audit.slopeProbes ∨ a ∈ r.audit.honestSlopes
+      · have hbad : FrameLeakBad k
+            { r.audit with honestSlopes := a :: r.audit.honestSlopes } :=
+          FrameLeakBad.honest_collision k a r.audit hrec
+        refine le_trans (le_of_eq (ENNReal.tsum_eq_zero.mpr fun q => ?_))
+          zero_le'
+        rw [if_pos hbad, mul_zero]
+      · rw [not_or] at hrec
+        obtain ⟨hprobe, hhon⟩ := hrec
+        have hnfa : r.base.roNf a = none :=
+          roNf_none_of_unrecorded r hcov hprobe hhon
+        have hgood' : ¬ FrameLeakBad k
+            { r.audit with honestSlopes := a :: r.audit.honestSlopes } :=
+          not_frameLeakBad_honest_cons k a r.audit hgood hprobe hhon
+        rw [lazyRO_eq_of_none hnfa]
+        simp only [tsum_probOutput_bind_mul, tsum_probOutput_pure_mul]
+        refine le_of_eq (tsum_congr fun nf => ?_)
+        rw [if_neg hgood',
+          idealize_freshSlope_state k a nf r.base.idx (r.base.idx + 1)
+            true p.2 r hc hhon hnfa]
+        rfl
+    refine le_trans (ENNReal.tsum_le_tsum fun a =>
+      mul_le_mul_right (hstep a) _) ?_
+    exact le_of_eq (tsum_uniform_rlnY_reindex k p.1 hx
+      (fun y => ∑' nf : F, Pr[= nf | ($ᵗ F)] *
+        G ((some ⟨p.1, y, nf⟩ : Option (Signal F)),
+          { idealizeFrame k r with
+              idx := r.base.idx + 1
+              closed := true
+              roX := p.2
+              honestNf := Function.update (idealizeFrame k r).honestNf
+                r.base.idx (some nf) })))
+  · rw [(probOutput_eq_zero_iff _ _).mpr hp]
+    simp
+
+end FreshSlopeCrux
+
 end Zkpc.Games
