@@ -118,7 +118,7 @@ theorem slopeHitRoots_length (probes : List F)
   induction lines with
   | nil => simp [slopeHitRoots]
   | cons line lines ih =>
-      simp [slopeHitRoots, ih, Nat.add_mul]
+      simp [slopeHitRoots, Nat.add_mul, Nat.add_comm]
 
 /-- The padded collision-root list has exactly the square number of entries. -/
 theorem slopeCollisionRoots_length (lines : List (DeferredLine F)) :
