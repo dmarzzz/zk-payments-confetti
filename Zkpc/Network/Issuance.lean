@@ -92,6 +92,88 @@ theorem combineShares_holds (x : F) :
           rw [hw', ht']
           ring
 
+/-! ### Weighted/Lagrange threshold reconstruction -/
+
+/-- Scale both coordinates of a witness share by its public reconstruction
+coefficient. -/
+def scaleWitness (c : F) (w : Witness F) : Witness F :=
+  ⟨c * w.k, c * w.a⟩
+
+/-- Reconstruct a witness from any selected share subset and its Lagrange
+coefficients. -/
+def weightedCombine (coeffs : List F) (ws : List (Witness F)) : Witness F :=
+  combineShares (List.zipWith scaleWitness coeffs ws)
+
+/-- Public statement reconstructed with the same coefficients. -/
+def weightedStatement (x : F) (coeffs ys : List F) : Statement F :=
+  combinedStatement x (List.zipWith (· * ·) coeffs ys)
+
+/-- Scaling a valid share statement by the same reconstruction coefficient
+preserves the line relation. -/
+theorem scaleWitness_holds (x c y : F) (w : Witness F)
+    (h : Holds ⟨x, y⟩ w) : Holds ⟨x, c * y⟩ (scaleWitness c w) := by
+  change y = w.k + w.a * x at h
+  change c * y = (scaleWitness c w).k + (scaleWitness c w).a * x
+  simp only [scaleWitness]
+  rw [h]
+  ring
+
+/-- **Weighted threshold correctness.** Any equally sized selected issuer
+share, public-share, and reconstruction-coefficient lists combine to a valid
+witness for the correspondingly reconstructed statement.  Shamir/Lagrange
+threshold issuance is the instance where `coeffs` are interpolation weights
+at the master evaluation point. -/
+theorem weightedCombine_holds (x : F) :
+    ∀ (coeffs : List F) (ws : List (Witness F)) (ys : List F),
+      coeffs.length = ws.length → ws.length = ys.length →
+      (∀ p ∈ List.zip ws ys, Holds ⟨x, p.2⟩ p.1) →
+      Holds (weightedStatement x coeffs ys) (weightedCombine coeffs ws) := by
+  intro coeffs
+  induction coeffs with
+  | nil =>
+      intro ws ys hcw hwy _
+      cases ws with
+      | nil =>
+          cases ys with
+          | nil =>
+              simp [weightedStatement, weightedCombine, combinedStatement,
+                combineShares, Holds]
+          | cons y ys => simp at hwy
+      | cons w ws => simp at hcw
+  | cons c coeffs ih =>
+      intro ws ys hcw hwy hall
+      cases ws with
+      | nil => simp at hcw
+      | cons w ws =>
+          cases ys with
+          | nil => simp at hwy
+          | cons y ys =>
+              have hw : Holds ⟨x, y⟩ w := hall (w, y) (by simp)
+              have htail :
+                  Holds (weightedStatement x coeffs ys)
+                    (weightedCombine coeffs ws) := by
+                apply ih ws ys
+                · simpa using hcw
+                · simpa using hwy
+                · intro p hp
+                  exact hall p (List.mem_cons_of_mem _ hp)
+              have hscaled := scaleWitness_holds x c y w hw
+              have hs : c * y = (scaleWitness c w).k +
+                  (scaleWitness c w).a * x := hscaled
+              have ht :
+                  (List.zipWith (· * ·) coeffs ys).sum =
+                    ((List.zipWith scaleWitness coeffs ws).map Witness.k).sum +
+                    ((List.zipWith scaleWitness coeffs ws).map Witness.a).sum * x :=
+                htail
+              show (List.zipWith (· * ·) (c :: coeffs) (y :: ys)).sum =
+                ((List.zipWith scaleWitness (c :: coeffs) (w :: ws)).map
+                    Witness.k).sum +
+                  ((List.zipWith scaleWitness (c :: coeffs) (w :: ws)).map
+                    Witness.a).sum * x
+              simp only [List.zipWith_cons_cons, List.map_cons, List.sum_cons]
+              rw [hs, ht]
+              ring
+
 /-- Issue a portable ticket from combined issuer shares. -/
 def thresholdIssue (H : ChallengeOracle F)
     {Recipient Nf Payload : Type}
@@ -112,6 +194,29 @@ theorem thresholdIssue_wellFormed (H : ChallengeOracle F)
     WellFormed H encode
       (thresholdIssue H encode recipient nf value payload ws r) :=
   issue_wellFormed H encode recipient nf value payload (combineShares ws) r
+
+/-- Issue from an authorized subset using its public Lagrange reconstruction
+coefficients. -/
+def weightedThresholdIssue (H : ChallengeOracle F)
+    {Recipient Nf Payload : Type}
+    (encode : Encode F Recipient Nf Payload)
+    (recipient : Recipient) (nf : Nf) (value : ℕ) (payload : Payload)
+    (coeffs : List F) (ws : List (Witness F)) (r : Randomness F) :
+    Ticket F Recipient Nf Payload :=
+  issue H encode recipient nf value payload (weightedCombine coeffs ws) r
+
+/-- A Lagrange-reconstructed threshold ticket verifies under the concrete
+Fiat--Shamir verifier. -/
+theorem weightedThresholdIssue_wellFormed (H : ChallengeOracle F)
+    {Recipient Nf Payload : Type} [DecidableEq Recipient] [DecidableEq Nf]
+    [DecidableEq Payload]
+    (encode : Encode F Recipient Nf Payload)
+    (recipient : Recipient) (nf : Nf) (value : ℕ) (payload : Payload)
+    (coeffs : List F) (ws : List (Witness F)) (r : Randomness F) :
+    WellFormed H encode
+      (weightedThresholdIssue H encode recipient nf value payload coeffs ws r) :=
+  issue_wellFormed H encode recipient nf value payload
+    (weightedCombine coeffs ws) r
 
 /-! ## Perfect blindness of the issuance request -/
 
@@ -258,7 +363,9 @@ end RecipientView
 end Zkpc.Network.Issuance
 
 #print axioms Zkpc.Network.Issuance.combineShares_holds
+#print axioms Zkpc.Network.Issuance.weightedCombine_holds
 #print axioms Zkpc.Network.Issuance.thresholdIssue_wellFormed
+#print axioms Zkpc.Network.Issuance.weightedThresholdIssue_wellFormed
 #print axioms Zkpc.Network.Issuance.evalDist_blindRequest_uniform
 #print axioms Zkpc.Network.Issuance.issuerView_message_independent
 #print axioms Zkpc.Network.Issuance.ticket_fork_extracts
