@@ -851,6 +851,384 @@ theorem dsShadow_leaf_le (D P : List F) (shadow : List (DSEntry F)) (m : ℕ)
   norm_cast
   omega
 
+/-! ## Plumbing for the seeded master induction -/
+
+omit [Field F] [DecidableEq F] in
+/-- Every supported tape of `drawList` has the announced length. -/
+theorem drawList_support_length (m : ℕ) (vs : List F)
+    (hvs : vs ∈ support (drawList ($ᵗ F) m)) : vs.length = m := by
+  induction m generalizing vs with
+  | zero =>
+      rw [show drawList ($ᵗ F) 0 = (pure [] : ProbComp (List F)) from rfl,
+        support_pure, Set.mem_singleton_iff] at hvs
+      subst hvs
+      rfl
+  | succ m ih =>
+      rw [show drawList ($ᵗ F) (m + 1)
+          = (($ᵗ F) >>= fun v => drawList ($ᵗ F) m >>= fun ws =>
+              pure (v :: ws)) from rfl] at hvs
+      obtain ⟨v, -, hvs⟩ := (mem_support_bind_iff _ _ _).1 hvs
+      obtain ⟨ws, hws, hvs⟩ := (mem_support_bind_iff _ _ _).1 hvs
+      rw [support_pure, Set.mem_singleton_iff] at hvs
+      subst hvs
+      simp [ih ws hws]
+
+omit [Field F] [DecidableEq F] [SampleableType F] in
+/-- Bind congruence restricted to the support of the sampler. -/
+theorem probEvent_bind_congr_support {α β : Type} (oa : ProbComp α)
+    (f g : α → ProbComp β) (P : β → Prop)
+    (h : ∀ a ∈ support oa, f a = g a) :
+    Pr[P | oa >>= f] = Pr[P | oa >>= g] := by
+  rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+  refine tsum_congr fun a => ?_
+  by_cases ha : a ∈ support oa
+  · rw [h a ha]
+  · rw [probOutput_eq_zero_of_not_mem_support ha]
+    simp
+
+omit [Field F] [DecidableEq F] [SampleableType F] in
+/-- Split a bind bound through a bad event on the sampled value: pay the
+bad-event mass, and bound the continuation on the good outcomes. -/
+theorem probEvent_bind_le_probEvent_add {α β : Type} (oa : ProbComp α)
+    (f : α → ProbComp β) (P : β → Prop) (Q : α → Prop) (B B' : ENNReal)
+    (hQ : Pr[Q | oa] ≤ B')
+    (h : ∀ a ∈ support oa, ¬ Q a → Pr[P | f a] ≤ B) :
+    Pr[P | oa >>= f] ≤ B' + B := by
+  classical
+  rw [probEvent_bind_eq_tsum]
+  have hterm : ∀ a : α,
+      Pr[= a | oa] * Pr[P | f a]
+        ≤ (if Q a then Pr[= a | oa] else 0)
+          + (if Q a then 0 else Pr[= a | oa] * B) := by
+    intro a
+    by_cases hqa : Q a
+    · simp only [hqa, if_true, add_zero]
+      exact le_trans (mul_le_mul_left' probEvent_le_one _) (by simp)
+    · simp only [hqa, if_false, zero_add]
+      by_cases ha : a ∈ support oa
+      · exact mul_le_mul_left' (h a ha hqa) _
+      · rw [probOutput_eq_zero_of_not_mem_support ha]
+        simp
+  refine le_trans (ENNReal.tsum_le_tsum hterm) ?_
+  rw [ENNReal.tsum_add]
+  refine add_le_add ?_ ?_
+  · refine le_trans (le_of_eq ?_) hQ
+    rw [probEvent_eq_tsum_ite]
+  · calc (∑' a : α, if Q a then 0 else Pr[= a | oa] * B)
+        ≤ ∑' a : α, Pr[= a | oa] * B := by
+          refine ENNReal.tsum_le_tsum fun a => ?_
+          by_cases hqa : Q a <;> simp [hqa]
+      _ = (∑' a : α, Pr[= a | oa]) * B := ENNReal.tsum_mul_right
+      _ ≤ 1 * B := mul_le_mul_right' tsum_probOutput_le_one _
+      _ = B := one_mul B
+
+section MasterPlumbing
+
+/-- Commute a secret/tape-independent core sampler in front of the secret
+and hole tape. -/
+theorem probEvent_kTape_core_swap_le {γ β : Type} (m : ℕ)
+    (core : ProbComp γ) (cont : F → List F → γ → ProbComp β)
+    (P : β → Prop) (B : ENNReal)
+    (h : ∀ c ∈ support core,
+      Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        cont k vs c] ≤ B) :
+    Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        core >>= fun c => cont k vs c] ≤ B := by
+  have h1 : 𝒟[($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        core >>= fun c => cont k vs c]
+      = 𝒟[core >>= fun c => ($ᵗ F) >>= fun k =>
+          drawList ($ᵗ F) m >>= fun vs => cont k vs c] := by
+    calc 𝒟[($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+          core >>= fun c => cont k vs c]
+        = 𝒟[($ᵗ F) >>= fun k => core >>= fun c =>
+            drawList ($ᵗ F) m >>= fun vs => cont k vs c] := by
+          refine OracleComp.DeferredSampling.evalDist_bind_congr_left
+            ($ᵗ F) _ _ fun k => ?_
+          exact OracleComp.DeferredSampling.evalDist_bind_comm
+            (drawList ($ᵗ F) m) core (fun vs c => cont k vs c)
+      _ = 𝒟[core >>= fun c => ($ᵗ F) >>= fun k =>
+            drawList ($ᵗ F) m >>= fun vs => cont k vs c] :=
+          OracleComp.DeferredSampling.evalDist_bind_comm
+            ($ᵗ F) core (fun k c => drawList ($ᵗ F) m >>= fun vs =>
+              cont k vs c)
+  refine le_trans (le_of_eq (probEvent_congr' (fun _ _ => Iff.rfl) h1)) ?_
+  exact probEvent_bind_le_of_forall_le h
+
+/-- Commute a core sampler out, then split on a bad event of its outcome:
+pay the bad mass and bound the good continuations. -/
+theorem probEvent_kTape_core_split_le {γ β : Type} (m : ℕ)
+    (core : ProbComp γ) (cont : F → List F → γ → ProbComp β)
+    (P : β → Prop) (Q : γ → Prop) (B B' : ENNReal)
+    (hQ : Pr[Q | core] ≤ B')
+    (h : ∀ c ∈ support core, ¬ Q c →
+      Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        cont k vs c] ≤ B) :
+    Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        core >>= fun c => cont k vs c] ≤ B' + B := by
+  have h1 : 𝒟[($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        core >>= fun c => cont k vs c]
+      = 𝒟[core >>= fun c => ($ᵗ F) >>= fun k =>
+          drawList ($ᵗ F) m >>= fun vs => cont k vs c] := by
+    calc 𝒟[($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+          core >>= fun c => cont k vs c]
+        = 𝒟[($ᵗ F) >>= fun k => core >>= fun c =>
+            drawList ($ᵗ F) m >>= fun vs => cont k vs c] := by
+          refine OracleComp.DeferredSampling.evalDist_bind_congr_left
+            ($ᵗ F) _ _ fun k => ?_
+          exact OracleComp.DeferredSampling.evalDist_bind_comm
+            (drawList ($ᵗ F) m) core (fun vs c => cont k vs c)
+      _ = _ :=
+          OracleComp.DeferredSampling.evalDist_bind_comm
+            ($ᵗ F) core (fun k c => drawList ($ᵗ F) m >>= fun vs =>
+              cont k vs c)
+  refine le_trans (le_of_eq (probEvent_congr' (fun _ _ => Iff.rfl) h1)) ?_
+  exact probEvent_bind_le_probEvent_add core _ P Q B B' hQ h
+
+/-- Fuse one fresh draw appended at the back of the tape into a longer
+tape, under the secret binder. -/
+theorem probEvent_kTape_snoc_le {β : Type} (m : ℕ)
+    (cont : F → List F → ProbComp β) (P : β → Prop) (B : ENNReal)
+    (h : Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) (m + 1) >>= fun vs =>
+      cont k vs] ≤ B) :
+    Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        ($ᵗ F) >>= fun v => cont k (vs ++ [v])] ≤ B := by
+  refine le_trans (le_of_eq (probEvent_congr' (fun _ _ => Iff.rfl) ?_)) h
+  refine OracleComp.DeferredSampling.evalDist_bind_congr_left
+    ($ᵗ F) _ _ fun k => ?_
+  exact evalDist_drawList_snoc m (cont k)
+
+/-- Re-parameterize one tape coordinate by the pad bijection
+`v ↦ k + v·x` under the secret binder: the observed distribution is
+unchanged. -/
+theorem probEvent_kTape_reindex {β : Type} (m j : ℕ) (hj : j < m)
+    (x : F) (hx : x ≠ 0) (cont : F → List F → ProbComp β) (P : β → Prop) :
+    Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+        cont k (vs.set j (k + (vs.getD j 0) * x))]
+      = Pr[P | ($ᵗ F) >>= fun k => drawList ($ᵗ F) m >>= fun vs =>
+          cont k vs] := by
+  refine probEvent_congr' (fun _ _ => Iff.rfl) ?_
+  refine OracleComp.DeferredSampling.evalDist_bind_congr_left
+    ($ᵗ F) _ _ fun k => ?_
+  have hbij : Function.Bijective (fun v : F => k + v * x) := by
+    have h1 : Function.Bijective (fun v : F => v * x) :=
+      mulRight_bijective₀ x hx
+    have h2 : Function.Bijective (fun w : F => k + w) :=
+      (Equiv.addLeft k).bijective
+    exact h2.comp h1
+  exact evalDist_drawList_set_bij m j hj (fun v => k + v * x) hbij (cont k)
+
+end MasterPlumbing
+
+/-! ## The seeded shadow state -/
+
+variable {M : Type} [DecidableEq M]
+
+/-- The k-free shadow description of a deferred-slope handler state: the
+ideal caches, the per-index slope-cache pattern, the two adversary probe
+transcripts, and the shadow of the recorded honest slopes. -/
+structure DSShadowSt (F M : Type) where
+  /-- the ideal (public) cache state -/
+  ideal : IdealFrameSt F M
+  /-- per-index slope-cache pattern -/
+  pat : ℕ → Option (DSEntry F)
+  /-- recorded direct secret probes -/
+  secretProbes : List F
+  /-- recorded direct `H_nf` probes -/
+  slopeProbes : List F
+  /-- shadow of the recorded honest slopes -/
+  shadow : List (DSEntry F)
+
+/-- Reify a shadow state at a concrete secret and hole tape. -/
+def DSShadowSt.seed (σ : DSShadowSt F M) (k : F) (vs : List F) :
+    DSFrameSt F M :=
+  ⟨σ.ideal, fun i => (σ.pat i).map (DSEntry.eval k vs),
+    ⟨σ.secretProbes, σ.slopeProbes, σ.shadow.map (DSEntry.eval k vs)⟩⟩
+
+@[simp] theorem DSShadowSt.seed_ideal (σ : DSShadowSt F M) (k : F)
+    (vs : List F) : (σ.seed k vs).ideal = σ.ideal := rfl
+
+@[simp] theorem DSShadowSt.seed_slope (σ : DSShadowSt F M) (k : F)
+    (vs : List F) (i : ℕ) :
+    (σ.seed k vs).slope i = (σ.pat i).map (DSEntry.eval k vs) := rfl
+
+@[simp] theorem DSShadowSt.seed_audit (σ : DSShadowSt F M) (k : F)
+    (vs : List F) :
+    (σ.seed k vs).audit
+      = ⟨σ.secretProbes, σ.slopeProbes,
+          σ.shadow.map (DSEntry.eval k vs)⟩ := rfl
+
+/-- Structural invariants of a shadow state against a tape of length `m`
+(Spec.md §7 T7, deferred-run bookkeeping). -/
+structure DSShadowInv (σ : DSShadowSt F M) (m : ℕ) : Prop where
+  hx : ∀ e ∈ σ.shadow, e.XNe0
+  hsep : σ.shadow.Pairwise DSEntry.Sep
+  hlt : ∀ j ∈ entryCoords σ.shadow, j < m
+  hnd : (entryCoords σ.shadow).Nodup
+  hroX : RoXCacheNonzero σ.ideal.roX
+  hpat : ∀ i j, σ.pat i = some (.hole j) → DSEntry.hole j ∈ σ.shadow
+  hpatinj : ∀ i i' j, σ.pat i = some (.hole j) →
+    σ.pat i' = some (.hole j) → i = i'
+  hfresh : ∀ i, σ.ideal.idx ≤ i → ∀ e, σ.pat i = some e →
+    ∃ j, e = DSEntry.hole j
+
+/-- The budget potential of a shadow state: direct probes, probe/slope
+cross pairs, and the chargeable slope pairs (past, cross, and future). -/
+def dsBudget (σ : DSShadowSt F M) (nA nE nId nNf nSig : ℕ) : ℕ :=
+  (σ.secretProbes.length + (nA + nE + nId))
+    + (σ.slopeProbes.length + nNf) * (σ.shadow.length + nSig)
+    + (scCount σ.shadow + nSig * σ.shadow.length + Nat.choose nSig 2)
+
+/-! ## Shadow update algebra -/
+
+/-- Concrete ordinates of same-abscissa lines: the in-run duplication
+targets of a fresh emission. -/
+def dupTargets (x : F) (shadow : List (DSEntry F)) : List F :=
+  shadow.filterMap fun e =>
+    match e with
+    | .line x' y' => if x = x' then some y' else none
+    | _ => none
+
+omit [Field F] [SampleableType F] in
+/-- A cons of a hole charges every existing entry. -/
+theorem scCount_hole_cons (j : ℕ) (shadow : List (DSEntry F)) :
+    scCount (DSEntry.hole j :: shadow) = shadow.length + scCount shadow := by
+  have h : (shadow.map (fun e' =>
+      if (DSEntry.hole j).clash e' then 0 else 1)).sum = shadow.length := by
+    induction shadow with
+    | nil => simp
+    | cons e rest ih =>
+        simp only [List.map_cons, List.sum_cons, List.length_cons]
+        rw [ih]
+        cases e <;> simp [DSEntry.clash] <;> omega
+  simp only [scCount, h]
+
+omit [Field F] [SampleableType F] in
+/-- `dupTargets` cons computation. -/
+theorem dupTargets_cons (x : F) (e : DSEntry F) (rest : List (DSEntry F)) :
+    dupTargets x (e :: rest)
+      = (match e with
+          | DSEntry.line x' y' => if x = x' then [y'] else []
+          | _ => []) ++ dupTargets x rest := by
+  cases e with
+  | line x' y' =>
+      by_cases hx : x = x' <;> simp [dupTargets, hx]
+  | hole j => simp [dupTargets]
+  | tline j x' => simp [dupTargets]
+
+omit [Field F] [SampleableType F] in
+/-- A cons of a concrete line charges every existing entry except the
+same-abscissa lines, which are exactly the duplication targets. -/
+theorem scCount_line_cons (x y : F) (shadow : List (DSEntry F)) :
+    scCount (DSEntry.line x y :: shadow) + (dupTargets x shadow).length
+      = shadow.length + scCount shadow := by
+  have h : (shadow.map (fun e' =>
+        if (DSEntry.line x y).clash e' then 0 else 1)).sum
+      + (dupTargets x shadow).length = shadow.length := by
+    induction shadow with
+    | nil => simp [dupTargets]
+    | cons e rest ih =>
+        rw [dupTargets_cons]
+        simp only [List.map_cons, List.sum_cons, List.length_cons,
+          List.length_append]
+        cases e with
+        | line x' y' =>
+            by_cases hx : x = x'
+            · subst hx
+              rw [if_pos (by simp [DSEntry.clash])]
+              simp only [List.length_append, if_true, List.length_cons,
+                List.length_nil]
+              omega
+            · rw [if_neg (by simp [DSEntry.clash, hx])]
+              simp only [if_neg hx, List.length_nil, List.length_append]
+              omega
+        | hole j =>
+            have hcl : (DSEntry.line x y).clash (DSEntry.hole j)
+                = false := rfl
+            simp only [hcl, Bool.false_eq_true, if_false, List.length_nil]
+            omega
+        | tline j x' =>
+            have hcl : (DSEntry.line x y).clash (DSEntry.tline j x')
+                = false := rfl
+            simp only [hcl, Bool.false_eq_true, if_false, List.length_nil]
+            omega
+  simp only [scCount]
+  omega
+
+/-- Replace the (unique) hole at coordinate `j` by its consumed tape-line
+form. -/
+def replaceHole (j : ℕ) (x : F) (e : DSEntry F) : DSEntry F :=
+  if e = DSEntry.hole j then DSEntry.tline j x else e
+
+section ReplaceHole
+
+variable (j : ℕ) (x : F)
+
+omit [Field F] [SampleableType F] in
+theorem replaceHole_clash (a b : DSEntry F) :
+    (replaceHole j x a).clash (replaceHole j x b) = a.clash b := by
+  cases a <;> cases b <;> unfold replaceHole <;>
+    split_ifs <;> simp_all [DSEntry.clash]
+
+omit [Field F] [SampleableType F] in
+theorem scCount_map_replaceHole (shadow : List (DSEntry F)) :
+    scCount (shadow.map (replaceHole j x)) = scCount shadow := by
+  induction shadow with
+  | nil => rfl
+  | cons e rest ih =>
+      simp only [List.map_cons, scCount, ih, List.map_map]
+      congr 1
+      refine congrArg List.sum ?_
+      refine List.map_congr_left fun e' _ => ?_
+      simp [Function.comp_apply, replaceHole_clash]
+
+omit [Field F] [SampleableType F] in
+theorem coord_replaceHole (e : DSEntry F) :
+    (replaceHole j x e).coord = e.coord := by
+  unfold replaceHole
+  split_ifs with h
+  · subst h; rfl
+  · rfl
+
+theorem entryCoords_map_replaceHole (shadow : List (DSEntry F)) :
+    entryCoords (shadow.map (replaceHole j x)) = entryCoords shadow := by
+  unfold entryCoords
+  rw [List.filterMap_map]
+  refine List.filterMap_congr fun e _ => ?_
+  exact congrArg id (coord_replaceHole j x e)
+
+omit [SampleableType F] in
+theorem xne0_replaceHole (hx : x ≠ 0) (e : DSEntry F) (he : e.XNe0) :
+    (replaceHole j x e).XNe0 := by
+  unfold replaceHole
+  split_ifs with h
+  · exact hx
+  · exact he
+
+omit [Field F] [SampleableType F] in
+theorem sep_replaceHole (a b : DSEntry F) (h : a.Sep b) :
+    (replaceHole j x a).Sep (replaceHole j x b) := by
+  unfold replaceHole
+  split_ifs <;> first
+    | trivial
+    | (cases a <;> cases b <;> simp_all [DSEntry.Sep])
+
+omit [SampleableType F] in
+/-- Off the replaced hole, evaluation is unchanged. -/
+theorem eval_replaceHole_of_ne (k : F) (vs : List F) (e : DSEntry F)
+    (he : e ≠ DSEntry.hole j) :
+    DSEntry.eval k vs (replaceHole j x e) = DSEntry.eval k vs e := by
+  unfold replaceHole
+  rw [if_neg he]
+
+end ReplaceHole
+
+omit [Field F] [SampleableType F] in
+/-- The in-run duplication targets never exceed the shadow size. -/
+theorem dupTargets_length_le (x : F) (shadow : List (DSEntry F)) :
+    (dupTargets x shadow).length ≤ shadow.length := by
+  unfold dupTargets
+  exact List.length_filterMap_le _ _
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
