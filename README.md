@@ -48,9 +48,9 @@ shapes:
   calibration battery and the exculpability breaks. Template:
   `Zkpc/Games/Calibration.lean`.
 - **Reductions and game hopping** (bound advantage by a chain of hops with
-  a named bad event). This is the hardest shape and where the remaining
-  open work sits. Template: `Zkpc/Games/T7.lean`, with the FRAME campaign
-  files (`Zkpc/Games/Frame{Factor,Assembly,Transfer}.lean`) as the worked
+  a named bad event). This is the hardest shape. Template:
+  `Zkpc/Games/T7.lean`, with the FRAME campaign files
+  (`Zkpc/Games/Frame{Factor,Assembly,Transfer}.lean`) as the worked
   large-scale example.
 - **Field and algebra lemmas** (the RLN line arithmetic). Template:
   `Zkpc/Games/RLN.lean`.
@@ -70,21 +70,25 @@ Sigma-protocol, and lazy-ROM Fiat-Shamir encodings
 (`Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Crypto/FSRom.lean`,
 `Zkpc/Games/SigmaInstance.lean`). The short version of what is still open:
 
-- the original pointwise deferred-sampling scaffold for T7. The original
-  pointwise deferred-sampling scaffold turned out to be unsatisfiable —
+- **the last lemma of the unconditional T7 route.** The originally frozen
+  pointwise deferred-sampling certificate turned out to be unsatisfiable —
   refuted inside the tree (`frameDeferredSampling_refuted`,
   `Zkpc/Games/FrameDeferred.lean`), a definitional finding recorded in
   `research_knowledge/gates.md` (Round 4) that touched only the unconsumed
-  certificate shape, not the game or the `Spec.md` statement. The corrected
-  k-averaged socket and its endpoint arithmetic (`FrameDeferredSamplingAvg`,
-  `T7_frame_query_bound_avg`), the ghost model with exact erasure and budget
-  bounds (`Zkpc/Games/FrameGhost.lean`), the master real-to-ghost
-  factorization (`frame_real_le_ghost_plus_bad`,
-  `Zkpc/Games/FrameFactor.lean`), and the ghost bad-mass bound
-  (`ghostSlopeBadBounds_holds`, `Zkpc/Games/FrameBadMass.lean`) are all
-  kernel-checked. The corrected unconditional route is now closed by
-  `FrameGoodSliceTransfer`, `dsBadMassLe_of_queryBounds`, and
-  `T7Certificate.ofQueryBounds`;
+  certificate shape, not the game or the `Spec.md` statement. Everything
+  else on the corrected k-averaged route is kernel-checked: the socket and
+  its endpoint arithmetic (`FrameDeferredSamplingAvg`,
+  `T7_frame_query_bound_avg`), the ghost model with exact erasure and
+  budget bounds, the master factorization, the ghost bad-mass bound
+  (`ghostSlopeBadBounds_holds`), the eight-operation real/deferred step
+  coupling (`realDSStepCoupling_holds`), the general good-slice transfer
+  (`frameGoodSliceTransfer_of_tape`), and the assembly
+  (`T7_frame_query_bound_of_goodSlice_and_dsCount`). What remains is
+  exactly one lemma, `DSBadMassLe` — the k-averaged root-counting bound on
+  the deferred run; a candidate proof (`dsBadMassLe_of_queryBounds`) is
+  written and under repair, and until it compiles the unconditional bound
+  is not claimed (see
+  `research_knowledge/t7-stack-audit-2026-07-10.md`);
 - the production hash-function reduction behind the Fiat-Shamir bridge
   (the landed bridge is exact in the ideal lazy-ROM reference layer), and
   on the network layer, the adaptive multi-session issuance game and a
@@ -134,10 +138,11 @@ refinements, the network issuance suite, and the nullifier-chain channel
 instantiation (`Zkpc/Chain/`) are proved and kernel-checked; the axiom
 audit shows only the three standard Lean axioms
 (`research_knowledge/k2-axiom-audit.md`). On T7, the pointwise certificate
-scaffold was refuted and replaced by the k-averaged one, and the campaign
-is now discharged through the averaged route, with the concrete
-`T7Certificate.ofQueryBounds` constructor. Nothing in this repo is verified until the kernel says
-so, and this README does not claim otherwise.
+scaffold was refuted and replaced by the k-averaged one; the bound is
+kernel-checked in its conditional and query-budget-assembled forms, with
+one counting lemma (`DSBadMassLe`) still to compile before the
+unconditional endpoint is claimed. Nothing in this repo is verified until
+the kernel says so, and this README does not claim otherwise.
 
 ## Layout
 
@@ -149,9 +154,9 @@ so, and this README does not claim otherwise.
 | `Zkpc/Chain/` | Instantiation C: the nullifier-chain channel (state machine, collision bound, anonymity, executable refinement). |
 | `paper/` | The systematization, the placement table, the theorem-to-file map, the ethresear.ch post form. |
 | `RESEARCH.md` | The verified field report: six literature angles, ten open problems. |
-| `BRIEF.md` | The executor contract: model boundary, theorem targets, milestones, gates. |
-| `DELIVERY.md` | What got proved, in two paragraphs, plus the package manifest. |
-| `research_knowledge/` | The gate record, the audits (K1 statement, K2 axiom, K3 vacuity, K4 external), the VCV-io prover-choice survey, the TLA+ findings, the experiment outcome. |
+| `BRIEF.md` | The original executor contract: model boundary, theorem targets, milestones, gates (kept as provenance; `Spec.md` cites it). |
+| `PROVING.md` | One-page contributor guide: model boundary, rules, how to add a theorem. |
+| `research_knowledge/` | The gate record, the audits (K1 statement, K2 axiom, K3 vacuity, K4 external, T7 stack), the VCV-io prover-choice survey, the TLA+ findings, the experiment outcome. |
 | `tla/` | The TLA+ model and its model-checking configs. |
 
 ## Provenance
