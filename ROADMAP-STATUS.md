@@ -6,25 +6,21 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 
 The root `Zkpc` target is kept green at this checkpoint. The following
 substantial follow-on modules are source-built and root-imported; they provide
-the remaining T7 and composition substrate without claiming the unfinished
-endpoints:
+the T7 and composition substrate, including the now-closed averaged T7
+endpoint:
 
-- `Games.FrameDSCountInduction` contains the strong seeded-shadow invariant,
-  initialization, symbolic shadow mutations, coordinate stability, and exact
-  query-budget potential algebra. Remaining: finish the run-to-shadow
-  induction, construct `DSShadowCertificate`, and apply
-  `DSBadMassLe_of_shadowCertificate`.
+- `Games.FrameDSCountInduction` contains the completed adaptive seeded-shadow
+  induction and `dsBadMassLe_of_queryBounds`, which discharges the deferred
+  counting bound directly from `FrameQueryBounds`.
 - `Composition.EndToEnd` defines one labelled synchronized product trace for
   Core/Fleet/Network and Refund/Network, proof-bearing admission/reconciliation/
   settlement certificates, trace projections, and scheme-level T4/T7 bundles.
-  Remaining: instantiate the explicit T7 certificate with the unconditional
-  T7 result once the two adaptive tape inductions close.
+  `T7Certificate.ofQueryBounds` now instantiates the explicit certificate
+  with the unconditional averaged T7 result.
 
-The good-slice lane now includes seeded tape evaluation stability and the
-pending slope transport lemma. Remaining: finish the pinned-emission adaptive
-tape induction in `FrameGoodSliceTapeInduction`, derive
-`FrameGoodSliceTransfer`, combine it with the deferred-slope bad-mass bound,
-and expose the unconditional query-bounded T7 theorem. After T7, the deployed
+The good-slice lane includes the completed pinned-emission tape induction and
+`FrameGoodSliceTransfer`; together with the deferred counting bound it exposes
+the unconditional query-bounded T7 theorem. After T7, the deployed
 claims still require the concrete-hash Fiat--Shamir reduction, production
 public-key refund encryption and multi-query authentication reductions,
 adaptive multi-session threshold issuance/network unlinkability, and the final

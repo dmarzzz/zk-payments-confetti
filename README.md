@@ -70,7 +70,7 @@ Sigma-protocol, and lazy-ROM Fiat-Shamir encodings
 (`Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Crypto/FSRom.lean`,
 `Zkpc/Games/SigmaInstance.lean`). The short version of what is still open:
 
-- the unconditional form of the exculpability bound (T7). The original
+- the original pointwise deferred-sampling scaffold for T7. The original
   pointwise deferred-sampling scaffold turned out to be unsatisfiable —
   refuted inside the tree (`frameDeferredSampling_refuted`,
   `Zkpc/Games/FrameDeferred.lean`), a definitional finding recorded in
@@ -82,10 +82,9 @@ Sigma-protocol, and lazy-ROM Fiat-Shamir encodings
   factorization (`frame_real_le_ghost_plus_bad`,
   `Zkpc/Games/FrameFactor.lean`), and the ghost bad-mass bound
   (`ghostSlopeBadBounds_holds`, `Zkpc/Games/FrameBadMass.lean`) are all
-  kernel-checked. Exactly two named run-level Props remain between them and
-  the unconditional endpoint: `FrameGoodSliceTransfer` and
-  `FrameRealBadMassLe`, both under active lane claims in `OPEN-PROOFS.md`
-  §1;
+  kernel-checked. The corrected unconditional route is now closed by
+  `FrameGoodSliceTransfer`, `dsBadMassLe_of_queryBounds`, and
+  `T7Certificate.ofQueryBounds`;
 - the production hash-function reduction behind the Fiat-Shamir bridge
   (the landed bridge is exact in the ideal lazy-ROM reference layer), and
   on the network layer, the adaptive multi-session issuance game and a
@@ -136,9 +135,8 @@ instantiation (`Zkpc/Chain/`) are proved and kernel-checked; the axiom
 audit shows only the three standard Lean axioms
 (`research_knowledge/k2-axiom-audit.md`). On T7, the pointwise certificate
 scaffold was refuted and replaced by the k-averaged one, and the campaign
-is reduced to exactly two named run-level Props (`FrameGoodSliceTransfer`,
-`FrameRealBadMassLe`), tracked with the rest of the remaining work in
-`OPEN-PROOFS.md`. Nothing in this repo is verified until the kernel says
+is now discharged through the averaged route, with the concrete
+`T7Certificate.ofQueryBounds` constructor. Nothing in this repo is verified until the kernel says
 so, and this README does not claim otherwise.
 
 ## Layout
