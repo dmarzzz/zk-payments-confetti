@@ -41,6 +41,7 @@ import Zkpc.Games.FrameDeferred
 import Zkpc.Games.FrameCoupling
 import Zkpc.Games.FrameAssembly
 import Zkpc.Games.FrameTransfer
+import Zkpc.Games.FrameRealBad
 import Zkpc.Games.FrameGhost
 import Zkpc.Games.FrameGhostBounds
 import Zkpc.Games.FrameGhostCoverage

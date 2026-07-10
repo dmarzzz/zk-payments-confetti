@@ -100,6 +100,133 @@ structure DeferredLine (F : Type) where
   x : F
   y : F
 
+/-- Extend the deferred public-line transcript with a returned honest signal.
+Only spend and legacy-close operations can return line coordinates. -/
+def recordDeferredLine : (op : FrameOp F M) →
+    (frameSpec F M).Range op →
+    List (DeferredLine F) → List (DeferredLine F)
+  | .spend _, some signal, lines => ⟨signal.x, signal.y⟩ :: lines
+  | .close, some signal, lines => ⟨signal.x, signal.y⟩ :: lines
+  | _, _, lines => lines
+
+/-- Real audited state decorated with the public lines returned to the
+adversary. The decoration is write-only. -/
+structure LineAuditedFrameSt (F M : Type) where
+  audited : AuditedFrameSt F M
+  lines : List (DeferredLine F)
+
+/-- Empty public-line decoration over an arbitrary audited state. -/
+def LineAuditedFrameSt.init (s : AuditedFrameSt F M) : LineAuditedFrameSt F M :=
+  ⟨s, []⟩
+
+/-- Audited real handler with an observational public-line transcript. -/
+def lineAuditedFrameImpl (k : F) (mclose : M) :
+    QueryImpl.Stateful unifSpec (frameSpec F M) (LineAuditedFrameSt F M) :=
+  fun op => StateT.mk fun s =>
+    ((auditedFrameImpl k mclose) op).run s.audited >>= fun p =>
+      pure (p.1, ⟨p.2, recordDeferredLine op p.1 s.lines⟩)
+
+/-- Recording a public line grows the transcript by at most one and only on
+a signal-classified operation. -/
+theorem recordDeferredLine_length_le (op : FrameOp F M)
+    (answer : (frameSpec F M).Range op) (lines : List (DeferredLine F)) :
+    (recordDeferredLine op answer lines).length ≤
+      lines.length + if isSignalQuery op then 1 else 0 := by
+  cases op <;> simp [recordDeferredLine, isSignalQuery] <;>
+    cases answer <;> simp [recordDeferredLine]
+
+/-- One decorated query projects exactly to the ordinary audited query. -/
+theorem lineAuditedFrameImpl_project_step (k : F) (mclose : M)
+    (op : FrameOp F M) (s : LineAuditedFrameSt F M) :
+    Prod.map id LineAuditedFrameSt.audited <$>
+        ((lineAuditedFrameImpl k mclose) op).run s =
+      ((auditedFrameImpl k mclose) op).run s.audited := by
+  simp [lineAuditedFrameImpl, StateT.run_mk]
+
+/-- Exact adaptive-run projection of the public-line ornament. -/
+theorem lineAuditedFrameImpl_run_project (k : F) (mclose : M)
+    {α : Type} (oa : OracleComp (frameSpec F M) α)
+    (s : LineAuditedFrameSt F M) :
+    Prod.map id LineAuditedFrameSt.audited <$>
+        (simulateQ (lineAuditedFrameImpl k mclose) oa).run s =
+      (simulateQ (auditedFrameImpl k mclose) oa).run s.audited := by
+  refine OracleComp.map_run_simulateQ_eq_of_query_map_eq
+    (impl₁ := lineAuditedFrameImpl k mclose)
+    (impl₂ := auditedFrameImpl k mclose)
+    (proj := fun st : LineAuditedFrameSt F M => st.audited) ?_ oa s
+  intro op st
+  exact lineAuditedFrameImpl_project_step k mclose op st
+
+/-- Every supported decorated step grows the public-line transcript according
+to the signal-query budget. -/
+theorem lineAuditedFrameImpl_lines_step (k : F) (mclose : M)
+    (op : FrameOp F M) (s : LineAuditedFrameSt F M)
+    (z : (frameSpec F M).Range op × LineAuditedFrameSt F M)
+    (hz : z ∈ support (((lineAuditedFrameImpl k mclose) op).run s)) :
+    z.2.lines.length ≤ s.lines.length +
+      if isSignalQuery op then 1 else 0 := by
+  unfold lineAuditedFrameImpl at hz
+  simp only [StateT.run_mk] at hz
+  obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst hz
+  exact recordDeferredLine_length_le op p.1 s.lines
+
+/-- A query-bounded decorated run returns at most `qSig` public lines. -/
+theorem lineAuditedFrameImpl_run_lines_bound (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F)
+    (s : LineAuditedFrameSt F M)
+    (z : Evidence F × LineAuditedFrameSt F M)
+    (hz : z ∈ support ((simulateQ (lineAuditedFrameImpl k mclose) (A cm)).run s)) :
+    z.2.lines.length ≤ s.lines.length + qb.qSig :=
+  support_measure_le_of_isQueryBoundP
+    (lineAuditedFrameImpl k mclose) (fun u => u.lines.length) isSignalQuery
+    (fun t u y hy => lineAuditedFrameImpl_lines_step k mclose t u y hy)
+    (A cm) (qb.signal_bound cm) s z hz
+
+/-- Initial line-audited state after programming the public identity
+commitment. -/
+def lineAuditedFrameInitial (k cm : F) : LineAuditedFrameSt F M :=
+  LineAuditedFrameSt.init
+    ⟨{ FrameSt.init F M with
+        roId := Function.update (FrameSt.init F M).roId k (some cm) },
+      FrameAudit.init⟩
+
+/-- Complete real run retaining the public line transcript. -/
+def lineAuditedFrameRun (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) (k : F) :
+    ProbComp (Evidence F × LineAuditedFrameSt F M) := do
+  let cm ← ($ᵗ F)
+  (simulateQ (lineAuditedFrameImpl k mclose) (A cm)).run
+    (lineAuditedFrameInitial k cm)
+
+/-- Erasing the public-line ornament recovers the ordinary audited real run
+exactly. -/
+theorem lineAuditedFrameRun_project (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) (k : F) :
+    Prod.map id LineAuditedFrameSt.audited <$>
+        lineAuditedFrameRun mclose A k = auditedFrameRun mclose A k := by
+  unfold lineAuditedFrameRun auditedFrameRun
+  rw [map_bind]
+  refine bind_congr fun cm => ?_
+  exact lineAuditedFrameImpl_run_project k mclose (A cm)
+    (lineAuditedFrameInitial k cm)
+
+/-- Every supported complete line-audited run records at most `qSig` public
+lines. -/
+theorem lineAuditedFrameRun_lines_bound (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (k : F)
+    (z : Evidence F × LineAuditedFrameSt F M)
+    (hz : z ∈ support (lineAuditedFrameRun mclose A k)) :
+    z.2.lines.length ≤ qb.qSig := by
+  unfold lineAuditedFrameRun at hz
+  obtain ⟨cm, -, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  have h := lineAuditedFrameImpl_run_lines_bound k mclose A qb cm
+    (lineAuditedFrameInitial k cm) z hz
+  simpa [lineAuditedFrameInitial, LineAuditedFrameSt.init] using h
+
 /-- All singleton roots generated by candidate slopes against consumed public
 lines. Multiplicity is retained for direct budget accounting. -/
 def slopeHitRoots (probes : List F) (lines : List (DeferredLine F)) : List F :=
@@ -439,3 +566,8 @@ end Zkpc.Games
 #print axioms Zkpc.Games.reconstructedSlopes_eq_iff_secret_eq_collisionRoot
 #print axioms Zkpc.Games.frameRealRootCandidates_length_le
 #print axioms Zkpc.Games.probEvent_uniform_mem_frameRealRootCandidates_le
+#print axioms Zkpc.Games.lineAuditedFrameImpl_project_step
+#print axioms Zkpc.Games.lineAuditedFrameImpl_run_project
+#print axioms Zkpc.Games.lineAuditedFrameImpl_run_lines_bound
+#print axioms Zkpc.Games.lineAuditedFrameRun_project
+#print axioms Zkpc.Games.lineAuditedFrameRun_lines_bound

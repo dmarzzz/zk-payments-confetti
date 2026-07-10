@@ -28,3 +28,59 @@ The corrected numerator is
 
 where `+1` is blind guessing. Tighter collision constants are possible later;
 the current expression is deliberately conservative and compositional.
+
+## Status addendum — 2026-07-10 (reconciliation pass)
+
+The numerator above is no longer prose accounting; it is carried
+end-to-end by kernel-checked arithmetic:
+
+- `Zkpc.Games.frameQueryCharge_eq` (`Zkpc/Games/T7.lean`) proves the five
+  charge terms — `q_A/|F| + q_E/|F| + q_Id/|F| + q_Nf*q_sig/|F| +
+  q_sig^2/|F|` — sum to exactly `qb.total/|F|`, with the multi-target and
+  birthday terms in the shape this note derived.
+- The pointwise per-`k` certificate socket was **refuted**:
+  `frameDeferredSampling_refuted` (`Zkpc/Games/FrameDeferred.lean`;
+  gates.md Round 4, 2026-07-09) shows a two-probe adversary admits no
+  `FrameDeferredSampling` certificate over any field with more than five
+  elements — a single secret-independent generator cannot pay two disjoint
+  slash slices each forced to near-`1`. The corrected socket is the
+  `k`-averaged `FrameDeferredSamplingAvg` (same file), consumed by
+  `T7_frame_query_bound_avg` to yield the complete corrected bound
+  `(qb.total + 1)/|F|`, and by both assembly routes:
+  route A (`Zkpc/Games/FrameAssembly.lean`,
+  `frameDeferredSamplingAvg_of_transfers` /
+  `T7_frame_query_bound_of_transfers`) and route B
+  (`Zkpc/Games/FrameTransfer.lean`,
+  `T7_frame_query_bound_of_goodSlice_and_realBad`).
+- The eager-read subtlety this note flagged — `nfAt` materializing a slope
+  that a later `spend` on the same index consumes — turned out to be
+  exactly the obstruction that killed every per-state per-step real/ghost
+  coupling. Conditioned on a fixed answer transcript the consumed slopes
+  are the deterministic `k`-roots `(y_i - k)/x_i`, correlated through the
+  one deferred secret, while ghost slopes are independent uniforms; the
+  counterexample recorded in `Zkpc/Games/FrameTransfer.lean` (and
+  OPEN-PROOFS §1) shows route A's `FrameBadMassTransfer` is **not
+  per-transcript dominated** (real leakage mass exactly `3/|F|` against
+  ghost mass `3/|F| - 2/|F|^2` on a generic two-signal transcript with one
+  `H_nf` probe). The architectural resolution is consumption-time slope
+  deferral: the two-stage plan in OPEN-PROOFS §1 first exchanges the real
+  handler for a deferred-slope handler (identical until `FrameLeakBad`)
+  whose `spend` draws the hidden slope at consumption time, after which
+  `y = k + a*x` is fresh-uniform by the `mulRight` bijection and the
+  eager-read obstruction disappears. The atomic form of that exchange is
+  already kernel-checked: `initial_nfAt_spend_deferredSecret_ghost_eq`
+  (`Zkpc/Games/FrameFactor.lean`) commutes the slope draw from its `nfAt`
+  sampling point to the consuming `spend`, distributionally, under the
+  deferred secret.
+- The ghost-side halves of the numerator are discharged theorems:
+  `ghostSlopeBadBounds_holds` closes the hidden-slope preimage
+  (`q_Nf*q_sig`) and collision (`q_sig^2`) masses outright for every
+  query-bounded adversary, and `ghostFrameRun_leakBad_prob_le` bounds the
+  full ghost bad mass by `qb.total/|F|` (both in
+  `Zkpc/Games/FrameBadMass.lean`). The master factorization
+  `frame_real_le_ghost_plus_bad` (`Zkpc/Games/FrameFactor.lean`) reduces
+  the real experiment to these plus the transfers.
+- What remains open is exactly two run-level Props (lane claims in
+  OPEN-PROOFS §1, both in progress): `FrameGoodSliceTransfer` and
+  `FrameRealBadMassLe`. Everything else between the query budgets defined
+  here and the unconditional Spec.md §7 T7 endpoint is kernel-checked.
