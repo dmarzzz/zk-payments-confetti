@@ -1,5 +1,6 @@
 import Zkpc.Games.FrameCoupling
 import Zkpc.Games.FrameGhostBounds
+import Zkpc.Games.FrameGhostCoverage
 
 /-!
 # Real/ghost FRAME coupling relation
@@ -111,6 +112,24 @@ theorem RealGhostCoupled.frameAuditComplete {k : F}
     exact ha
   exact (h.honestSlopes a).2 (hg i a hga)
 
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- Public-nullifier coverage transfers from the ghost run to the audited
+real state. A populated real entry is either at an already recorded honest
+slope, or survives canonical masking into the ghost public cache and was
+therefore an explicit adversarial slope probe. -/
+theorem RealGhostCoupled.roNfCovered {k : F} {r : AuditedFrameSt F M}
+    {g : GhostFrameSt F M} (h : RealGhostCoupled k r g)
+    (hg : GhostRoNfCovered g) : RoNfCovered r := by
+  intro aq v hr
+  by_cases ha : aq ∈ r.audit.honestSlopes
+  · exact Or.inr ha
+  · have hi : (idealizeFrame k r).roNf aq = some v := by
+      simp [idealizeFrame, ha, hr]
+    have hgi : g.ideal.roNf aq = some v := by
+      rw [← h.ideal]
+      exact hi
+    exact Or.inl ((h.slopeProbes aq).2 (hg aq v hgi))
+
 /-- All public FRAME operations have exactly the same answer and
 secret-erased-state distribution in the real and ghost worlds while the
 coupling stays good. Direct secret probes are excluded, and `roNf` is
@@ -190,5 +209,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.not_frameLeakBad_iff_not_ghostLeakBad
 #print axioms Zkpc.Games.RealGhostCoupled.frameCoupled
 #print axioms Zkpc.Games.RealGhostCoupled.frameAuditComplete
+#print axioms Zkpc.Games.RealGhostCoupled.roNfCovered
 #print axioms Zkpc.Games.realGhost_public_step_erase_evalDist_eq
 #print axioms Zkpc.Games.realGhost_nfAt_materialized_erase_evalDist_eq
