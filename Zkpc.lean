@@ -41,6 +41,7 @@ import Zkpc.Games.FrameDeferred
 import Zkpc.Games.FrameCoupling
 import Zkpc.Games.FrameGhost
 import Zkpc.Games.FrameGhostBounds
+import Zkpc.Games.FrameGhostCoupling
 import Zkpc.Games.BInstances
 import Zkpc.Games.Calibration
 import Zkpc.Refund.State

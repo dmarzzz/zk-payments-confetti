@@ -142,7 +142,13 @@ open.
    `qb.total/|F|` leakage bound from the precise remaining
    `GhostSlopeBadBounds` interface. Thus only the adaptive slope-hit and
    honest-slope collision fields, followed by real/ghost off-bad coupling,
-   remain in this lane.
+   remain in this lane. `Games.FrameGhostCoupling` now supplies the missing
+   run invariant: programmed initialization, canonical real/ideal state
+   relation, hidden-slope/cache alignment, exact real/ghost bad-event
+   equivalence, and transfer of ghost slope completeness to the audited real
+   state. The next coupling step can therefore reuse the arbitrary-state
+   public and materialized-`nfAt` lemmas without paying a second bad-event
+   loss.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
