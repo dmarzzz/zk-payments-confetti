@@ -143,6 +143,49 @@ structure DSFrameSt (F M : Type) where
 def DSFrameSt.init (F M : Type) : DSFrameSt F M :=
   ⟨IdealFrameSt.init F M, fun _ => none, FrameAudit.init⟩
 
+/-- Good-state relation for the real and deferred-slope handlers.  The
+canonical idealization erases the real handler's secret namespace; the
+deferred state retains exactly that erased public state, while its private
+`slope` cache records the erased entries pointwise.  Both handlers carry the
+same audit transcript. -/
+structure RealDSCoupled (k : F) (r : AuditedFrameSt F M)
+    (d : DSFrameSt F M) : Prop where
+  ideal : idealizeFrame k r = d.ideal
+  hiddenSlope : ∀ i, r.base.roA (k, i) = d.slope i
+  audit : r.audit = d.audit
+
+/-- Programming the real identity cache at the honest secret is invisible
+after idealization, so the programmed real initial state couples to the empty
+deferred-slope state. -/
+theorem realDSCoupled_initial (k cm : F) :
+    RealDSCoupled k
+      (⟨{ FrameSt.init F M with
+          roId := Function.update (FrameSt.init F M).roId k (some cm) },
+        FrameAudit.init⟩ : AuditedFrameSt F M)
+      (DSFrameSt.init F M) := by
+  constructor
+  · exact idealizeFrame_initial k cm
+  · intro i
+    rfl
+  · rfl
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- The recorded leakage predicate agrees exactly under the real/deferred
+good-state relation; there is no additional bad-event accounting loss when
+changing handler. -/
+theorem frameLeakBad_iff_dsFrameLeakBad {k : F} {r : AuditedFrameSt F M}
+    {d : DSFrameSt F M} (h : RealDSCoupled k r d) :
+    FrameLeakBad k r.audit ↔ FrameLeakBad k d.audit := by
+  rw [h.audit]
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- Goodness is likewise shared exactly by coupled states. -/
+theorem not_frameLeakBad_iff_not_dsFrameLeakBad {k : F}
+    {r : AuditedFrameSt F M} {d : DSFrameSt F M}
+    (h : RealDSCoupled k r d) :
+    (¬ FrameLeakBad k r.audit) ↔ (¬ FrameLeakBad k d.audit) :=
+  not_congr (frameLeakBad_iff_dsFrameLeakBad h)
+
 /-- Lazily materialize the hidden slope at honest index `i` and record it as
 an honest slope on a first touch; a re-touch returns the pinned value with
 no audit change. This mirrors exactly when the real handler's `auditAfter`
@@ -223,14 +266,33 @@ def dsFrameRun (k : F) (mclose : M)
   let cm ← ($ᵗ F)
   (simulateQ (dsFrameImpl k mclose) (A cm)).run (DSFrameSt.init F M)
 
-/-! ## Bad-event monotonicity for the deferred-slope handler -/
-
 /-- Hidden-slope coverage for the deferred handler: every pinned slope is a
-recorded honest slope (the deferred handler records at every first touch, so
-this is unconditional, unlike the real side where adversary `roA(k, ·)`
-probes materialize unrecorded slopes). -/
+recorded honest slope. -/
 def DSSlopesCovered (g : DSFrameSt F M) : Prop :=
   ∀ i a, g.slope i = some a → a ∈ g.audit.honestSlopes
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- A coupled deferred slope entry is exactly the corresponding hidden real
+random-oracle entry. -/
+theorem RealDSCoupled.hiddenSlope_iff {k : F}
+    {r : AuditedFrameSt F M} {d : DSFrameSt F M}
+    (h : RealDSCoupled k r d) (i : ℕ) (a : F) :
+    r.base.roA (k, i) = some a ↔ d.slope i = some a := by
+  rw [h.hiddenSlope i]
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- Deferred slope coverage transfers to audit completeness on the real
+side.  This packages the cache invariant required by the existing
+materialized-`nfAt` and public-nullifier coupling lemmas. -/
+theorem RealDSCoupled.frameAuditComplete {k : F}
+    {r : AuditedFrameSt F M} {d : DSFrameSt F M}
+    (h : RealDSCoupled k r d) (hd : DSSlopesCovered d) :
+    FrameAuditComplete k r := by
+  intro i a ha
+  rw [h.audit]
+  exact hd i a ((h.hiddenSlope_iff i a).1 ha)
+
+/-! ## Bad-event monotonicity for the deferred-slope handler -/
 
 omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- The initial deferred-slope state is covered. -/
@@ -371,5 +433,8 @@ end Zkpc.Games
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Games.relTriple_simulateQ_run_untilAbsorbing
 #print axioms Zkpc.Games.probEvent_le_of_untilAbsorbing
+#print axioms Zkpc.Games.realDSCoupled_initial
+#print axioms Zkpc.Games.frameLeakBad_iff_dsFrameLeakBad
+#print axioms Zkpc.Games.not_frameLeakBad_iff_not_dsFrameLeakBad
 #print axioms Zkpc.Games.dsFrameImpl_bad_monotone
 #print axioms Zkpc.Games.dsFrameImpl_run_bad_monotone
