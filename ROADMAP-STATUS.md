@@ -81,6 +81,13 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 
 ## Remaining before the complete roadmap is proved
 
+**Release audit (current branch):** the Fiat--Shamir wire bridge, refund
+rerandomization/MAC reduction, threshold issuance and recipient unlinkability,
+and channel/wire composition are implemented. A clean full build and source
+placeholder audit pass. The sole remaining formal obligation is the
+unconditional T7 handler coupling below; the remaining release task is to keep
+the detailed historical checkpoint notes reconciled with these landed results.
+
 ### Checkpoint validation status
 
 This PR is an **in-progress research checkpoint**, not a completed
