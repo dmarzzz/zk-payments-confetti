@@ -292,6 +292,15 @@ theorem RealDSCoupled.hiddenSlope_iff {k : F}
     r.base.roA (k, i) = some a ↔ d.slope i = some a := by
   rw [h.hiddenSlope i]
 
+/-- The erased-state component of a real/deferred coupling is precisely the
+existing real/ideal cache relation.  This reuses the public-step algebra from
+`FrameIdeal` without duplicating cache proofs in the deferred-slope lane. -/
+theorem RealDSCoupled.frameCoupled {k : F}
+    {r : AuditedFrameSt F M} {d : DSFrameSt F M}
+    (h : RealDSCoupled k r d) : FrameCoupled k r d.ideal := by
+  rw [← h.ideal]
+  exact frameCoupled_idealize k r
+
 omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- Deferred slope coverage transfers to audit completeness on the real
 side.  This packages the cache invariant required by the existing
@@ -536,6 +545,7 @@ end Zkpc.Games
 #print axioms Zkpc.Games.frameLeakBad_iff_dsFrameLeakBad
 #print axioms Zkpc.Games.not_frameLeakBad_iff_not_dsFrameLeakBad
 #print axioms Zkpc.Games.dsFrameImpl_public_project_step
+#print axioms Zkpc.Games.RealDSCoupled.frameCoupled
 #print axioms Zkpc.Games.dsFrameImpl_slopesCovered_step
 #print axioms Zkpc.Games.dsFrameImpl_run_slopesCovered
 #print axioms Zkpc.Games.dsFrameImpl_bad_monotone
