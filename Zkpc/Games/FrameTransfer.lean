@@ -71,6 +71,55 @@ def FrameRealBadMassLe (mclose : M)
       pure (decide (FrameLeakBad w.1 w.2.2.audit))]
     ≤ (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹
 
+/-- The three first-order components of the real audited leakage event.  This
+is the exact real-side analogue of `GhostSlopeBadBounds`, with the direct
+secret channel included because the real run draws `k` first. -/
+structure FrameRealBadComponents (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) : Prop where
+  direct_secret :
+    Pr[fun w => w.1 ∈ w.2.2.audit.secretProbes | auditedFrameJoint mclose A]
+      ≤ ((qb.qA + qb.qE + qb.qId : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹
+  slope_hit :
+    Pr[fun w => ∃ slope ∈ w.2.2.audit.slopeProbes,
+        slope ∈ w.2.2.audit.honestSlopes | auditedFrameJoint mclose A]
+      ≤ ((qb.qNf * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹
+  honest_collision :
+    Pr[fun w => ¬ w.2.2.audit.honestSlopes.Nodup | auditedFrameJoint mclose A]
+      ≤ ((qb.qSig * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹
+
+/-- Union-bound closure of the direct real-side bad mass.  All probability
+arithmetic is discharged here; the handler induction only has to construct
+the three component fields. -/
+theorem frameRealBadMassLe_of_components (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (h : FrameRealBadComponents mclose A qb) :
+    FrameRealBadMassLe mclose A qb := by
+  unfold FrameRealBadMassLe
+  rw [probOutput_bind_decide_eq_probEvent]
+  let direct : F × (Evidence F × AuditedFrameSt F M) → Prop :=
+    fun w => w.1 ∈ w.2.2.audit.secretProbes
+  let slopeHit : F × (Evidence F × AuditedFrameSt F M) → Prop :=
+    fun w => ∃ slope ∈ w.2.2.audit.slopeProbes,
+      slope ∈ w.2.2.audit.honestSlopes
+  let collision : F × (Evidence F × AuditedFrameSt F M) → Prop :=
+    fun w => ¬ w.2.2.audit.honestSlopes.Nodup
+  change Pr[fun w => direct w ∨ slopeHit w ∨ collision w |
+      auditedFrameJoint mclose A] ≤ _
+  refine le_trans
+    ((probEvent_or_le (auditedFrameJoint mclose A) direct
+      (fun w => slopeHit w ∨ collision w)).trans
+        (add_le_add le_rfl
+          (probEvent_or_le (auditedFrameJoint mclose A) slopeHit collision))) ?_
+  refine (add_le_add h.direct_secret
+    (add_le_add h.slope_hit h.honest_collision)).trans ?_
+  simp only [FrameQueryBounds.total, Nat.cast_add, Nat.cast_mul, add_mul]
+  simp only [add_assoc]
+  exact le_refl _
+
 /-- **Assembly of the corrected T7 certificate, real-side bad route**
 (Spec.md §7 T7). The good-slice transfer plus the direct real-side
 bad-mass bound construct the k-averaged deferred-sampling certificate,
@@ -116,3 +165,4 @@ end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Games.T7_frame_query_bound_of_goodSlice_and_realBad
+#print axioms Zkpc.Games.frameRealBadMassLe_of_components
