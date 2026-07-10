@@ -41,7 +41,27 @@ def RealDSGood (k : F) (r : AuditedFrameSt F M) (d : DSFrameSt F M) : Prop :=
   RealDSCoupled k r d ∧ DSSlopesCovered d ∧ RoNfCovered r ∧
     HiddenSlopeInj k r ∧ ¬ FrameLeakBad k r.audit
 
-omit [Field F] [SampleableType F] in
+/-- A good real/deferred pair carries the established real/ideal public-cache
+relation. -/
+theorem RealDSGood.frameCoupled {k : F} {r : AuditedFrameSt F M}
+    {d : DSFrameSt F M} (h : RealDSGood k r d) :
+    FrameCoupled k r d.ideal :=
+  h.1.frameCoupled
+
+/-- A good pair satisfies the real-side audit-completeness precondition used
+by the materialized-nullifier and public-nullifier coupling lemmas. -/
+theorem RealDSGood.frameAuditComplete {k : F} {r : AuditedFrameSt F M}
+    {d : DSFrameSt F M} (h : RealDSGood k r d) : FrameAuditComplete k r :=
+  h.1.frameAuditComplete h.2.1
+
+/-- The deferred audit is good exactly when the real audit is good under a
+good-state relation. -/
+theorem RealDSGood.notBadDeferred {k : F} {r : AuditedFrameSt F M}
+    {d : DSFrameSt F M} (h : RealDSGood k r d) :
+    ¬ FrameLeakBad k d.audit :=
+  (not_frameLeakBad_iff_not_dsFrameLeakBad h.1).1 h.2.2.2.2
+
+omit [Field F] [DecidableEq F] [SampleableType F] in
 /-- The empty audit never raises the leakage event. -/
 theorem not_frameLeakBad_init (k : F) :
     ¬ FrameLeakBad k (FrameAudit.init (F := F)) := by
@@ -64,6 +84,70 @@ theorem realDSGood_initial (k cm : F) :
     simp [FrameSt.init] at h
   · exact hiddenSlopeInj_initial k cm
   · exact not_frameLeakBad_init k
+
+/-! ## Divergence branches that raise bad simultaneously -/
+
+/-- A direct `H_a` query at the honest secret raises the shared absorbing
+event on both handlers in the same step, independently of their sampled
+answers. -/
+theorem realDS_roA_secret_step_bad (k : F) (i : ℕ) (mclose : M)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M) :
+    RelTriple (((auditedFrameImpl k mclose) (.roA k i)).run r)
+      (((dsFrameImpl k mclose) (.roA k i)).run d)
+      (fun p₁ p₂ => FrameLeakBad k p₁.2.audit ∧
+        FrameLeakBad k p₂.2.audit) := by
+  refine relTriple_prod ?_ ?_
+  · intro p hp
+    rw [auditedFrameImpl_support_audit k mclose (.roA k i) r p hp]
+    exact auditAfter_direct_secret_bad k i r.base p.2.base r.audit
+  · intro p hp
+    unfold dsFrameImpl at hp
+    simp only [StateT.run_mk] at hp
+    obtain ⟨q, -, hp⟩ := (mem_support_bind_iff _ _ _).1 hp
+    rw [support_pure, Set.mem_singleton_iff] at hp
+    subst p
+    exact FrameLeakBad.secret_self k d.audit
+
+/-- A direct epoch-oracle query at the honest secret raises the shared
+absorbing event on both handlers. -/
+theorem realDS_roE_secret_step_bad (k : F) (e : ℕ) (mclose : M)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M) :
+    RelTriple (((auditedFrameImpl k mclose) (.roE k e)).run r)
+      (((dsFrameImpl k mclose) (.roE k e)).run d)
+      (fun p₁ p₂ => FrameLeakBad k p₁.2.audit ∧
+        FrameLeakBad k p₂.2.audit) := by
+  refine relTriple_prod ?_ ?_
+  · intro p hp
+    rw [auditedFrameImpl_support_audit k mclose (.roE k e) r p hp]
+    exact auditAfter_epoch_secret_bad k e r.base p.2.base r.audit
+  · intro p hp
+    unfold dsFrameImpl at hp
+    simp only [StateT.run_mk] at hp
+    obtain ⟨q, -, hp⟩ := (mem_support_bind_iff _ _ _).1 hp
+    rw [support_pure, Set.mem_singleton_iff] at hp
+    subst p
+    exact FrameLeakBad.secret_self k d.audit
+
+/-- A direct identity-preimage query at the honest secret raises the shared
+absorbing event on both handlers; the differing programmed/public cache
+answers are therefore safely absorbed. -/
+theorem realDS_roId_secret_step_bad (k : F) (mclose : M)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M) :
+    RelTriple (((auditedFrameImpl k mclose) (.roId k)).run r)
+      (((dsFrameImpl k mclose) (.roId k)).run d)
+      (fun p₁ p₂ => FrameLeakBad k p₁.2.audit ∧
+        FrameLeakBad k p₂.2.audit) := by
+  refine relTriple_prod ?_ ?_
+  · intro p hp
+    rw [auditedFrameImpl_support_audit k mclose (.roId k) r p hp]
+    exact auditAfter_identity_secret_bad k r.base p.2.base r.audit
+  · intro p hp
+    unfold dsFrameImpl at hp
+    simp only [StateT.run_mk] at hp
+    obtain ⟨q, -, hp⟩ := (mem_support_bind_iff _ _ _).1 hp
+    rw [support_pure, Set.mem_singleton_iff] at hp
+    subst p
+    exact FrameLeakBad.secret_self k d.audit
 
 /-! ## The per-operation coupling obligation (named residual) -/
 
