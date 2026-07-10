@@ -22,10 +22,16 @@ exactly zero, to our knowledge the first machine-checked unlinkability
 result for any channel or credit construction. No-overspend, both
 balance-security theorems, closure liveness, the fleet priced-divergence
 bound, the exculpability (framing) bound (≤ 1/|F| under a stated
-random-oracle good event, query tail deferred), the refund variant's
-safety and conservation, and a built-in calibration pair that separates
-the broken and fixed refund designs are all kernel-checked too — zero
-`sorry`, no axiom beyond Lean's three standard ones. Along the way, eleven
+random-oracle good event, with a kernel-checked query-budget composition
+endpoint), the refund variant's safety and conservation — now including
+the full failed-upgrade cascade and finite-fleet aggregation — zero-loss
+zero-knowledge bridges for three concrete proof-bearing wire encodings
+(masked-proof, interactive Sigma, lazy-ROM Fiat–Shamir), an executable
+ledger refining every relational transition, a multi-recipient
+portable-deposit accounting layer with a threshold-issuance reference, one-trace
+end-to-end composition theorems, and a built-in calibration pair that
+separates the broken and fixed refund designs are all kernel-checked too —
+zero `sorry`, no axiom beyond Lean's three standard ones. Along the way, eleven
 rounds of adversarial review broke ten successive revisions of our own
 definition with concrete counterexamples — and the repairs are, we think,
 design requirements for anyone building in this space. Repo:
@@ -209,6 +215,25 @@ abort-immunity and pays at close time; interactive receipts buy cheap
 certified closes and hand the payee a live abort lever (withheld receipts
 stall solvency). We have not seen this trade-off stated before.
 
+**A third shape, from Vitalik.** A unidirectional nullifier-chain channel
+([design gist via dmarzzz](https://gist.github.com/dmarzzz/ddcd1302c5f511001f8f46102874a08e))
+sits at a simpler point of the same space: Alice chains nullifiers
+$N_{i+1} = H(N_i, c)$; each payment reveals the parent's committed
+next-nullifier plus a ZK proof that the parent is the genesis or *some*
+Bob-signed state (signature verified inside the proof, so which one stays
+hidden), balances hidden, $\delta$ public; close opens the closed state's
+committed next-nullifier, and Bob challenges a stale close by exhibiting
+the message that already revealed it — collision, forfeit. One mechanism
+does duplicate detection and stale-close detection uniformly down to the
+genesis-refund case. It trades away non-interactivity, epochs, rate
+limiting, and the fleet, and its base form leaks $D$ and the split at the
+boundaries — but its penalties are fund-forfeit only, so the
+identity-slash retroactive-deanonymization limit of the RLN design simply
+does not exist there, and the stack is natively post-quantum. We archive
+the design in-repo and formalize its core (safety and collision
+detection as invariants, per-request anonymity as an RO coupling) in
+`Zkpc/Chain/`.
+
 ## What is machine-checked, exactly
 
 Lean 4 (`v4.30.0`, mathlib `v4.30.0`, games over
@@ -257,19 +282,20 @@ Kernel-checked today, by declaration name:
 - **Game framework** over VCV-io: advantage bridges, challenge-terminated
   adversary type, abort/evict wrapper (`Zkpc/Games/Framework.lean`).
 
-Stated plainly rather than around, the two model-to-real deferrals:
+Stated plainly rather than around, the remaining in-model deferral:
 
-- **T7's PPT query tail** — the unconditional bound needs bounding the
-  `q/|F|` random-oracle-hit terms that discharge `hobliv` for an unbounded
-  interactive adversary; that accounting is scoped behind the stated
-  hypothesis with a GATE-NOTE, not smuggled into an axiom. The kernel
-  guarantees everything up to `hobliv`.
-- **The refund upgrade cascade** — the B safety layer is single-channel and
-  models one close-dispute round; the full failed-upgrade cascade (one count
-  per round, converging at the true count) is documented, not claimed. And
-  the B UNLINK result is the ideal-model calibration pair; its
-  model-to-real bridges are stated obligations, not discharged against a
-  concrete SNARK — circuits are out of the model boundary.
+- **T7's unconditional bound** — the quantitative query-budget composition
+  endpoint is kernel-checked (structural per-channel budgets, adaptive
+  first-hit and multi-target slope kernels, and a theorem turning a
+  deferred-sampling certificate into the corrected
+  `(q_A+q_E+q_Id+q_Nf·q_sig+q_sig²+1)/|F|` bound); the originally frozen
+  pointwise certificate was then kernel-*refuted* (a two-probe adversary
+  makes it unsatisfiable) and replaced by a secret-averaged socket
+  composing to the same bound. Constructing that averaged certificate from
+  the real handler is the one open step — scoped, not smuggled into an
+  axiom. The kernel guarantees everything up to it. What remains beyond is
+  deployment-grade cryptography (concrete hash/signature reductions behind
+  the ideal reference layers); circuits are out of the model boundary.
 
 Every theorem above is axiom-clean: `#print axioms` shows only Lean's
 `propext`/`Quot.sound`/`Classical.choice` (audited declaration by
