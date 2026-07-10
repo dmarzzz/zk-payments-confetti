@@ -33,6 +33,7 @@ import Zkpc.Network.State
 import Zkpc.Network.Credential
 import Zkpc.Network.Issuance
 import Zkpc.Network.Refinement
+import Zkpc.Network.Scheduler
 import Zkpc.Games.Frame
 import Zkpc.Games.FrameAudit
 import Zkpc.Games.FrameIdeal
