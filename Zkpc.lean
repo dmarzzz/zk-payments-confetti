@@ -69,5 +69,6 @@ import Zkpc.Refund.Fleet
 import Zkpc.Refund.AuthenticatedFleet
 import Zkpc.Refund.Refinement
 import Zkpc.Refund.ElGamalRefinement
+import Zkpc.Refund.CryptoRefinement
 import Zkpc.Refund.Cascade
 import Zkpc.Composition.EndToEnd
