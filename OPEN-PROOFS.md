@@ -160,15 +160,13 @@ zero loss for this concrete perfectly-ZK proof encoding.  A production NIZK
 an optional refinement and would replace exact equality by its scheme-specific
 `εZK` reduction.
 
-**Algebraic Sigma core:** `Zkpc/Crypto/LinearSigma.lean` gives a finite-field
-proof-of-knowledge core for the RLN line relation: completeness, an explicit
-simulator construction, response equivalence, special-soundness extraction,
-and a Fiat--Shamir-shaped verifier/programming/fork interface.
-`Zkpc/Games/SigmaInstance.lean` currently provides only the shared view/state
-types. The missing distributional honest-verifier-ZK proof must be completed
-before a real signal-plus-proof batch can be connected to T4; the
-probabilistic ROM forking/programming bound remains the subsequent
-non-interactive step.
+**Sigma and lazy-ROM FS bridges landed:** `Zkpc/Crypto/LinearSigma.lean` gives
+the finite-field proof-of-knowledge core and `Zkpc/Crypto/FSRom.lean` proves
+the lazy-ROM simulator distributions plus explicit programming/fork collision
+bounds. `Zkpc/Games/SigmaInstance.lean` connects both proof-bearing wire types
+to T4 and discharges their zero-loss ZK bridges. A deployed hash-function
+reduction and final adversarial-query knowledge-soundness bound remain outside
+this ideal lazy-ROM reference layer.
 
 ### 3. B-instance obligations O2 / O3 / O4 (discharged)
 
@@ -229,16 +227,17 @@ nullifier set, and settlements are recipient-directed. It proves global
 deduplication, exact payout accounting, network-wide no-overspend, payout
 partitioning across a finite recipient set, unrelated-recipient view
 isolation, and executable-operation refinement. This closes the definition
-and accounting portion of the named open problem. A concrete portable
-threshold credential/ticketbook construction and a network-level
-cryptographic unlinkability reduction remain open.
+and accounting portion of the named open problem.
 
 `Zkpc/Network/Credential.lean` now supplies the first concrete credential
 adapter: every application field is bound into a Fiat--Shamir statement,
 honest issuance verifies, valid fresh redemption refines to the network
 admission transition, and a nullifier replay is rejected even when redirected
-to another recipient. Threshold/blind issuance and the network-level
-unlinkability reduction remain open.
+to another recipient. `Zkpc/Network/Issuance.lean` adds finite threshold share
+aggregation, perfectly hiding blind requests, fork extraction, and exact
+recipient-view simulation/unlinkability. An adaptive multi-session game
+connecting those local results to executable network traces, and a production
+threshold-signature unforgeability reduction, remain open.
 
 ## Where the definitions and their rationale live
 

@@ -18,10 +18,10 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   secret-erasing state map, and programmed initial-state relation. Exact
   public-oracle step coupling was attempted at this checkpoint but is not yet
   retained as a proved API; the failed obligations are listed below.
-- A proof-free T4 reference instance and a witness-dependent masked-proof
-  instance, including session-level simulator equality, perfect unlinkability,
-  and a zero-loss bridge to the proof-free game. The separate proof-bearing
-  Sigma/T4 construction remains an open bridge obligation.
+- Proof-free, masked-proof, interactive-Sigma, and Fiat--Shamir T4 instances.
+  The Sigma and lazy-ROM FS wires have session-level simulator equalities,
+  perfect unlinkability, and zero-loss bridges to the proof-free game; the FS
+  layer also proves explicit programming- and fork-collision bounds.
 - B-instance obligations for genesis receipts, receipt updates, capability
   monotonicity, close-view simulation, and the rerandomized challenge path.
 - Refund cascade and finite-fleet safety: exact upgrade count, terminal
@@ -51,8 +51,15 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   programming/forking reduction and T4 wire-level bridge remain open.
 - A concrete additive masked refund ciphertext with executable encryption,
   opening, homomorphic addition, rerandomization, receipt updates, and
-  correctness. Its distributional rerandomization-privacy argument remains a
-  named reduction obligation.
+  correctness, together with exact distributional rerandomization privacy.
+  A one-time algebraic receipt MAC has correctness and a `1/|F|` fresh-message
+  forgery bound.
+- A finite threshold issuance reference construction with share aggregation,
+  correctness, perfectly hiding blind requests, fork extraction, and exact
+  recipient-view simulation/unlinkability.
+- One-trace channel and wire composition endpoints bundling settlement,
+  payer floor, no-overspend, exact payee settlement, exculpability, FS-wire
+  unlinkability, and its proof-free ZK bridge.
 
 ## Remaining before the complete roadmap is proved
 
@@ -94,35 +101,36 @@ unconditional T7 theorem remains open.
    later adaptive message choice, so this needs continuation-level deferred
    sampling rather than only a pointwise state relation.
 
-2. **Production Fiat--Shamir reduction.** The linear Sigma protocol has a
-   Fiat--Shamir proof object, deterministic verifier, completeness,
-   programmed-oracle simulator interface, and algebraic fork extractor. What
-   remains is the distributional honest-verifier-ZK argument, the
-   probabilistic ROM programming/forking lemma for the non-interactive
-   instance (including its concrete query-dependent loss), and a
-   `zkBridgeObligation` instantiation for that FS wire type. The masked-proof
-   bridge is an exact reference endpoint; the interactive-Sigma bridge is not
-   yet connected to T4.
+2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
+   Fiat--Shamir reference models now have exact simulator distributions,
+   proof-bearing T4 instances, zero-loss `zkBridgeObligation` endpoints, and
+   explicit programming/fork collision bounds. What remains for a deployed
+   claim is a reduction from a concrete hash implementation and adversary
+   oracle-query semantics to this ideal lazy-ROM model (including the final
+   query-dependent knowledge-soundness/forking loss).
 
-3. **Production refund cryptography.** The opaque fresh handle has an
-   executable information-theoretic additive masked-cipher reference
-   instantiation with receipt-update correctness. What remains is its
-   distributional rerandomization-privacy proof, a deployed public-key AH
-   scheme reduction, receipt-signature instantiation, and EUF-CMA chain
-   authenticity rather than absorption into transition guards.
+3. **Production refund cryptography.** The information-theoretic additive
+   masked-cipher reference now proves exact rerandomization and refund-update
+   privacy, and the algebraic one-time receipt MAC proves a fresh-message
+   forgery bound. What remains is a deployed public-key AH scheme reduction
+   and a multi-query EUF-CMA signature/MAC chain-authenticity reduction rather
+   than absorption into transition guards.
 
-4. **Threshold issuance and network unlinkability.** The accounting machine is
-   now connected to a concrete proof-bearing portable ticket, and verification
-   refines to admission with cross-recipient replay rejection. What remains is
-   threshold/blind issuance (or another issuer-independent authorization
-   mechanism), an unforgeability reduction for ticket creation, and a
-   recipient-view network unlinkability game/reduction across presentations.
+4. **Threshold issuance and network unlinkability.** A finite threshold
+   issuance reference construction now proves aggregation correctness, blind
+   request message-independence, fork extraction, and exact recipient-view
+   unlinkability/simulation. What remains is an adaptive multi-session network
+   game connecting these local distributions to the executable admission and
+   settlement trace, plus a production threshold-signature unforgeability
+   reduction for ticket creation.
 
-5. **Full channel/fleet composition theorem.** The portable credential path now
-   has an end-to-end verification→redemption→settlement→no-overspend theorem.
-   What remains is the larger channel theorem connecting proof verification,
-   flat/refund admission, reconciliation/slashing, close settlement, and all
-   T1--T7 guarantees over one complete trace.
+5. **Full channel/fleet composition theorem.** One-trace channel and FS-wire
+   bundles now compose close liveness, payer floor, T1/T2 accounting,
+   exculpability, unlinkability, and the ZK bridge. What remains is a single
+   theorem quantifying over the executable flat/refund/fleet/network trace and
+   incorporating reconciliation/slashing, issuance, and the unconditional T7
+   endpoint rather than presenting those checked components as separate
+   conjunctive interfaces.
 
 6. **Final validation and documentation.** After the items above, run a cold
    dependency fetch and clean full build, the forbidden-placeholder audit,
