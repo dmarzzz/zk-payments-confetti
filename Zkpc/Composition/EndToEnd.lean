@@ -335,11 +335,23 @@ def FlatClockAligned (s : FlatState N F M P Recipient Nf Payload) : Prop :=
   s.coreSt.clock = s.fleetSt.clock ∧
     s.coreSt.clock = s.networkSt.clock
 
+/-- Core payee accounting and portable-network settlement accounting denote
+the same money on a synchronized flat execution. -/
+def FlatPaymentAligned (s : FlatState N F M P Recipient Nf Payload) : Prop :=
+  s.coreSt.paidGw = s.networkSt.totalPaid
+
 omit [Field F] in
 /-- A permitted Core-local action does not advance time. -/
 theorem CoreLocal.step_clock_eq {s t : Core.St F M} {a : Core.Act F M}
     (hlocal : CoreLocal a) (hstep : Core.Step C D τ honest s a t) :
     t.clock = s.clock := by
+  cases hstep <;> cases hlocal <;> rfl
+
+omit [Field F] in
+/-- A permitted Core-local action cannot change payee settlement. -/
+theorem CoreLocal.step_paidGw_eq {s t : Core.St F M} {a : Core.Act F M}
+    (hlocal : CoreLocal a) (hstep : Core.Step C D τ honest s a t) :
+    t.paidGw = s.paidGw := by
   cases hstep <;> cases hlocal <;> rfl
 
 /-- Every synchronized flat transition preserves clock alignment. -/
@@ -372,6 +384,34 @@ theorem FlatStep.preserves_clockAlignment
   | settle cert =>
       simpa [FlatClockAligned, FlatSettlementCert.next, flatCoreSettleNext,
         flatNetworkSettleNext] using haligned
+
+/-- Every synchronized flat transition preserves cross-lane payment
+accounting. -/
+theorem FlatStep.preserves_paymentAlignment
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : FlatLink N F M P Recipient Nf Payload}
+    {s t : FlatState N F M P Recipient Nf Payload}
+    {label : FlatLabel N F M P Recipient Nf Payload}
+    (hstep : FlatStep (C := C) (D := D) (τ := τ) (b := b) (Te := Te)
+      (honest := honest) H encode link s label t)
+    (haligned : FlatPaymentAligned s) : FlatPaymentAligned t := by
+  cases hstep with
+  | core hlocal hcore =>
+      change _ = s.networkSt.totalPaid
+      rw [CoreLocal.step_paidGw_eq hlocal hcore]
+      exact haligned
+  | tick => exact haligned
+  | redeem cert =>
+      simpa [FlatPaymentAligned, FlatAdmissionCert.next, flatCoreAcceptNext,
+        flatNetworkAcceptNext] using haligned
+  | reconcile cert =>
+      simpa [FlatPaymentAligned, FlatReconcileCert.next, flatCoreSlashNext]
+        using haligned
+  | settle cert =>
+      simpa [FlatPaymentAligned, FlatSettlementCert.next,
+        flatCoreSettleNext, flatNetworkSettleNext, cert.value_eq] using
+        congrArg (· + C) haligned
 
 /-! ### Flat trace projections -/
 
@@ -510,6 +550,35 @@ theorem flatTrace_clockAlignment
       (FlatState.init N F M P Recipient Nf Payload D) labels t) :
     FlatClockAligned t :=
   flatTrace_clockAlignmentFrom htrace ⟨rfl, rfl⟩
+
+/-- Transport cross-lane payment accounting across an arbitrary flat trace. -/
+theorem flatTrace_paymentAlignmentFrom
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : FlatLink N F M P Recipient Nf Payload}
+    {s t : FlatState N F M P Recipient Nf Payload}
+    {labels : List (FlatLabel N F M P Recipient Nf Payload)}
+    (htrace : LTrace (FlatStep (C := C) (D := D) (τ := τ) (b := b)
+      (Te := Te) (honest := honest) H encode link) s labels t)
+    (haligned : FlatPaymentAligned s) : FlatPaymentAligned t := by
+  induction htrace with
+  | nil => exact haligned
+  | cons hstep _ ih =>
+      exact ih (hstep.preserves_paymentAlignment haligned)
+
+/-- Core and network payment totals agree on every flat trace from the
+synchronized initial state. -/
+theorem flatTrace_paymentAlignment
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : FlatLink N F M P Recipient Nf Payload}
+    {t : FlatState N F M P Recipient Nf Payload}
+    {labels : List (FlatLabel N F M P Recipient Nf Payload)}
+    (htrace : LTrace (FlatStep (C := C) (D := D) (τ := τ) (b := b)
+      (Te := Te) (honest := honest) H encode link)
+      (FlatState.init N F M P Recipient Nf Payload D) labels t) :
+    FlatPaymentAligned t :=
+  flatTrace_paymentAlignmentFrom htrace rfl
 
 /-! ### Flat completion -/
 
@@ -714,6 +783,37 @@ inductive RefundStep
       RefundStep H encode link s .tick
         ⟨s.refundSt, { (s.networkSt) with clock := s.networkSt.clock + 1 }⟩
 
+/-- The refund machine's accumulated accepted cost equals the value of the
+portable events admitted by the same synchronized trace. -/
+def RefundValueAligned (s : RefundState Rep Recipient Nf Payload) : Prop :=
+  s.refundSt.sumc = Network.valueSum s.networkSt.accepted
+
+/-- Every refund-product step preserves accepted-value alignment. -/
+theorem RefundStep.preserves_valueAlignment
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : RefundLink Rep Recipient Nf Payload}
+    {s t : RefundState Rep Recipient Nf Payload}
+    {label : RefundLabel F Rep Recipient Nf Payload}
+    (hstep : RefundStep (Cmax := Cmax) (D := D) H encode link s label t)
+    (haligned : RefundValueAligned s) : RefundValueAligned t := by
+  cases hstep with
+  | redeem cert =>
+      have hnotmem : cert.ticket.event ∉ s.networkSt.accepted := by
+        intro hmem
+        cases cert.networkStep with
+        | accept _ _ hfresh => exact (hfresh cert.ticket.event hmem) rfl
+      simpa [RefundValueAligned, RefundAdmissionCert.next,
+        refundAcceptNext, refundNetworkAcceptNext, Network.valueSum,
+        Finset.sum_insert hnotmem, cert.value_eq] using
+        congrArg (· + cert.cost) haligned
+  | close _ => simpa [RefundValueAligned, refundCloseNext] using haligned
+  | forceClose _ =>
+      simpa [RefundValueAligned, refundForceCloseNext] using haligned
+  | settle _ _ =>
+      simpa [RefundValueAligned, refundNetworkSettleNext] using haligned
+  | tick => exact haligned
+
 /-! ### Refund trace projections -/
 
 /-- Project a refund product trace to the refund machine. -/
@@ -784,6 +884,35 @@ theorem refundTrace_networkProjection
       (RefundState.init Rep Recipient Nf Payload r0 D) labels t) :
     Network.Reach D t.networkSt :=
   refundTrace_networkReach htrace Network.Reach.init
+
+/-- Transport accepted-value alignment across an arbitrary refund trace. -/
+theorem refundTrace_valueAlignmentFrom
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : RefundLink Rep Recipient Nf Payload}
+    {s t : RefundState Rep Recipient Nf Payload}
+    {labels : List (RefundLabel F Rep Recipient Nf Payload)}
+    (htrace : LTrace (RefundStep (Cmax := Cmax) (D := D) H encode link)
+      s labels t)
+    (haligned : RefundValueAligned s) : RefundValueAligned t := by
+  induction htrace with
+  | nil => exact haligned
+  | cons hstep _ ih => exact ih (hstep.preserves_valueAlignment haligned)
+
+/-- Accepted refund costs and portable admitted value agree on every trace
+from the synchronized initial state. -/
+theorem refundTrace_valueAlignment
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : RefundLink Rep Recipient Nf Payload}
+    {t : RefundState Rep Recipient Nf Payload}
+    {labels : List (RefundLabel F Rep Recipient Nf Payload)} {r0 : Rep}
+    (htrace : LTrace (RefundStep (Cmax := Cmax) (D := D) H encode link)
+      (RefundState.init Rep Recipient Nf Payload r0 D) labels t) :
+    RefundValueAligned t := by
+  apply refundTrace_valueAlignmentFrom htrace
+  simp [RefundValueAligned, RefundState.init, Refund.St.init,
+    Network.init, Network.valueSum]
 
 /-! ### Refund completion -/
 
