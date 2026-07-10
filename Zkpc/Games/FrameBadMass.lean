@@ -752,6 +752,143 @@ def slopeCoreRun (mclose : M)
     (SlopeCoreSt.init F M)
   pure ((z.1, z.2.ghost), z.2.count)
 
+/-- Per-query structural accounting for the slope-free core. -/
+theorem slopeCoreFrameImpl_measure_step (mclose : M) (op : FrameOp F M)
+    (s : SlopeCoreSt F M)
+    (z : (frameSpec F M).Range op × SlopeCoreSt F M)
+    (hz : z ∈ support (((slopeCoreFrameImpl mclose) op).run s)) :
+    z.2.count ≤ s.count + (if isSignalQuery op then 1 else 0) ∧
+    z.2.ghost.audit.slopeProbes.length ≤
+      s.ghost.audit.slopeProbes.length +
+        (if isDirectRoNfQuery op then 1 else 0) := by
+  have htouch : ∀ (gs : ℕ → Option F) (i : ℕ),
+      (slopeCoreTouch gs i).2 ≤ 1 := by
+    intro gs i
+    unfold slopeCoreTouch
+    split <;> simp
+  cases op with
+  | spend m =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      by_cases hc : s.ghost.ideal.closed
+      · rw [if_pos hc, support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        simp [isSignalQuery, isDirectRoNfQuery]
+      · rw [if_neg hc] at hz
+        obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        rw [support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        constructor
+        · simpa [isSignalQuery] using
+            Nat.add_le_add_left
+              (htouch s.ghost.ghostSlope s.ghost.ideal.idx) s.count
+        · simp [isDirectRoNfQuery]
+  | close =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      by_cases hc : s.ghost.ideal.closed
+      · rw [if_pos hc, support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        simp [isSignalQuery, isDirectRoNfQuery]
+      · rw [if_neg hc] at hz
+        obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        rw [support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        constructor
+        · simpa [isSignalQuery] using
+            Nat.add_le_add_left
+              (htouch s.ghost.ghostSlope s.ghost.ideal.idx) s.count
+        · simp [isDirectRoNfQuery]
+  | nfAt i =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      constructor
+      · simpa [isSignalQuery] using
+          Nat.add_le_add_left (htouch s.ghost.ghostSlope i) s.count
+      · simp [isDirectRoNfQuery]
+  | roA kq i =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      simp [isSignalQuery, isDirectRoNfQuery]
+
+  | roX m =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      simp [isSignalQuery, isDirectRoNfQuery]
+  | roNf aq =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      simp [isSignalQuery, isDirectRoNfQuery]
+  | roE kq e =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      simp [isSignalQuery, isDirectRoNfQuery]
+  | roId kq =>
+      unfold slopeCoreFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      simp [isSignalQuery, isDirectRoNfQuery]
+
+/-- Both query-budget support bounds for one complete canonical core run. -/
+theorem slopeCoreRun_support_bounds (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (z : (Evidence F × GhostFrameSt F M) × ℕ)
+    (hz : z ∈ support (slopeCoreRun mclose A)) :
+    z.2 ≤ qb.qSig ∧ z.1.2.audit.slopeProbes.length ≤ qb.qNf := by
+  unfold slopeCoreRun at hz
+  obtain ⟨cm, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+  obtain ⟨w, hw, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst hz
+  constructor
+  · have h := support_measure_le_of_isQueryBoundP
+      (slopeCoreFrameImpl mclose) SlopeCoreSt.count isSignalQuery
+      (fun t s y hy => (slopeCoreFrameImpl_measure_step mclose t s y hy).1)
+      (A cm) (qb.signal_bound cm) (SlopeCoreSt.init F M) w hw
+    simpa [SlopeCoreSt.init] using h
+  · have h := support_measure_le_of_isQueryBoundP
+      (slopeCoreFrameImpl mclose)
+      (fun s => s.ghost.audit.slopeProbes.length) isDirectRoNfQuery
+      (fun t s y hy => (slopeCoreFrameImpl_measure_step mclose t s y hy).2)
+      (A cm) (qb.roNf_bound cm) (SlopeCoreSt.init F M) w hw
+    simpa [SlopeCoreSt.init, GhostFrameSt.init, GhostAudit.init] using h
+
+/-- The sole semantic equality left in the ghost bad-mass lane: the erased
+write-only slope draws may be postponed until after the canonical core run. -/
+def GhostSlopeCoreCorrect (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) : Prop :=
+  𝒟[ghostFrameRun mclose A] =
+    𝒟[materializeSlopeTape (slopeCoreRun mclose A)]
+
+/-- Core correctness plus the proved query accounting constructs the complete
+extraction certificate. -/
+noncomputable def ghostSlopeTapeExtraction_of_core (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (hc : GhostSlopeCoreCorrect mclose A) :
+    GhostSlopeTapeExtraction mclose A qb where
+  core := slopeCoreRun mclose A
+  evalDist_eq := hc
+  slope_count_le := fun z hz => (slopeCoreRun_support_bounds mclose A qb z hz).1
+  slope_probes_le := fun z hz => (slopeCoreRun_support_bounds mclose A qb z hz).2
+
 /-- Tape extraction gives the adaptive slope-preimage bound.  Although the
 probe list and tape length may both depend on the core transcript, neither can
 depend on the subsequently sampled tape. -/
@@ -834,6 +971,792 @@ end Zkpc.Games
 #print axioms Zkpc.Games.skelFrameImpl_erase_step
 #print axioms Zkpc.Games.skelFrameImpl_run_erase
 #print axioms Zkpc.Games.probEvent_audit_ghost_eq_skel
+#print axioms Zkpc.Games.slopeCoreFrameImpl_measure_step
+#print axioms Zkpc.Games.slopeCoreRun_support_bounds
 #print axioms Zkpc.Games.ghostFrameRun_slope_hit_bound_of_tape
 #print axioms Zkpc.Games.ghostFrameRun_slope_collision_bound_of_tape
 #print axioms Zkpc.Games.ghostSlopeBadBounds_of_tape
+
+/-! ## The slope-tape averaged induction
+
+The certificate route above leaves the tape factorization as an explicit
+hypothesis. The development below discharges the two slope masses
+*unconditionally*: instead of exhibiting the ghost run as literally equal
+to a core-then-tape factorization, the induction runs the erased handler
+from a start state whose honest-slope record is itself a fresh tape, and
+shows that every oracle step either commutes with the tape or fuses one
+more fresh draw into it. The leaf then pays the elementary counting
+kernels. Budgets are threaded through the `IsQueryBoundP` certificates. -/
+
+namespace Zkpc.Games
+
+set_option maxHeartbeats 300000
+
+variable {F : Type} [Field F] [DecidableEq F] [SampleableType F]
+variable {M : Type} [DecidableEq M]
+
+omit [Field F] [SampleableType F] in
+/-- Aggregate audit shape of a tape-seeded state, for rewriting handler
+steps. -/
+theorem withSlopes_audit_eq (g : GhostFrameSt F M) (vs : List F) :
+    (g.withSlopes vs).audit
+      = ⟨g.audit.roAProbes, g.audit.roEProbes, g.audit.roIdProbes,
+          g.audit.slopeProbes, vs⟩ := rfl
+
+/-! ### Per-operation run shapes of the erased handler
+
+The tape induction rewrites one handler step at a time while the
+`simulateQ` fold of the continuation stays folded, so each operation gets
+its run shape as a standalone equation. -/
+
+section RunShapes
+
+variable (mclose : M)
+
+/-- Run shape of a `spend` step of the erased handler. -/
+theorem skelFrameImpl_run_spend (m : M) (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) (.spend m)).run g
+      = if g.ideal.closed then pure (none, g)
+        else
+          emitIdealSignal m g.ideal >>= fun p =>
+            skelTouch g.ghostSlope g.audit g.ideal.idx >>= fun q =>
+              pure (some p.1, ⟨p.2, q.1, q.2⟩) := rfl
+
+/-- Run shape of a legacy `close` step of the erased handler. -/
+theorem skelFrameImpl_run_close (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) .close).run g
+      = if g.ideal.closed then pure (none, g)
+        else
+          emitIdealSignal mclose g.ideal >>= fun p =>
+            skelTouch g.ghostSlope g.audit g.ideal.idx >>= fun q =>
+              pure (some p.1, ⟨{ p.2 with closed := true }, q.1, q.2⟩) :=
+  rfl
+
+/-- Run shape of an `nfAt` step of the erased handler. -/
+theorem skelFrameImpl_run_nfAt (i : ℕ) (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) (.nfAt i)).run g
+      = lazyRO g.ideal.honestNf i >>= fun p =>
+          skelTouch g.ghostSlope g.audit i >>= fun q =>
+            pure (p.1, ⟨{ g.ideal with honestNf := p.2 }, q.1, q.2⟩) := rfl
+
+/-- Run shape of a direct `roA` step of the erased handler. -/
+theorem skelFrameImpl_run_roA (kq : F) (i : ℕ) (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) (.roA kq i)).run g
+      = lazyRO g.ideal.roA (kq, i) >>= fun p =>
+          pure (p.1, ⟨{ g.ideal with roA := p.2 }, g.ghostSlope,
+            { g.audit with roAProbes := kq :: g.audit.roAProbes }⟩) := rfl
+
+/-- Run shape of a direct `roX` step of the erased handler. -/
+theorem skelFrameImpl_run_roX (m : M) (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) (.roX m)).run g
+      = lazyROX g.ideal.roX m >>= fun p =>
+          pure (p.1, ⟨{ g.ideal with roX := p.2 }, g.ghostSlope,
+            g.audit⟩) := rfl
+
+/-- Run shape of a direct `roNf` step of the erased handler. -/
+theorem skelFrameImpl_run_roNf (aq : F) (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) (.roNf aq)).run g
+      = lazyRO g.ideal.roNf aq >>= fun p =>
+          pure (p.1, ⟨{ g.ideal with roNf := p.2 }, g.ghostSlope,
+            { g.audit with slopeProbes := aq :: g.audit.slopeProbes }⟩) :=
+  rfl
+
+/-- Run shape of a direct `roE` step of the erased handler. -/
+theorem skelFrameImpl_run_roE (kq : F) (e : ℕ) (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) (.roE kq e)).run g
+      = lazyRO g.ideal.roE (kq, e) >>= fun p =>
+          pure (p.1, ⟨{ g.ideal with roE := p.2 }, g.ghostSlope,
+            { g.audit with roEProbes := kq :: g.audit.roEProbes }⟩) := rfl
+
+/-- Run shape of a direct `roId` step of the erased handler. -/
+theorem skelFrameImpl_run_roId (kq : F) (g : GhostFrameSt F M) :
+    ((skelFrameImpl mclose) (.roId kq)).run g
+      = lazyRO g.ideal.roId kq >>= fun p =>
+          pure (p.1, ⟨{ g.ideal with roId := p.2 }, g.ghostSlope,
+            { g.audit with roIdProbes := kq :: g.audit.roIdProbes }⟩) := rfl
+
+end RunShapes
+
+section TapeInduction
+
+variable [Fintype F]
+
+/-- **Slope-preimage mass of the deferred-tape run.** Running any
+query-bounded FRAME computation against the erased handler from a state
+whose honest-slope record is a fresh uniform tape of length `m`, the
+probability that some recorded `H_nf` probe ever equals some recorded
+honest slope is at most `(m + nSig) · (|slopeProbes| + nNf) / |F|`: every
+probe is chosen independently of every tape entry and of every later
+fresh ghost slope, so each of the at most `m + nSig` slopes meets each of
+the at most `|slopeProbes| + nNf` probes with mass `1/|F|`
+(Spec.md §7 T7, `H_nf`-preimage leakage term). -/
+theorem skelFrameImpl_slopeHit_prob_le (mclose : M) {α : Type}
+    (oa : OracleComp (frameSpec F M) α) (m nNf nSig : ℕ)
+    (hNf : OracleComp.IsQueryBoundP oa
+      (fun t => isDirectRoNfQuery t = true) nNf)
+    (hSig : OracleComp.IsQueryBoundP oa
+      (fun t => isSignalQuery t = true) nSig)
+    (s : GhostFrameSt F M) :
+    Pr[fun z : α × GhostFrameSt F M => SlopeHit z.2.audit |
+        drawList ($ᵗ F) m >>= fun vs =>
+          (simulateQ (skelFrameImpl mclose) oa).run (s.withSlopes vs)]
+      ≤ (((m + nSig) * (s.audit.slopeProbes.length + nNf) : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  induction oa using OracleComp.inductionOn generalizing m nNf nSig s with
+  | pure x =>
+      simp only [simulateQ_pure, StateT.run_pure]
+      rw [show (fun vs : List F =>
+          (pure (x, s.withSlopes vs) : ProbComp (α × GhostFrameSt F M))) =
+          pure ∘ (fun vs => (x, s.withSlopes vs)) from rfl,
+        probEvent_bind_pure_comp]
+      refine le_trans (le_of_eq (probEvent_ext
+        (q := fun vs : List F => ∃ q ∈ s.audit.slopeProbes, q ∈ vs)
+        fun vs _ => Iff.rfl)) (le_trans
+          (probEvent_drawList_exists_mem_le s.audit.slopeProbes m) ?_)
+      exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul
+        (Nat.le_add_right m nSig) (Nat.le_add_right _ nNf))) le_rfl
+  | query_bind t k ih =>
+      rw [isQueryBoundP_query_bind_iff] at hNf hSig
+      simp only [simulateQ_query_bind, OracleQuery.input_query,
+        monadLift_self, StateT.run_bind]
+      cases t with
+      | spend msg =>
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [skelFrameImpl, StateT.run_mk, OracleQuery.cont_query,
+            withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq]
+          by_cases hc : s.ideal.closed
+          · try simp only [hc, ↓reduceIte, pure_bind]
+            refine le_trans (ih none m nNf (nSig - 1)
+              (by simpa [isDirectRoNfQuery] using hNf.2 none)
+              (by simpa [isSignalQuery] using hSig.2 none) s) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              le_rfl)) le_rfl
+          · try simp only [hc, Bool.false_eq_true, ↓reduceIte]
+            rcases hgs : s.ghostSlope s.ideal.idx with _ | w
+            · try simp only [skelTouch_eq_of_none hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_fresh_le m
+                (emitIdealSignal msg s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨c.2, Function.update s.ghostSlope s.ideal.idx
+                        (some (0 : F)),
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) (m + 1) nNf (nSig - 1)
+                (by simpa [isDirectRoNfQuery] using hNf.2 (some c.1))
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨c.2, Function.update s.ghostSlope s.ideal.idx
+                  (some (0 : F)), s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                le_rfl)) le_rfl
+            · try simp only [skelTouch_eq_of_some hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_le m
+                (emitIdealSignal msg s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨c.2, s.ghostSlope,
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) m nNf (nSig - 1)
+                (by simpa [isDirectRoNfQuery] using hNf.2 (some c.1))
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨c.2, s.ghostSlope, s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                le_rfl)) le_rfl
+      | close =>
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq]
+          by_cases hc : s.ideal.closed
+          · simp only [hc, ↓reduceIte, pure_bind]
+            refine le_trans (ih none m nNf (nSig - 1)
+              (by simpa [isDirectRoNfQuery] using hNf.2 none)
+              (by simpa [isSignalQuery] using hSig.2 none) s) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              le_rfl)) le_rfl
+          · simp only [hc, Bool.false_eq_true, ↓reduceIte]
+            rcases hgs : s.ghostSlope s.ideal.idx with _ | w
+            · simp only [skelTouch_eq_of_none hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_fresh_le m
+                (emitIdealSignal mclose s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨{ c.2 with closed := true },
+                      Function.update s.ghostSlope s.ideal.idx
+                        (some (0 : F)),
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) (m + 1) nNf (nSig - 1)
+                (by simpa [isDirectRoNfQuery] using hNf.2 (some c.1))
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨{ c.2 with closed := true },
+                  Function.update s.ghostSlope s.ideal.idx (some (0 : F)),
+                  s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                le_rfl)) le_rfl
+            · simp only [skelTouch_eq_of_some hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_le m
+                (emitIdealSignal mclose s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨{ c.2 with closed := true }, s.ghostSlope,
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) m nNf (nSig - 1)
+                (by simpa [isDirectRoNfQuery] using hNf.2 (some c.1))
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨{ c.2 with closed := true }, s.ghostSlope, s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                le_rfl)) le_rfl
+      | nfAt i =>
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq]
+          rcases hgs : s.ghostSlope i with _ | w
+          · simp only [skelTouch_eq_of_none hgs, bind_assoc, pure_bind]
+            refine probEvent_drawList_swap_fresh_le m
+              (lazyRO s.ideal.honestNf i)
+              (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+                ⟨{ s.ideal with honestNf := c.2 },
+                  Function.update s.ghostSlope i (some (0 : F)),
+                  ⟨s.audit.roAProbes, s.audit.roEProbes,
+                    s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+              _ _ (fun c _ => ?_)
+            refine le_trans (ih c.1 (m + 1) nNf (nSig - 1)
+              (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+              (by simpa [isSignalQuery] using hSig.2 c.1)
+              ⟨{ s.ideal with honestNf := c.2 },
+                Function.update s.ghostSlope i (some (0 : F)),
+                s.audit⟩) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              le_rfl)) le_rfl
+          · simp only [skelTouch_eq_of_some hgs, bind_assoc, pure_bind]
+            refine probEvent_drawList_swap_le m
+              (lazyRO s.ideal.honestNf i)
+              (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+                ⟨{ s.ideal with honestNf := c.2 }, s.ghostSlope,
+                  ⟨s.audit.roAProbes, s.audit.roEProbes,
+                    s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+              _ _ (fun c _ => ?_)
+            refine le_trans (ih c.1 m nNf (nSig - 1)
+              (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+              (by simpa [isSignalQuery] using hSig.2 c.1)
+              ⟨{ s.ideal with honestNf := c.2 }, s.ghostSlope,
+                s.audit⟩) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              le_rfl)) le_rfl
+      | roA kq i =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roA (kq, i))
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roA := c.2 }, s.ghostSlope,
+                ⟨kq :: s.audit.roAProbes, s.audit.roEProbes,
+                  s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nNf nSig
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roA := c.2 }, s.ghostSlope,
+              ⟨kq :: s.audit.roAProbes, s.audit.roEProbes,
+                s.audit.roIdProbes, s.audit.slopeProbes,
+                s.audit.honestSlopes⟩⟩
+      | roX msg =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyROX s.ideal.roX msg)
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roX := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, s.audit.roEProbes,
+                  s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nNf nSig
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roX := c.2 }, s.ghostSlope, s.audit⟩
+      | roNf aq =>
+          have hposNf : 0 < nNf := by
+            rcases hNf.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roNf aq)
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roNf := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, s.audit.roEProbes,
+                  s.audit.roIdProbes, aq :: s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          refine le_trans (ih c.1 m (nNf - 1) nSig
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roNf := c.2 }, s.ghostSlope,
+              ⟨s.audit.roAProbes, s.audit.roEProbes, s.audit.roIdProbes,
+                aq :: s.audit.slopeProbes, s.audit.honestSlopes⟩⟩) ?_
+          refine mul_le_mul' (Nat.cast_le.2 ?_) le_rfl
+          show (m + nSig) *
+              ((aq :: s.audit.slopeProbes).length + (nNf - 1))
+              ≤ (m + nSig) * (s.audit.slopeProbes.length + nNf)
+          simp only [List.length_cons]
+          exact Nat.mul_le_mul le_rfl (by omega)
+      | roE kq e =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roE (kq, e))
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roE := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, kq :: s.audit.roEProbes,
+                  s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nNf nSig
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roE := c.2 }, s.ghostSlope,
+              ⟨s.audit.roAProbes, kq :: s.audit.roEProbes,
+                s.audit.roIdProbes, s.audit.slopeProbes,
+                s.audit.honestSlopes⟩⟩
+      | roId kq =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roId kq)
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roId := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, s.audit.roEProbes,
+                  kq :: s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nNf nSig
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roId := c.2 }, s.ghostSlope,
+              ⟨s.audit.roAProbes, s.audit.roEProbes,
+                kq :: s.audit.roIdProbes, s.audit.slopeProbes,
+                s.audit.honestSlopes⟩⟩
+
+/-- **Collision mass of the deferred-tape run.** Running any query-bounded
+FRAME computation against the erased handler from a state whose
+honest-slope record is a fresh uniform tape of length `m`, the probability
+that the final honest-slope record repeats a value is at most
+`(m + nSig)² / |F|`: at most `m + nSig` slopes ever exist, each pair
+colliding with mass `1/|F|` (Spec.md §7 T7, honest-slope birthday
+term). -/
+theorem skelFrameImpl_collision_prob_le (mclose : M) {α : Type}
+    (oa : OracleComp (frameSpec F M) α) (m nSig : ℕ)
+    (hSig : OracleComp.IsQueryBoundP oa
+      (fun t => isSignalQuery t = true) nSig)
+    (s : GhostFrameSt F M) :
+    Pr[fun z : α × GhostFrameSt F M => SlopeCollision z.2.audit |
+        drawList ($ᵗ F) m >>= fun vs =>
+          (simulateQ (skelFrameImpl mclose) oa).run (s.withSlopes vs)]
+      ≤ (((m + nSig) * (m + nSig) : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  induction oa using OracleComp.inductionOn generalizing m nSig s with
+  | pure x =>
+      simp only [simulateQ_pure, StateT.run_pure]
+      rw [show (fun vs : List F =>
+          (pure (x, s.withSlopes vs) : ProbComp (α × GhostFrameSt F M))) =
+          pure ∘ (fun vs => (x, s.withSlopes vs)) from rfl,
+        probEvent_bind_pure_comp]
+      refine le_trans (le_of_eq (probEvent_ext
+        (q := fun vs : List F => ¬ vs.Nodup) fun vs _ => Iff.rfl))
+        (le_trans (probEvent_drawList_not_nodup_le m) ?_)
+      exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul
+        (Nat.le_add_right m nSig) (Nat.le_add_right m nSig))) le_rfl
+  | query_bind t k ih =>
+      rw [isQueryBoundP_query_bind_iff] at hSig
+      simp only [simulateQ_query_bind, OracleQuery.input_query,
+        monadLift_self, StateT.run_bind]
+      cases t with
+      | spend msg =>
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq]
+          by_cases hc : s.ideal.closed
+          · simp only [hc, ↓reduceIte, pure_bind]
+            refine le_trans (ih none m (nSig - 1)
+              (by simpa [isSignalQuery] using hSig.2 none) s) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              (by omega))) le_rfl
+          · simp only [hc, Bool.false_eq_true, ↓reduceIte]
+            rcases hgs : s.ghostSlope s.ideal.idx with _ | w
+            · simp only [skelTouch_eq_of_none hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_fresh_le m
+                (emitIdealSignal msg s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨c.2, Function.update s.ghostSlope s.ideal.idx
+                        (some (0 : F)),
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) (m + 1) (nSig - 1)
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨c.2, Function.update s.ghostSlope s.ideal.idx
+                  (some (0 : F)), s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                (by omega))) le_rfl
+            · simp only [skelTouch_eq_of_some hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_le m
+                (emitIdealSignal msg s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨c.2, s.ghostSlope,
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) m (nSig - 1)
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨c.2, s.ghostSlope, s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                (by omega))) le_rfl
+      | close =>
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq]
+          by_cases hc : s.ideal.closed
+          · simp only [hc, ↓reduceIte, pure_bind]
+            refine le_trans (ih none m (nSig - 1)
+              (by simpa [isSignalQuery] using hSig.2 none) s) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              (by omega))) le_rfl
+          · simp only [hc, Bool.false_eq_true, ↓reduceIte]
+            rcases hgs : s.ghostSlope s.ideal.idx with _ | w
+            · simp only [skelTouch_eq_of_none hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_fresh_le m
+                (emitIdealSignal mclose s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨{ c.2 with closed := true },
+                      Function.update s.ghostSlope s.ideal.idx
+                        (some (0 : F)),
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) (m + 1) (nSig - 1)
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨{ c.2 with closed := true },
+                  Function.update s.ghostSlope s.ideal.idx (some (0 : F)),
+                  s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                (by omega))) le_rfl
+            · simp only [skelTouch_eq_of_some hgs, bind_assoc, pure_bind]
+              refine probEvent_drawList_swap_le m
+                (emitIdealSignal mclose s.ideal)
+                (fun c ws => (simulateQ (skelFrameImpl mclose)
+                  (k (some c.1))).run
+                    ⟨{ c.2 with closed := true }, s.ghostSlope,
+                      ⟨s.audit.roAProbes, s.audit.roEProbes,
+                        s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+                _ _ (fun c _ => ?_)
+              refine le_trans (ih (some c.1) m (nSig - 1)
+                (by simpa [isSignalQuery] using hSig.2 (some c.1))
+                ⟨{ c.2 with closed := true }, s.ghostSlope, s.audit⟩) ?_
+              exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+                (by omega))) le_rfl
+      | nfAt i =>
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq]
+          rcases hgs : s.ghostSlope i with _ | w
+          · simp only [skelTouch_eq_of_none hgs, bind_assoc, pure_bind]
+            refine probEvent_drawList_swap_fresh_le m
+              (lazyRO s.ideal.honestNf i)
+              (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+                ⟨{ s.ideal with honestNf := c.2 },
+                  Function.update s.ghostSlope i (some (0 : F)),
+                  ⟨s.audit.roAProbes, s.audit.roEProbes,
+                    s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+              _ _ (fun c _ => ?_)
+            refine le_trans (ih c.1 (m + 1) (nSig - 1)
+              (by simpa [isSignalQuery] using hSig.2 c.1)
+              ⟨{ s.ideal with honestNf := c.2 },
+                Function.update s.ghostSlope i (some (0 : F)),
+                s.audit⟩) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              (by omega))) le_rfl
+          · simp only [skelTouch_eq_of_some hgs, bind_assoc, pure_bind]
+            refine probEvent_drawList_swap_le m
+              (lazyRO s.ideal.honestNf i)
+              (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+                ⟨{ s.ideal with honestNf := c.2 }, s.ghostSlope,
+                  ⟨s.audit.roAProbes, s.audit.roEProbes,
+                    s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+              _ _ (fun c _ => ?_)
+            refine le_trans (ih c.1 m (nSig - 1)
+              (by simpa [isSignalQuery] using hSig.2 c.1)
+              ⟨{ s.ideal with honestNf := c.2 }, s.ghostSlope,
+                s.audit⟩) ?_
+            exact mul_le_mul' (Nat.cast_le.2 (Nat.mul_le_mul (by omega)
+              (by omega))) le_rfl
+      | roA kq i =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roA (kq, i))
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roA := c.2 }, s.ghostSlope,
+                ⟨kq :: s.audit.roAProbes, s.audit.roEProbes,
+                  s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nSig (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roA := c.2 }, s.ghostSlope,
+              ⟨kq :: s.audit.roAProbes, s.audit.roEProbes,
+                s.audit.roIdProbes, s.audit.slopeProbes,
+                s.audit.honestSlopes⟩⟩
+      | roX msg =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyROX s.ideal.roX msg)
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roX := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, s.audit.roEProbes,
+                  s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nSig (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roX := c.2 }, s.ghostSlope, s.audit⟩
+      | roNf aq =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roNf aq)
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roNf := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, s.audit.roEProbes,
+                  s.audit.roIdProbes, aq :: s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nSig (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roNf := c.2 }, s.ghostSlope,
+              ⟨s.audit.roAProbes, s.audit.roEProbes, s.audit.roIdProbes,
+                aq :: s.audit.slopeProbes, s.audit.honestSlopes⟩⟩
+      | roE kq e =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roE (kq, e))
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roE := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, kq :: s.audit.roEProbes,
+                  s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nSig (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roE := c.2 }, s.ghostSlope,
+              ⟨s.audit.roAProbes, kq :: s.audit.roEProbes,
+                s.audit.roIdProbes, s.audit.slopeProbes,
+                s.audit.honestSlopes⟩⟩
+      | roId kq =>
+          simp only [skelFrameImpl, StateT.run_mk, withSlopes_ideal,
+            withSlopes_ghostSlope, withSlopes_audit_eq, bind_assoc,
+            pure_bind]
+          refine probEvent_drawList_swap_le m (lazyRO s.ideal.roId kq)
+            (fun c ws => (simulateQ (skelFrameImpl mclose) (k c.1)).run
+              ⟨{ s.ideal with roId := c.2 }, s.ghostSlope,
+                ⟨s.audit.roAProbes, s.audit.roEProbes,
+                  kq :: s.audit.roIdProbes, s.audit.slopeProbes, ws⟩⟩)
+            _ _ (fun c _ => ?_)
+          exact ih c.1 m nSig (by simpa [isSignalQuery] using hSig.2 c.1)
+            ⟨{ s.ideal with roId := c.2 }, s.ghostSlope,
+              ⟨s.audit.roAProbes, s.audit.roEProbes,
+                kq :: s.audit.roIdProbes, s.audit.slopeProbes,
+                s.audit.honestSlopes⟩⟩
+
+end TapeInduction
+
+/-! ### Unconditional endpoints and the master bound -/
+
+section Endpoints
+
+variable [Fintype F]
+
+/-- Per-commitment slope-preimage endpoint: the ghost run from the initial
+state raises `SlopeHit` with probability at most `qNf · qSig / |F|`. -/
+theorem ghostFrameImpl_run_slopeHit_le (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F) :
+    Pr[fun z : Evidence F × GhostFrameSt F M => SlopeHit z.2.audit |
+        (simulateQ (ghostFrameImpl mclose) (A cm)).run
+          (GhostFrameSt.init F M)]
+      ≤ ((qb.qNf * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  rw [probEvent_audit_ghost_eq_skel mclose (A cm) (GhostFrameSt.init F M)
+    SlopeHit, eraseSlopeValues_init]
+  have h0 : (drawList ($ᵗ F) 0 >>= fun vs =>
+      (simulateQ (skelFrameImpl mclose) (A cm)).run
+        ((GhostFrameSt.init F M).withSlopes vs))
+      = (simulateQ (skelFrameImpl mclose) (A cm)).run
+          (GhostFrameSt.init F M) := by
+    rw [show drawList ($ᵗ F) 0 = (pure [] : ProbComp (List F)) from rfl,
+      pure_bind]
+    rfl
+  rw [← h0]
+  refine le_trans (skelFrameImpl_slopeHit_prob_le mclose (A cm) 0 qb.qNf
+    qb.qSig (qb.roNf_bound cm) (qb.signal_bound cm)
+    (GhostFrameSt.init F M)) ?_
+  refine mul_le_mul' (Nat.cast_le.2 (le_of_eq ?_)) le_rfl
+  show (0 + qb.qSig) *
+      ((GhostFrameSt.init F M).audit.slopeProbes.length + qb.qNf)
+      = qb.qNf * qb.qSig
+  have hlen : (GhostFrameSt.init F M).audit.slopeProbes.length = 0 := rfl
+  rw [hlen]
+  ring
+
+/-- Per-commitment collision endpoint: the ghost run from the initial
+state raises `SlopeCollision` with probability at most `qSig² / |F|`. -/
+theorem ghostFrameImpl_run_collision_le (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F) :
+    Pr[fun z : Evidence F × GhostFrameSt F M => SlopeCollision z.2.audit |
+        (simulateQ (ghostFrameImpl mclose) (A cm)).run
+          (GhostFrameSt.init F M)]
+      ≤ ((qb.qSig * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  rw [probEvent_audit_ghost_eq_skel mclose (A cm) (GhostFrameSt.init F M)
+    SlopeCollision, eraseSlopeValues_init]
+  have h0 : (drawList ($ᵗ F) 0 >>= fun vs =>
+      (simulateQ (skelFrameImpl mclose) (A cm)).run
+        ((GhostFrameSt.init F M).withSlopes vs))
+      = (simulateQ (skelFrameImpl mclose) (A cm)).run
+          (GhostFrameSt.init F M) := by
+    rw [show drawList ($ᵗ F) 0 = (pure [] : ProbComp (List F)) from rfl,
+      pure_bind]
+    rfl
+  rw [← h0]
+  refine le_trans (skelFrameImpl_collision_prob_le mclose (A cm) 0 qb.qSig
+    (qb.signal_bound cm) (GhostFrameSt.init F M)) ?_
+  refine mul_le_mul' (Nat.cast_le.2 (le_of_eq ?_)) le_rfl
+  ring
+
+/-- Run-level slope-preimage mass: over the complete paired ghost run, the
+`SlopeHit` component of the leakage event has probability at most
+`qNf · qSig / |F|` — unconditionally. -/
+theorem ghostFrameRun_slopeHit_le (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) :
+    Pr[fun z : Evidence F × GhostFrameSt F M => SlopeHit z.2.audit |
+        ghostFrameRun mclose A]
+      ≤ ((qb.qNf * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  unfold ghostFrameRun
+  exact probEvent_bind_le_of_forall_le fun cm _ =>
+    ghostFrameImpl_run_slopeHit_le mclose A qb cm
+
+/-- Run-level collision mass: over the complete paired ghost run, the
+`SlopeCollision` component of the leakage event has probability at most
+`qSig² / |F|` — unconditionally. -/
+theorem ghostFrameRun_collision_le (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) :
+    Pr[fun z : Evidence F × GhostFrameSt F M => SlopeCollision z.2.audit |
+        ghostFrameRun mclose A]
+      ≤ ((qb.qSig * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  unfold ghostFrameRun
+  exact probEvent_bind_le_of_forall_le fun cm _ =>
+    ghostFrameImpl_run_collision_le mclose A qb cm
+
+/-- **Unconditional discharge of the slope-dependent socket.** The two
+hidden-slope obligations of `GhostSlopeBadBounds` hold outright for every
+query-bounded FRAME adversary: the deferred secret plays no role in the
+slope events, and the slope-tape induction bounds both masses. -/
+theorem ghostSlopeBadBounds_holds (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) :
+    GhostSlopeBadBounds mclose A qb where
+  slope_hit := by
+    unfold ghostDeferredRun
+    change Pr[fun z : (Evidence F × GhostFrameSt F M) × F =>
+      SlopeHit z.1.2.audit | _] ≤ _
+    calc
+      _ = Pr[fun z : Evidence F × GhostFrameSt F M => SlopeHit z.2.audit |
+          ghostFrameRun mclose A] :=
+        probEvent_bind_pair_uniform_fst (F := F) (ghostFrameRun mclose A)
+          (fun z => SlopeHit z.2.audit)
+      _ ≤ _ := ghostFrameRun_slopeHit_le mclose A qb
+  honest_collision := by
+    unfold ghostDeferredRun
+    change Pr[fun z : (Evidence F × GhostFrameSt F M) × F =>
+      SlopeCollision z.1.2.audit | _] ≤ _
+    calc
+      _ = Pr[fun z : Evidence F × GhostFrameSt F M =>
+          SlopeCollision z.2.audit | ghostFrameRun mclose A] :=
+        probEvent_bind_pair_uniform_fst (F := F) (ghostFrameRun mclose A)
+          (fun z => SlopeCollision z.2.audit)
+      _ ≤ _ := ghostFrameRun_collision_le mclose A qb
+
+/-- **Master k-averaged ghost bad-mass bound (Spec.md §7 T7), event
+form.** Over the complete ghost run followed by the deferred uniform
+secret, the ghost leakage event has probability at most
+`qb.total / |F|` — with no remaining hypotheses. -/
+theorem ghostFrameRun_leakBad_le (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) :
+    Pr[(fun z => GhostLeakBad z.2 z.1.2.audit) | ghostDeferredRun mclose A]
+      ≤ (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹ :=
+  ghostFrameRun_leak_bad_bound mclose A qb
+    (ghostSlopeBadBounds_holds mclose A qb)
+
+/-- **Master k-averaged ghost bad-mass bound (Spec.md §7 T7), Boolean
+form.** Run the ghost-audited ideal FRAME experiment, then draw the
+honest secret `k` uniformly: the decided ghost leakage event — a direct
+`roA`/`roE`/`roId` probe hit `k`, an `H_nf` probe hit a ghost honest
+slope, or two ghost honest slopes collided — outputs `true` with
+probability at most `qb.total / |F|`. This is the exact bad-event budget
+the k-averaged deferred-sampling certificate pays. -/
+theorem ghostFrameRun_leakBad_prob_le (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) :
+    Pr[= true | do
+        let z ← ghostFrameRun mclose A
+        let k ← ($ᵗ F)
+        pure (decide (GhostLeakBad k z.2.audit))]
+      ≤ (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
+  have hprog : (do
+      let z ← ghostFrameRun mclose A
+      let k ← ($ᵗ F)
+      pure (decide (GhostLeakBad k z.2.audit)))
+      = (ghostDeferredRun mclose A >>= fun w =>
+          pure (decide (GhostLeakBad w.2 w.1.2.audit))) := by
+    simp only [ghostDeferredRun, bind_assoc, pure_bind]
+  rw [hprog, probOutput_true_bind_decide_eq]
+  exact ghostFrameRun_leakBad_le mclose A qb
+
+end Endpoints
+
+end Zkpc.Games
+
+#print axioms Zkpc.Games.skelFrameImpl_slopeHit_prob_le
+#print axioms Zkpc.Games.skelFrameImpl_collision_prob_le
+#print axioms Zkpc.Games.ghostFrameImpl_run_slopeHit_le
+#print axioms Zkpc.Games.ghostFrameImpl_run_collision_le
+#print axioms Zkpc.Games.ghostFrameRun_slopeHit_le
+#print axioms Zkpc.Games.ghostFrameRun_collision_le
+#print axioms Zkpc.Games.ghostSlopeBadBounds_holds
+#print axioms Zkpc.Games.ghostFrameRun_leakBad_le
+#print axioms Zkpc.Games.ghostFrameRun_leakBad_prob_le
