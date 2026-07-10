@@ -965,6 +965,9 @@ structure FlatOperationalSafety (key : F)
   clocksAligned : FlatClockAligned s
   noOverspend : ∀ key' : F, s.coreSt.valueOf key' C ≤ D
   payeeExact : s.coreSt.paidGw = C * s.coreSt.swept.card
+  payeeNetworkAligned : s.coreSt.paidGw = s.networkSt.totalPaid
+  allAcceptedValuePaid :
+    s.coreSt.paidGw = Network.valueSum s.networkSt.accepted
   payerFloor : s.coreSt.paidPayer key + s.coreSt.emittedCnt key * C = D
   payerFloorEq : s.coreSt.paidPayer key = D - s.coreSt.emittedCnt key * C
   honestUnslashed : s.coreSt.slashedAt key = none
@@ -1001,6 +1004,15 @@ theorem flatOperational_of_trace
   have hfleet := flatTrace_fleetProjection htrace
   have hnetwork := flatTrace_networkProjection htrace
   have hclocks := flatTrace_clockAlignment htrace
+  have hpayments := flatTrace_paymentAlignment htrace
+  have hpaidValue := (Network.reach_inv hnetwork).paid_eq
+  have hallAccepted :
+      s.coreSt.paidGw = Network.valueSum s.networkSt.accepted := by
+    calc
+      s.coreSt.paidGw = s.networkSt.totalPaid := hpayments
+      _ = Network.valueSum s.networkSt.settled := hpaidValue
+      _ = Network.valueSum s.networkSt.accepted :=
+        congrArg Network.valueSum hcomplete.networkSettled
   have hfloor := Core.T3_settled_amount hcore key hkey hcomplete.closeSettled
   refine ⟨?_, hcomplete⟩
   exact
@@ -1010,6 +1022,8 @@ theorem flatOperational_of_trace
       clocksAligned := hclocks
       noOverspend := fun key' => Core.T1_no_overspend hcore key'
       payeeExact := Core.T2_paid_exact hcore
+      payeeNetworkAligned := hpayments
+      allAcceptedValuePaid := hallAccepted
       payerFloor := hfloor.1
       payerFloorEq := hfloor.2
       honestUnslashed := Core.honest_never_slashed hcore key hkey
@@ -1036,6 +1050,9 @@ structure RefundOperationalSafety (r0 : Rep)
   settlementConservation : s.refundSt.payerPay + s.refundSt.payeePay = D
   cooperativeFloor : s.refundSt.slashed = false →
     s.refundSt.payerPay + s.refundSt.sumc = D
+  acceptedValueCharged :
+    Network.valueSum s.networkSt.accepted = s.refundSt.sumc
+  allAcceptedValuePaid : s.networkSt.totalPaid = s.refundSt.sumc
   networkNoOverspend : s.networkSt.totalPaid ≤ D
   networkGlobalDedup : Network.NfUnique s.networkSt.accepted
 
@@ -1059,6 +1076,14 @@ theorem refundOperational_of_trace
     RefundOperationalGuarantees (Cmax := Cmax) (D := D) r0 labels s := by
   have hrefund := refundTrace_refundProjection htrace
   have hnetwork := refundTrace_networkProjection htrace
+  have hvalues := refundTrace_valueAlignment htrace
+  have hpaidValue := (Network.reach_inv hnetwork).paid_eq
+  have hallAccepted : s.networkSt.totalPaid = s.refundSt.sumc := by
+    calc
+      s.networkSt.totalPaid = Network.valueSum s.networkSt.settled := hpaidValue
+      _ = Network.valueSum s.networkSt.accepted :=
+        congrArg Network.valueSum hcomplete.networkSettled
+      _ = s.refundSt.sumc := hvalues.symm
   refine ⟨?_, hcomplete⟩
   exact
     { refundReach := hrefund
@@ -1067,6 +1092,8 @@ theorem refundOperational_of_trace
       settlementConservation := Refund.conservation hrefund hcomplete.refundSettled
       cooperativeFloor := fun hns =>
         Refund.T3_B_floor hrefund hcomplete.refundSettled hns
+      acceptedValueCharged := hvalues.symm
+      allAcceptedValuePaid := hallAccepted
       networkNoOverspend := Network.no_overspend hnetwork
       networkGlobalDedup := Network.global_dedup hnetwork }
 

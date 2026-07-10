@@ -246,7 +246,7 @@ theorem DSShadowInvStrong.insertHole {sigma : DSShadowSt F M} {m i : Nat}
       simp only [entryCoords, List.mem_filterMap]
       exact ⟨.hole m, h.hpat q m hq, rfl⟩)
     omega
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_⟩
   · refine ⟨?_, ?_, ?_, ?_, h.hroX, ?_, ?_, ?_⟩
     · intro e he
       rcases List.mem_cons.1 he with rfl | he
@@ -270,7 +270,7 @@ theorem DSShadowInvStrong.insertHole {sigma : DSShadowSt F M} {m i : Nat}
       by_cases hqi : q = i
       · subst q
         simp only [DSShadowSt.insertEntry, Function.update_self] at hq
-        have : j = m := (Option.some.inj hq).symm
+        have : j = m := by simpa using (Option.some.inj hq).symm
         subst j
         exact List.mem_cons_self
       · simp only [DSShadowSt.insertEntry, Function.update_of_ne hqi] at hq
@@ -279,7 +279,7 @@ theorem DSShadowInvStrong.insertHole {sigma : DSShadowSt F M} {m i : Nat}
       by_cases hqi : q = i
       · subst q
         simp only [DSShadowSt.insertEntry, Function.update_self] at hq
-        have hj : j = m := (Option.some.inj hq).symm
+          have hj : j = m := by simpa using (Option.some.inj hq).symm
         subst j
         by_cases hq'i : q' = i
         · exact hq'i.symm
@@ -289,7 +289,7 @@ theorem DSShadowInvStrong.insertHole {sigma : DSShadowSt F M} {m i : Nat}
         by_cases hq'i : q' = i
         · subst q'
           simp only [DSShadowSt.insertEntry, Function.update_self] at hq'
-          have hj : j = m := (Option.some.inj hq').symm
+          have hj : j = m := by simpa using (Option.some.inj hq').symm
           subst j
           exact (hnom q hq).elim
         · simp only [DSShadowSt.insertEntry, Function.update_of_ne hq'i] at hq'
@@ -311,24 +311,6 @@ theorem DSShadowInvStrong.insertHole {sigma : DSShadowSt F M} {m i : Nat}
       exact List.mem_cons_self
     · simp only [DSShadowSt.insertEntry, Function.update_of_ne hqi] at hq
       exact List.mem_cons_of_mem _ (h.hpat_mem q e hq)
-  · intro a ha b hb j hca hcb
-    rcases List.mem_cons.1 ha with rfl | ha
-    · rcases List.mem_cons.1 hb with rfl | hb
-      · rfl
-      · simp only [DSEntry.coord] at hca
-        subst j
-        have hm : m ∈ entryCoords sigma.shadow := by
-          simp only [entryCoords, List.mem_filterMap]
-          exact ⟨b, hb, hcb⟩
-        exact (Nat.lt_irrefl m (h.hlt m hm)).elim
-    · rcases List.mem_cons.1 hb with rfl | hb
-      · simp only [DSEntry.coord] at hcb
-        subst j
-        have hm : m ∈ entryCoords sigma.shadow := by
-          simp only [entryCoords, List.mem_filterMap]
-          exact ⟨a, ha, hca⟩
-        exact (Nat.lt_irrefl m (h.hlt m hm)).elim
-      · exact h.hcoord_unique a ha b hb j hca hcb
 
 omit [Field F] [SampleableType F] [Fintype F] in
 /-- Avoiding the listed equal-abscissa ordinates is exactly what is needed
@@ -362,9 +344,7 @@ theorem DSShadowInvStrong.insertLine_advance
     (hy : y ∉ dupTargets x sigma.shadow) :
     DSShadowInvStrong
       ((sigma.insertEntry sigma.ideal.idx (.line x y)).setIdeal ideal) m := by
-  let i := sigma.ideal.idx
-  dsimp [i] at *
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_⟩
   · refine ⟨?_, ?_, ?_, ?_, hroX, ?_, ?_, ?_⟩
     · intro e he
       rcases List.mem_cons.1 he with rfl | he
@@ -379,18 +359,18 @@ theorem DSShadowInvStrong.insertLine_advance
     · change (entryCoords (DSEntry.line x y :: sigma.shadow)).Nodup
       simpa [entryCoords] using h.hnd
     · intro q j hq
-      by_cases hqi : q = i
+      by_cases hqi : q = sigma.ideal.idx
       · subst q
         simp [DSShadowSt.setIdeal, DSShadowSt.insertEntry] at hq
       · simp only [DSShadowSt.setIdeal, DSShadowSt.insertEntry,
           Function.update_of_ne hqi] at hq
         exact List.mem_cons_of_mem _ (h.hpat q j hq)
     · intro q q' j hq hq'
-      have hqi : q ≠ i := by
+      have hqi : q ≠ sigma.ideal.idx := by
         intro heq
         subst q
         simp [DSShadowSt.setIdeal, DSShadowSt.insertEntry] at hq
-      have hq'i : q' ≠ i := by
+      have hq'i : q' ≠ sigma.ideal.idx := by
         intro heq
         subst q'
         simp [DSShadowSt.setIdeal, DSShadowSt.insertEntry] at hq'
@@ -400,10 +380,10 @@ theorem DSShadowInvStrong.insertLine_advance
         Function.update_of_ne hq'i] at hq'
       exact h.hpatinj q q' j hq hq'
     · intro q hq e he
-      have hqi : q ≠ i := by
+      have hqi : q ≠ sigma.ideal.idx := by
         intro heq
         subst q
-        change ideal.idx ≤ i at hq
+        change ideal.idx ≤ sigma.ideal.idx at hq
         rw [hidx] at hq
         omega
       simp only [DSShadowSt.setIdeal, DSShadowSt.insertEntry,
@@ -414,7 +394,7 @@ theorem DSShadowInvStrong.insertLine_advance
         omega
       · exact he
   · intro q e he
-    by_cases hqi : q = i
+    by_cases hqi : q = sigma.ideal.idx
     · subst q
       simp only [DSShadowSt.setIdeal, DSShadowSt.insertEntry,
         Function.update_self] at he
@@ -424,12 +404,6 @@ theorem DSShadowInvStrong.insertLine_advance
     · simp only [DSShadowSt.setIdeal, DSShadowSt.insertEntry,
         Function.update_of_ne hqi] at he
       exact List.mem_cons_of_mem _ (h.hpat_mem q e he)
-  · intro a ha b hb j hca hcb
-    rcases List.mem_cons.1 ha with rfl | ha
-    · simp [DSEntry.coord] at hca
-    · rcases List.mem_cons.1 hb with rfl | hb
-      · simp [DSEntry.coord] at hcb
-      · exact h.hcoord_unique a ha b hb j hca hcb
 
 /-- Consuming the current pending hole and advancing the honest counter
 preserves the strong invariant. -/
@@ -441,17 +415,16 @@ theorem DSShadowInvStrong.consumeHole_advance
     (hroX : RoXCacheNonzero ideal.roX) (hx : x ≠ 0) :
     DSShadowInvStrong
       ((sigma.consumeHole sigma.ideal.idx j x).setIdeal ideal) m := by
-  let i := sigma.ideal.idx
-  dsimp [i] at *
-  have hhole : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
-  refine ⟨?_, ?_, ?_⟩
+  have hhole : DSEntry.hole j ∈ sigma.shadow :=
+    h.hpat sigma.ideal.idx j hi
+  refine ⟨?_, ?_⟩
   · refine ⟨?_, ?_, ?_, ?_, hroX, ?_, ?_, ?_⟩
     · intro e he
       obtain ⟨e0, he0, rfl⟩ := List.mem_map.1 he
       exact xne0_replaceHole j x hx e0 (h.hx e0 he0)
     · change (sigma.shadow.map (replaceHole j x)).Pairwise DSEntry.Sep
       rw [List.pairwise_map]
-      exact h.hsep.imp fun _ _ hab => sep_replaceHole j x _ _ hab
+      exact h.hsep.imp fun hab => sep_replaceHole j x _ _ hab
     · change ∀ q, q ∈ entryCoords (sigma.shadow.map (replaceHole j x)) -> q < m
       rw [entryCoords_map_replaceHole]
       exact h.hlt
@@ -459,7 +432,7 @@ theorem DSShadowInvStrong.consumeHole_advance
       rw [entryCoords_map_replaceHole]
       exact h.hnd
     · intro q l hq
-      have hqi : q ≠ i := by
+      have hqi : q ≠ sigma.ideal.idx := by
         intro heq
         subst q
         simp [DSShadowSt.setIdeal, DSShadowSt.consumeHole] at hq
@@ -468,15 +441,15 @@ theorem DSShadowInvStrong.consumeHole_advance
       have hlj : l ≠ j := by
         intro heq
         subst l
-        exact hqi (h.hpatinj q i j hq hi)
+        exact hqi (h.hpatinj q sigma.ideal.idx j hq hi)
       refine List.mem_map.2 ⟨.hole l, h.hpat q l hq, ?_⟩
       simp [replaceHole, hlj]
     · intro q q' l hq hq'
-      have hqi : q ≠ i := by
+      have hqi : q ≠ sigma.ideal.idx := by
         intro heq
         subst q
         simp [DSShadowSt.setIdeal, DSShadowSt.consumeHole] at hq
-      have hq'i : q' ≠ i := by
+      have hq'i : q' ≠ sigma.ideal.idx := by
         intro heq
         subst q'
         simp [DSShadowSt.setIdeal, DSShadowSt.consumeHole] at hq'
@@ -486,10 +459,10 @@ theorem DSShadowInvStrong.consumeHole_advance
         Function.update_of_ne hq'i] at hq'
       exact h.hpatinj q q' l hq hq'
     · intro q hq e he
-      have hqi : q ≠ i := by
+      have hqi : q ≠ sigma.ideal.idx := by
         intro heq
         subst q
-        change ideal.idx ≤ i at hq
+        change ideal.idx ≤ sigma.ideal.idx at hq
         rw [hidx] at hq
         omega
       simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHole,
@@ -500,7 +473,7 @@ theorem DSShadowInvStrong.consumeHole_advance
         omega
       · exact he
   · intro q e he
-    by_cases hqi : q = i
+    by_cases hqi : q = sigma.ideal.idx
     · subst q
       simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHole,
         Function.update_self] at he
@@ -513,20 +486,9 @@ theorem DSShadowInvStrong.consumeHole_advance
       have hne : e ≠ .hole j := by
         intro heq
         subst e
-        exact hqi (h.hpatinj q i j he hi)
+        exact hqi (h.hpatinj q sigma.ideal.idx j he hi)
       refine List.mem_map.2 ⟨e, h.hpat_mem q e he, ?_⟩
       simp [replaceHole, hne]
-  · intro a ha b hb l hca hcb
-    obtain ⟨a0, ha0, rfl⟩ := List.mem_map.1 ha
-    obtain ⟨b0, hb0, rfl⟩ := List.mem_map.1 hb
-    have hca0 : a0.coord = some l := by
-      rw [← coord_replaceHole j x a0]
-      exact hca
-    have hcb0 : b0.coord = some l := by
-      rw [← coord_replaceHole j x b0]
-      exact hcb
-    exact congrArg (replaceHole j x)
-      (h.hcoord_unique a0 ha0 b0 hb0 l hca0 hcb0)
 
 omit [SampleableType F] [Fintype F] in
 /-- Seeding a fresh concrete line stores exactly its reconstructed slope
