@@ -211,3 +211,49 @@ is verified.
 6. `OPEN-PROOFS.md` and `ROADMAP-STATUS.md` were updated at
    `56d5c3f`/`acba6cf` to claim the closure; per F1 those claims are ahead
    of the kernel and should be re-reconciled after the repair.
+
+---
+
+## Post-F1 reconciliation — repaired endpoint, validation pending
+
+F1 is a historical finding about `ecdbcec` and `acba6cf`; it is not erased
+by later edits. The repair now present in source changes the disputed
+stage-2 proof and introduces a dedicated final assembly module. The target
+dependency chain is:
+
+`dsBadMassLe_of_queryBounds`
+→ `frameRealBadMassLe_of_dsCount`
+→ `frameDeferredSamplingAvg_holds`
+→ `T7_frame_query_bound_unconditional`
+→ `T7Certificate.ofQueryBounds`.
+
+The two public endpoints have the intended narrow type: for arbitrary `A`
+and `qb : FrameQueryBounds A`, they establish the FRAME probability bound
+`(qb.total + 1)/|F|` averaged over the uniform secret sampled by
+`frameGame`, with no residual transfer, coupling, counting, bad-mass,
+`hobliv`, or certificate hypothesis. This does not revive the refuted
+pointwise socket: `frameDeferredSampling_refuted` remains valid and
+`FrameDeferredSamplingAvg` remains the live assembly boundary.
+
+The endpoint should not be paraphrased as more than it says. It is an
+exact finite-field/query-budget theorem in the ideal random-oracle model;
+there is no formal security-parameter/PPT asymptotic layer and no reduction
+for a deployed hash function.
+
+### Evidence required before superseding F1's kernel-status verdict
+
+- [pending] final commit SHA;
+- [pending] successful source check of
+  `Zkpc/Games/FrameDSCountInduction.lean`,
+  `Zkpc/Games/FrameComplete.lean`, and
+  `Zkpc/Composition/EndToEnd.lean`;
+- [pending] clean full build from the release audit environment;
+- [pending] exact `#print axioms` output for
+  `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`,
+  `T7_frame_query_bound_unconditional`, and
+  `T7Certificate.ofQueryBounds`;
+- [pending] final forbidden-token greps and diff hygiene checks.
+
+Until those observations are filled from real command output, this section
+reconciles the statement and dependency shape only. It does not claim that
+F1's compilation failure has already been overturned by the kernel.

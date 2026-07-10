@@ -294,3 +294,35 @@ not read as "T7 fully machine-checked."
    witness instance of `T7_frame_bound` (e.g. the constant-evidence
    adversary) achieving the `1/|F|` bound, to demonstrate the hypothesis
    class is inhabited by a concrete adversary rather than argued in prose.
+
+## T7 vacuity follow-up — 2026-07-10
+
+The `hobliv` discussion above remains an accurate audit of the earlier
+conditional theorem, but it is not the final query-bounded endpoint. The
+final statement takes an arbitrary `A` with `qb : FrameQueryBounds A` and
+concludes
+
+`frameWinProb mclose A ≤ (qb.total + 1)/|F|`
+
+through `T7_frame_query_bound_unconditional`; the composition wrapper is
+`T7Certificate.ofQueryBounds`. Neither theorem has a residual `hobliv`,
+good-slice, coupling, bad-mass, counting, or averaged-certificate premise.
+
+The repaired claim is non-vacuous for the same structural reasons already
+audited: `FrameQueryBounds` is a per-path bound on actual oracle operations,
+the in-tree two-probe adversary has a nonzero certificate and a real winning
+slice, and broken FRAME schemes still win the same `Slashes` predicate with
+probability one. Secret averaging is not an empty-hypothesis trick: it is
+the probability space of `frameGame`, which samples `k` uniformly. In
+contrast, the pointwise `FrameDeferredSampling` class really is empty for
+the recorded two-probe counterexample over sufficiently large fields, and
+`frameDeferredSampling_refuted` remains part of the audit surface.
+
+No vacuity verdict here upgrades the theorem to an unformalized claim. A
+concrete bound for a certified finite query count does not itself quantify
+over PPT adversary families or prove asymptotic negligibility, and the lazy
+random-oracle handlers are not a deployed hash instantiation.
+
+**Kernel-status note:** this follow-up audits the final statement shape.
+Successful final compilation and axiom output are pending the release audit
+and are not inferred from the presence of the declarations in source.

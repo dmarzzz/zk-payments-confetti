@@ -21,9 +21,10 @@ distinguishing which of two members emitted a whole epoch session is
 exactly zero, to our knowledge the first machine-checked unlinkability
 result for any channel or credit construction. No-overspend, both
 balance-security theorems, closure liveness, the fleet priced-divergence
-bound, the exculpability (framing) bound (≤ 1/|F| under a stated
-random-oracle good event, with a kernel-checked query-budget composition
-endpoint), the refund variant's safety and conservation — now including
+bound, and the exculpability (framing) bound — concretely
+`(q_A+q_E+q_Id+q_Nf·q_sig+q_sig²+1)/|F|`, averaged over the uniform FRAME
+secret for adversaries carrying the five structural query certificates —
+and the refund variant's safety and conservation — now including
 the full failed-upgrade cascade and finite-fleet aggregation — zero-loss
 zero-knowledge bridges for three concrete proof-bearing wire encodings
 (masked-proof, interactive Sigma, lazy-ROM Fiat–Shamir), an executable
@@ -131,6 +132,9 @@ deposit and gated on checkpoint freshness.
 protocol's actual adversary, the fleet's own operators: $N-1$ colluding
 gateways hold at most one point per line for an honest member, and one
 point determines nothing about $k$; forging evidence means computing $k$.
+The machine-checked statement below is the corresponding concrete
+finite-query bound, averaged over FRAME's uniform secret; it is not by
+itself an asymptotic PPT/negligibility theorem.
 
 ## What adversarial review did to the definition
 
@@ -268,11 +272,14 @@ Kernel-checked today, by declaration name:
   epoch session, against the full BOLT §1.4 abort/evict oracle. The close
   view is simulatable from `(cm, count)` alone (`flat_closeViewSimulatable`),
   so the honest residue is exactly the spend count and no more.
-- **T7 — framing bound ≤ 1/|F|** `T7_frame_bound` (`Zkpc/Games/T7.lean`),
-  under the RO-oblivious good-event hypothesis `hobliv`; the two must-win
-  degenerate adversaries `frameWinProb_YK_eq_one` and
-  `frameWinProb_aReuse_eq_one` frame at probability 1, so the game's silence
-  on the sound scheme means something.
+- **T7 — query-bounded framing** `T7_frame_query_bound_unconditional`
+  (`Zkpc/Games/FrameComplete.lean`): for every adversary carrying
+  `FrameQueryBounds`, the secret-averaged FRAME win probability is at most
+  `(q_A+q_E+q_Id+q_Nf·q_sig+q_sig²+1)/|F|`. The synchronized composition
+  packages it as `T7Certificate.ofQueryBounds`. The proof discharges the
+  adaptive good-slice, seeded-shadow count, and real/deferred coupling with
+  no residual coupling or counting premise. The two must-win degenerate
+  adversaries still frame at probability 1, so the game has teeth.
 - **Calibration** (`Zkpc/Games/Calibration.lean`): the pair
   `unlinkAdvantage_staticDistinguisher_eq_half` (broken B-static at ½) and
   `unlinkAdvantage_bRerand_eq_zero` (B-rerand at 0), plus the must-catch
@@ -284,20 +291,14 @@ Kernel-checked today, by declaration name:
 - **Game framework** over VCV-io: advantage bridges, challenge-terminated
   adversary type, abort/evict wrapper (`Zkpc/Games/Framework.lean`).
 
-Stated plainly rather than around, the remaining in-model deferral:
-
-- **T7's unconditional bound** — the quantitative query-budget composition
-  endpoint is kernel-checked (structural per-channel budgets, adaptive
-  first-hit and multi-target slope kernels, and a theorem turning a
-  deferred-sampling certificate into the corrected
-  `(q_A+q_E+q_Id+q_Nf·q_sig+q_sig²+1)/|F|` bound); the originally frozen
-  pointwise certificate was then kernel-*refuted* (a two-probe adversary
-  makes it unsatisfiable) and replaced by a secret-averaged socket
-  composing to the same bound. Constructing that averaged certificate from
-  the real handler is the one open step — scoped, not smuggled into an
-  axiom. The kernel guarantees everything up to it. What remains beyond is
-  deployment-grade cryptography (concrete hash/signature reductions behind
-  the ideal reference layers); circuits are out of the model boundary.
+The originally frozen pointwise-in-secret T7 certificate was
+kernel-*refuted*: a two-probe adversary makes it unsatisfiable. The completed
+proof uses the corrected secret-averaged socket, exactly matching the FRAME
+experiment, and retains the same finite query bound. It is not a formal
+asymptotic/PPT theorem, nor a deployed-hash reduction; those interpretations
+require additional scaling or cryptographic premises. What remains beyond
+the model is deployment-grade cryptography (concrete hash/signature
+reductions behind the ideal reference layers); circuits are out of scope.
 
 Every theorem above is axiom-clean: `#print axioms` shows only Lean's
 `propext`/`Quot.sound`/`Classical.choice` (audited declaration by

@@ -84,3 +84,38 @@ end-to-end by kernel-checked arithmetic:
   OPEN-PROOFS §1, both in progress): `FrameGoodSliceTransfer` and
   `FrameRealBadMassLe`. Everything else between the query budgets defined
   here and the unconditional Spec.md §7 T7 endpoint is kernel-checked.
+
+## Closure reconciliation — 2026-07-10
+
+The preceding status addendum is preserved as the history of the two-lane
+repair. The final source-level endpoint discharges both lanes and has the
+following exact scope:
+
+```text
+qb : FrameQueryBounds A
+-----------------------------------------------
+frameWinProb mclose A ≤ (qb.total + 1) / |F|
+```
+
+Here the probability is averaged over the uniformly sampled secret in
+`frameGame`; it is not a pointwise-in-`k` assertion. The route is
+`frameGoodSliceTransfer_of_tape` plus `dsBadMassLe_of_queryBounds`, through
+`frameRealBadMassLe_of_dsCount` and
+`frameDeferredSamplingAvg_of_goodSlice_and_realBad`, to
+`frameDeferredSamplingAvg_holds` and
+`T7_frame_query_bound_unconditional`. The scheme-level wrapper is
+`T7Certificate.ofQueryBounds`. Neither public endpoint takes a residual
+transfer, coupling, bad-mass, or deferred-sampling premise.
+
+The pointwise socket is still false: `frameDeferredSampling_refuted` is
+retained, and no claim here supersedes that refutation. Averaging is the
+semantic repair, not a proof convenience.
+
+The displayed result is concrete finite-field/query accounting. No theorem
+in this chain quantifies over a security parameter, derives asymptotic
+negligibility for PPT machines, or instantiates the ideal random oracles with
+a deployed hash.
+
+**Evidence status:** final kernel/build/axiom evidence is pending the release
+audit. This reconciliation records the final statement and dependency
+shape, not an unobserved successful command or SHA.

@@ -18,9 +18,10 @@ machine-checked unlinkability result for any payment-channel or credit
 construction. No-overspend, both balance-security theorems, closure liveness,
 a priced-divergence bound for an eventually-consistent multi-gateway
 deployment, the exculpability (framing) bound (under a stated random-oracle
-good-event hypothesis, with a kernel-checked query-budget composition
-endpoint and the final handler-coupling step still open), and the refund
-variant's safety and conservation theorems — now including the full
+good-event hypothesis, and without that hypothesis as the concrete
+secret-averaged bound $(q_A+q_E+q_{Id}+q_{Nf}q_{sig}+q_{sig}^2+1)/|F|$
+for adversaries carrying the five structural query certificates), and the
+refund variant's safety and conservation theorems — now including the full
 failed-upgrade cascade and finite-fleet aggregation — are machine-checked
 with zero `sorry` and no axiom beyond Lean's three standard ones. The
 model-to-real bridges are no longer stated obligations: proof-bearing wire
@@ -664,42 +665,28 @@ by type; the abort/evict wrapper `withEvict`), and both are proved.
   count and no more.
 - **T7 — exculpability (framing) bound** — `T7_frame_bound`
   (`Zkpc/Games/T7.lean`), over `frameGame`/`frameWinProb` and the win
-  predicate `Slashes` (deliberately stronger than Dispute): under the stated
-  random-oracle good-event hypothesis `hobliv` (the adversary's evidence is
-  independent of the secret $k$), the probability that an $N-1$-gateway
-  coalition frames an honest member is at most $1/|F|$ — the blind-guess
-  floor. The query-term accounting that would discharge `hobliv` is now
-  itself mostly kernel-checked infrastructure rather than prose: structural
-  per-channel query budgets (`FrameQueryBounds`), the adaptive
-  uniform-secret first-hit bound `uniformSecretProbeBound` ($q/|F|$), the
-  adaptive multi-target slope-preimage bound `uniformSlopeProbeBound`
-  ($q_{Nf}\,q_{sig}/|F|$), a quantitative real-to-ideal assembly theorem
-  `T7_frame_bound_of_pointwise`, and the composition endpoint
-  `T7_frame_query_bound`, which turns a deferred-sampling certificate
-  (`FrameDeferredSampling`) into the corrected concrete bound
-  $(q_A + q_E + q_{Id} + q_{Nf} q_{sig} + q_{sig}^2 + 1)/|F|$. An exact
-  audited ghost of the real handler (`FrameAudit`: bad-event monotonicity,
-  per-step resource growth, projection to `frameImpl` on every adaptive
-  run) and a secret-independent ideal handler with a canonical
-  secret-erasing state map and per-oracle idealization step lemmas
-  (`FrameIdeal`) are proved. The certificate statement itself was then
-  stress-tested and *refuted* as originally frozen
-  (`frameDeferredSampling_refuted`, `Zkpc/Games/FrameDeferred.lean`): a
-  kernel-checked two-probe adversary — two `H_id` queries against the
-  public commitment — forces any single secret-independent generator to
-  carry mass $\ge 1 - 2/|F|$ on each of two disjoint slash events, so the
-  pointwise-in-$k$ domination demanded by `FrameDeferredSampling` is
-  unsatisfiable for $|F| > 5$. This is a gate finding in the repository's
-  sense (the definition, not the theorem, was wrong): the leak mass is
-  bounded only *averaged over the uniform secret*, which is also exactly
-  the quantity the FRAME experiment consumes. The corrected socket
-  `FrameDeferredSamplingAvg` (secret-averaged comparison) composes to the
-  *same* final bound via `T7_frame_query_bound_avg`, and the pointwise form
-  strictly implies it (`FrameDeferredSampling.toAvg`). Honestly in-place:
-  constructing the averaged certificate from `frameImpl` by the stateful
-  transcript coupling remains open, and we do not claim the unconditional
-  bound — but the pointwise route is now provably a dead end rather than an
-  open problem, which is itself information. Two *must-win*
+  predicate `Slashes` (deliberately stronger than Dispute), proves the
+  $1/|F|$ blind-guess floor under the random-oracle good-event hypothesis
+  `hobliv`. The final public endpoint,
+  `T7_frame_query_bound_unconditional` (`Zkpc/Games/FrameComplete.lean`),
+  removes that residual hypothesis: for every adversary carrying
+  `FrameQueryBounds`, the secret-averaged FRAME win probability is at most
+  $(q_A+q_E+q_{Id}+q_{Nf}q_{sig}+q_{sig}^2+1)/|F|$.
+  `T7Certificate.ofQueryBounds` packages the same theorem for synchronized
+  flat and refund compositions. The proof combines the adaptive pinned-slope
+  good-slice transfer (`frameGoodSliceTransfer_of_tape`), the seeded-shadow
+  count (`dsBadMassLe_of_queryBounds`), and the real/deferred step coupling.
+  The stronger pointwise certificate attempted earlier was stress-tested and
+  *refuted* (`frameDeferredSampling_refuted`): a kernel-checked two-probe
+  adversary forces one secret-independent generator to carry almost full mass
+  on each of two disjoint slash events, making `FrameDeferredSampling`
+  unsatisfiable for $|F|>5$. The corrected `FrameDeferredSamplingAvg` socket
+  matches the uniform-secret average used by FRAME and preserves the same
+  finite query bound; the completed proof constructs it from `frameImpl`
+  with no residual coupling or counting hypothesis. This is a concrete
+  finite-query theorem: the development does not formalize an asymptotic
+  PPT/negligibility wrapper or a reduction for deployed hash or signature
+  implementations. Three *must-win*
   calibration adversaries confirm the game has teeth: `frameWinProb_YK_eq_one`
   (degenerate $y = k$) and `frameWinProb_aReuse_eq_one` ($a$ reused across
   indices) each frame with probability exactly $1$; a third,
@@ -880,12 +867,12 @@ are machine-checked; the O1–O4 model-to-real bridges are discharged with
 zero loss for three concrete wire encodings and the B instantiation; the
 executable layer refines the relational one; the calibration battery
 confirms the games are not vacuous; the channel and wire guarantees compose
-on one trace; and the whole tree is axiom-clean (K2). The one substantive
-in-model deferral left is stated where it occurs: T7's unconditional bound
-awaits the secret-averaged handler coupling (`FrameDeferredSamplingAvg`),
-with the quantitative composition endpoint already kernel-checked and the
-pointwise certificate variant kernel-refuted. Everything else that remains
-is deployment-grade cryptography — concrete hash/signature reductions
+on one trace; and the whole tree is axiom-clean (K2). T7's
+secret-averaged handler coupling and adaptive count are discharged at the
+concrete finite-field query bound, while the stronger pointwise certificate
+remains kernel-refuted. The result is not a formal asymptotic PPT theorem.
+Everything else that remains is deployment-grade cryptography — concrete
+hash/signature reductions
 behind the ideal reference layers — and circuits are out of the model
 boundary (§2.5).
 
@@ -1065,7 +1052,7 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | Game framework | `Zkpc/Games/Framework.lean` | `guessGap`, `guessGap_eq`, `hiddenBitAdvantage_eq_half_boolDistAdvantage`, `hiddenBitAdvantage_const`, `hiddenBitAdvantage_eq_zero_of_distEquiv`, `ChalAdversary`, `withEvict` |
 | T4 (unlinkability) | `Zkpc/Games/T4.lean`, `Zkpc/Games/Unlink.lean` | `T4_flat_unlinkability` (= 0), `unlinkGame`, `unlinkAdvantage`, `UnlinkScheme`, `flat_closeViewSimulatable` |
 | T7 (framing) | `Zkpc/Games/T7.lean`, `Zkpc/Games/Frame.lean` | `T7_frame_bound` (≤ 1/\|F\| under `hobliv`), `frameWinProb_YK_eq_one`, `frameWinProb_aReuse_eq_one`, `frameWinProb_slopeReveal_eq_one`, `frameGame`, `frameWinProb`, `Slashes` |
-| T7 query-budget composition | `Zkpc/Games/T7.lean`, `Zkpc/Games/FrameAudit.lean`, `Zkpc/Games/FrameIdeal.lean` | `FrameQueryBounds`, `uniformSecretProbeBound`, `uniformSlopeProbeBound`, `T7_frame_bound_of_pointwise`, `frameQueryCharge_eq`, `FrameDeferredSampling`, `T7_frame_query_bound`, refutation + corrected socket `frameDeferredSampling_refuted`, `FrameDeferredSamplingAvg`, `T7_frame_query_bound_avg` (`Zkpc/Games/FrameDeferred.lean`); audit/ideal substrate `auditedFrameImpl`, `idealFrameImpl`, `FrameCoupled`, `idealizeFrame`, per-oracle `idealize_ro*_step` |
+| T7 query-budget composition | `Zkpc/Games/{T7,FrameDeferred,FrameRealBadStep,FrameDSCountInduction,FrameGoodSliceTapeInduction,FrameComplete}.lean`, `Zkpc/Composition/EndToEnd.lean` | `FrameQueryBounds`, `frameDeferredSampling_refuted`, `FrameDeferredSamplingAvg`, `frameGoodSliceTransfer_of_tape`, `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`, `T7Certificate.ofQueryBounds` |
 | Wire ZK bridges (O1) | `Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Games/SigmaInstance.lean` | `T4_maskedProof_unlinkability`, `maskedProof_zkBridge`, `T4_sigmaFlat_unlinkability`, `sigmaFlat_zkBridge`, `T4_fsFlat_unlinkability`, `fsFlat_zkBridge`, `fullFlat_zkBridge` |
 | Sigma / Fiat–Shamir cores | `Zkpc/Crypto/LinearSigma.lean`, `Zkpc/Crypto/FSRom.lean` | `completeness`, `evalDist_real_eq_simulated`, `special_soundness`, `evalDist_fsProveLazy_eq_simulated`, `fsProgramCollisionBound`, `fsForkChallengeCollisionBound` |
 | B-instance obligations (O2–O4) | `Zkpc/Games/BInstances.lean` | `bRerand_spendBatch_none_zero`, `bIdeal_openCh_adversary_genesis`, `bIdeal_serve_issuer_receipt`, `bIdeal_serve_capable_mono`, `bIdeal_closeViewSimulatable` |

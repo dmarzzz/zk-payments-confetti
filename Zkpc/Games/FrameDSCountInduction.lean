@@ -1346,7 +1346,8 @@ theorem rlnY_bijective (k x : F) (hx : x ≠ 0) :
   constructor
   · intro a b hab
     simp only [rlnY] at hab
-    exact mul_right_cancel₀ hx (add_left_cancel hab)
+    have hmul : a * x = b * x := add_left_cancel hab
+    exact (mul_right_injective₀ hx) hmul
   · intro y
     refine ⟨(y - k) / x, ?_⟩
     simp only [rlnY]

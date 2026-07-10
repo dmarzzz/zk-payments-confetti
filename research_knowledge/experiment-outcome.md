@@ -148,3 +148,34 @@ rather than drifting soft, the headline theorem is real and first, and the
 one hard remainder is labelled as such. The failure modes the field has
 actually suffered were the ones the process was built to catch, and it
 caught them.
+
+## T7 outcome amendment — 2026-07-10
+
+The T7 descriptions above are a dated account of the earlier `hobliv` and
+run-transfer boundary; they must not be used as the final statement of the
+query-bounded result. The final proof interface is deliberately narrower
+than an asymptotic cryptographic claim and stronger than that earlier
+conditional theorem:
+
+- for every adversary `A` carrying `qb : FrameQueryBounds A`, the live
+  endpoint is the **secret-averaged** FRAME probability
+  `frameWinProb mclose A ≤ (qb.total + 1)/|F|`;
+- `T7_frame_query_bound_unconditional` and the composition wrapper
+  `T7Certificate.ofQueryBounds` expose no `hobliv`, coupling, good-slice,
+  bad-mass, or deferred-sampling hypothesis beyond `qb` (and the ambient
+  finite-field/typeclass data);
+- the original pointwise-in-secret `FrameDeferredSampling` certificate was
+  not repaired or silently weakened: `frameDeferredSampling_refuted` remains
+  the recorded counterexample. `FrameDeferredSamplingAvg` is the sound
+  replacement because `frameGame` itself samples the secret uniformly.
+
+This closes the finite, explicit query-accounting target only. The project
+does **not** formalize a security-parameter family, prove that the displayed
+ratio is asymptotically negligible for every PPT adversary, or reduce a
+deployed hash function to the ideal random-oracle handlers used here.
+
+**Final-validation status at the time of this amendment:** pending. The
+source contains the two no-residual endpoint statements above, but this note
+does not invent a successful build SHA, fresh-build transcript, or axiom
+output. Those are release evidence and must be filled from the final audit
+before the result is described as kernel-checked.
