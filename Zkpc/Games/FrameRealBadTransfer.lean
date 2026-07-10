@@ -149,6 +149,30 @@ theorem realDS_roId_secret_step_bad (k : F) (mclose : M)
     subst p
     exact FrameLeakBad.secret_self k d.audit
 
+/-- A public nullifier query at an already exposed honest slope raises the
+shared slope-hit event on both handlers, regardless of whether their cache
+answers are represented in public or private namespaces. -/
+theorem realDS_roNf_slopeHit_step_bad (k aq : F) (mclose : M)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M)
+    (hc : RealDSCoupled k r d) (ha : aq ∈ r.audit.honestSlopes) :
+    RelTriple (((auditedFrameImpl k mclose) (.roNf aq)).run r)
+      (((dsFrameImpl k mclose) (.roNf aq)).run d)
+      (fun p₁ p₂ => FrameLeakBad k p₁.2.audit ∧
+        FrameLeakBad k p₂.2.audit) := by
+  refine relTriple_prod ?_ ?_
+  · intro p hp
+    rw [auditedFrameImpl_support_audit k mclose (.roNf aq) r p hp]
+    exact auditAfter_slope_hit_bad k aq r.base p.2.base r.audit ha
+  · intro p hp
+    unfold dsFrameImpl at hp
+    simp only [StateT.run_mk] at hp
+    obtain ⟨q, -, hp⟩ := (mem_support_bind_iff _ _ _).1 hp
+    rw [support_pure, Set.mem_singleton_iff] at hp
+    subst p
+    apply FrameLeakBad.slope_hit
+    rw [← hc.audit]
+    exact ha
+
 /-! ## The per-operation coupling obligation (named residual) -/
 
 /-- **Stage-1 per-operation coupling (named residual).** From good-related
