@@ -524,10 +524,17 @@ VCV-io's relational `simulateQ` layer). Consequences
 `auditedFrameJoint_bad_le_dsFrameJoint` (k-averaged real bad mass ≤
 deferred bad mass, unconditional) and `frameRealBadMassLe_of_dsCount`:
 `FrameRealBadMassLe` — hence the complete corrected T7 via
-`T7_frame_query_bound_of_goodSlice_and_dsCount` — is discharged:
+`T7_frame_query_bound_of_goodSlice_and_dsCount` — now rests on the two
+items below. **Status correction (stack audit,
+`research_knowledge/t7-stack-audit-2026-07-10.md`): item 2 is discharged
+and kernel-checked; item 1's candidate proof does not yet compile** (the
+module was committed red and was not wired into the `Zkpc.lean` umbrella,
+which masked the failure; it is under repair). Until item 1 elaborates,
+the unconditional endpoint `T7Certificate.ofQueryBounds` is NOT claimed.
 
-1. `DSBadMassLe` (`FrameRealBadTransfer.lean`, stage 2) — discharged by
-   `dsBadMassLe_of_queryBounds` in `FrameDSCountInduction.lean`.
+1. `DSBadMassLe` (`FrameRealBadTransfer.lean`, stage 2) — candidate proof
+   `dsBadMassLe_of_queryBounds` in `FrameDSCountInduction.lean`, under
+   repair (six proof errors at the discharge commit; see the audit).
    Statement: the k-averaged
    leakage mass of the k-root-clean deferred run `dsFrameJoint` is at most
    `qb.total/|F|`. Proof plan: per-emission pad bijection `a ↦ k + a·x`
@@ -535,8 +542,10 @@ deferred bad mass, unconditional) and `frameRealBadMassLe_of_dsCount`:
    `nfAt` slopes (mirror `FrameBadMass.materializeSlopeTape` /
    `skelFrameImpl_*_prob_le`), then the landed root kernels
    (`frameRealRootCandidates`, `probEvent_uniform_mem_list_le`).
-2. `FramePointwiseGoodSlice` (`FrameGoodSlice.lean`) — discharged by the
-   pending-slope tape induction in `FrameGoodSliceTapeInduction.lean`.
+2. `FramePointwiseGoodSlice` (`FrameGoodSlice.lean`) — DISCHARGED and
+   kernel-checked (axiom-clean) by the pending-slope tape induction in
+   `FrameGoodSliceTapeInduction.lean` (`frameGoodSliceTransfer_of_tape`,
+   statement exactly the named residual; verified by the stack audit).
    Note: the ds coupling gives an alternative consumption path — the
    until-absorbing coupling already yields, pointwise in `k`,
    `Pr[Slashes ∧ ¬bad | real] ≤ Pr[Slashes | dsFrameRun k]` (bad branch

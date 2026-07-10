@@ -148,36 +148,16 @@ theorem coord_replaceHoleLine_some (j : Nat) (x y : F) (e : DSEntry F)
   split at h <;> simp_all [DSEntry.coord]
 
 omit [Field F] [SampleableType F] [Fintype F] in
-/-- If the owned hole is the only entry at coordinate `j`, replacing it by a
-line deletes exactly `j` from the coordinate list. -/
-theorem entryCoords_map_replaceHoleLine_eq_filter (shadow : List (DSEntry F))
-    (j : Nat) (x y : F)
-    (honly : ∀ e, e ∈ shadow → e.coord = some j → e = .hole j) :
-    entryCoords (shadow.map (replaceHoleLine j x y)) =
-      (entryCoords shadow).filter (fun q => q ≠ j) := by
-  induction shadow with
-  | nil => simp [entryCoords]
-  | cons e rest ih =>
-      have htail : ∀ e', e' ∈ rest → e'.coord = some j →
-          e' = DSEntry.hole j := by
-        intro e' he' hc
-        exact honly e' (List.mem_cons_of_mem e he') hc
-      rw [List.map_cons]
-      cases e with
-      | line x' y' =>
-          simp [entryCoords, replaceHoleLine, ih htail]
-      | hole q =>
-          by_cases hq : q = j
-          · subst q
-            simp [entryCoords, replaceHoleLine, ih htail]
-          · simp [entryCoords, replaceHoleLine, hq, ih htail]
-      | tline q x' =>
-          by_cases hq : q = j
-          · subst q
-            have hbad := honly (DSEntry.tline j x')
-              (List.mem_cons_self) rfl
-            cases hbad
-          · simp [entryCoords, replaceHoleLine, hq, ih htail]
+/-- Every coordinate in the concrete-line successor occurred in the original
+shadow. -/
+theorem mem_entryCoords_of_mem_map_replaceHoleLine
+    (shadow : List (DSEntry F)) (j : Nat) (x y : F) (q : Nat)
+    (hq : q ∈ entryCoords (shadow.map (replaceHoleLine j x y))) :
+    q ∈ entryCoords shadow := by
+  simp only [entryCoords, List.mem_filterMap] at hq ⊢
+  obtain ⟨e', he', hc⟩ := hq
+  obtain ⟨e, he, rfl⟩ := List.mem_map.mp he'
+  exact ⟨e, he, coord_replaceHoleLine_some j x y e q hc⟩
 
 omit [Field F] [SampleableType F] [Fintype F] in
 theorem entryCoords_tail_nodup (e : DSEntry F) (rest : List (DSEntry F))
@@ -186,15 +166,83 @@ theorem entryCoords_tail_nodup (e : DSEntry F) (rest : List (DSEntry F))
   cases e with
   | line x y => simpa [entryCoords] using h
   | hole q =>
-      have h' : (q :: entryCoords rest).Nodup := by
-        simpa [entryCoords] using h
-      exact (List.nodup_cons.mp h').2
+      change (q :: entryCoords rest).Nodup at h
+      exact (List.nodup_cons.mp h).2
   | tline q x =>
-      have h' : (q :: entryCoords rest).Nodup := by
-        simpa [entryCoords] using h
-      exact (List.nodup_cons.mp h').2
+      change (q :: entryCoords rest).Nodup at h
+      exact (List.nodup_cons.mp h).2
 
 omit [Field F] [SampleableType F] [Fintype F] in
+/-- Deleting holes from the coordinate projection preserves coordinate
+uniqueness. -/
+theorem nodup_entryCoords_map_replaceHoleLine
+    (shadow : List (DSEntry F)) (j : Nat) (x y : F)
+    (hnd : (entryCoords shadow).Nodup) :
+    (entryCoords (shadow.map (replaceHoleLine j x y))).Nodup := by
+  induction shadow with
+  | nil => simp [entryCoords]
+  | cons e rest ih =>
+      have hndRest := entryCoords_tail_nodup e rest hnd
+      have hi := ih hndRest
+      rw [List.map_cons]
+      cases e with
+      | line x' y' =>
+          rw [show replaceHoleLine j x y (.line x' y') = .line x' y' by
+            simp [replaceHoleLine]]
+          change (entryCoords (rest.map (replaceHoleLine j x y))).Nodup
+          exact hi
+      | hole q =>
+          by_cases hqj : q = j
+          · subst q
+            rw [show replaceHoleLine j x y (.hole j) = .line x y by
+              simp [replaceHoleLine]]
+            change (entryCoords (rest.map (replaceHoleLine j x y))).Nodup
+            exact hi
+          · have hqold : q ∉ entryCoords rest := by
+              change (q :: entryCoords rest).Nodup at hnd
+              exact (List.nodup_cons.mp hnd).1
+            have hqnew :
+                q ∉ entryCoords (rest.map (replaceHoleLine j x y)) := by
+              intro hqm
+              exact hqold
+                (mem_entryCoords_of_mem_map_replaceHoleLine rest j x y q hqm)
+            rw [show replaceHoleLine j x y (.hole q) = .hole q by
+              simp [replaceHoleLine, hqj]]
+            change (q :: entryCoords
+              (rest.map (replaceHoleLine j x y))).Nodup
+            exact List.nodup_cons.mpr ⟨hqnew, hi⟩
+      | tline q x' =>
+          have hqold : q ∉ entryCoords rest := by
+            change (q :: entryCoords rest).Nodup at hnd
+            exact (List.nodup_cons.mp hnd).1
+          have hqnew :
+              q ∉ entryCoords (rest.map (replaceHoleLine j x y)) := by
+            intro hqm
+            exact hqold
+              (mem_entryCoords_of_mem_map_replaceHoleLine rest j x y q hqm)
+          rw [show replaceHoleLine j x y (.tline q x') = .tline q x' by
+            simp [replaceHoleLine]]
+          change (q :: entryCoords
+            (rest.map (replaceHoleLine j x y))).Nodup
+          exact List.nodup_cons.mpr ⟨hqnew, hi⟩
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- If every old entry at `j` is the consumed hole, the concrete-line
+successor no longer mentions `j`. -/
+theorem not_mem_entryCoords_map_replaceHoleLine
+    (shadow : List (DSEntry F)) (j : Nat) (x y : F)
+    (honly : ∀ e, e ∈ shadow → e.coord = some j → e = .hole j) :
+    j ∉ entryCoords (shadow.map (replaceHoleLine j x y)) := by
+  intro hj
+  simp only [entryCoords, List.mem_filterMap] at hj
+  obtain ⟨e', he', hc⟩ := hj
+  obtain ⟨e, he, rfl⟩ := List.mem_map.mp he'
+  have hec := coord_replaceHoleLine_some j x y e j hc
+  have heq := honly e he hec
+  subst e
+  simp [replaceHoleLine, DSEntry.coord] at hc
+
+omit [Field F] [SampleableType F] in
 /-- Replacing the unique owned hole by a nonduplicating public line preserves
 pairwise line separation. -/
 theorem pairwise_sep_map_replaceHoleLine (shadow : List (DSEntry F))
@@ -214,7 +262,8 @@ theorem pairwise_sep_map_replaceHoleLine (shadow : List (DSEntry F))
       have htail := ih hsep.2 hndRest hyRest
       rw [List.map_cons, List.pairwise_cons]
       refine ⟨?_, htail⟩
-      intro b hb
+      intro b' hb'
+      obtain ⟨b, hb, rfl⟩ := List.mem_map.mp hb'
       have heb := hsep.1 b hb
       cases e with
       | line x' y' =>
@@ -228,15 +277,14 @@ theorem pairwise_sep_map_replaceHoleLine (shadow : List (DSEntry F))
                 intro hxx hyy
                 apply hy
                 simp [dupTargets, hxx.symm, hyy]
-              · simp [replaceHoleLine, hq]
-          | tline q xb => trivial
+              · simp [replaceHoleLine, hq, DSEntry.Sep]
+          | tline q xb => simp [replaceHoleLine, DSEntry.Sep]
       | hole q =>
           by_cases hq : q = j
           · subst q
             have hjrest : j ∉ entryCoords rest := by
-              have h' : (j :: entryCoords rest).Nodup := by
-                simpa [entryCoords] using hnd
-              exact (List.nodup_cons.mp h').1
+              change (j :: entryCoords rest).Nodup at hnd
+              exact (List.nodup_cons.mp hnd).1
             cases b with
             | line xb yb =>
                 simp only [replaceHoleLine, if_pos rfl, DSEntry.Sep]
@@ -253,10 +301,10 @@ theorem pairwise_sep_map_replaceHoleLine (shadow : List (DSEntry F))
                   apply hjrest
                   simp only [entryCoords, List.mem_filterMap]
                   exact ⟨DSEntry.hole j, hb, rfl⟩
-                simp [replaceHoleLine, hqb]
-            | tline qb xb => trivial
-          · trivial
-      | tline q x' => trivial
+                simp [replaceHoleLine, hqb, DSEntry.Sep]
+            | tline qb xb => simp [replaceHoleLine, DSEntry.Sep]
+          · simp [replaceHoleLine, hq, DSEntry.Sep]
+      | tline q x' => simp [replaceHoleLine, DSEntry.Sep]
 
 omit [Field F] [SampleableType F] [Fintype F] in
 theorem map_replaceHoleLine_eq_self_of_not_mem (shadow : List (DSEntry F))
@@ -288,7 +336,7 @@ theorem scCount_tline_cons (j : Nat) (x : F) (shadow : List (DSEntry F)) :
     | cons e rest ih =>
         simp only [List.map_cons, List.sum_cons, List.length_cons]
         rw [ih]
-        rfl
+        cases e <;> simp [DSEntry.clash] <;> omega
   simp [scCount, h]
 
 /-- The head-against-tail contribution used by `scCount` for a concrete
@@ -301,11 +349,18 @@ theorem lineCharge_replaceHoleLine_of_ne (x₀ y₀ x y : F) (j : Nat)
     (hxx : x₀ ≠ x) (shadow : List (DSEntry F)) :
     lineCharge x₀ y₀ (shadow.map (replaceHoleLine j x y)) =
       lineCharge x₀ y₀ shadow := by
-  induction shadow with
-  | nil => rfl
-  | cons e rest ih =>
-      cases e <;> simp [lineCharge, replaceHoleLine, DSEntry.clash,
-        hxx, ih]
+  unfold lineCharge
+  rw [List.map_map]
+  refine congrArg List.sum ?_
+  refine List.map_congr_left fun e _ => ?_
+  cases e with
+  | line x' y' => simp [Function.comp_apply, replaceHoleLine]
+  | hole q =>
+      by_cases hq : q = j
+      · subst q
+        simp [Function.comp_apply, replaceHoleLine, DSEntry.clash, hxx]
+      · simp [Function.comp_apply, replaceHoleLine, DSEntry.clash, hq]
+  | tline q x' => simp [Function.comp_apply, replaceHoleLine]
 
 omit [Field F] [SampleableType F] [Fintype F] in
 /-- At the same abscissa, replacing the unique hole removes exactly its one
@@ -322,9 +377,8 @@ theorem lineCharge_replaceHoleLine_add_one (x y₀ y : F) (j : Nat)
       by_cases he : e = DSEntry.hole j
       · subst e
         have hjrest : j ∉ entryCoords rest := by
-          have h' : (j :: entryCoords rest).Nodup := by
-            simpa [entryCoords] using hnd
-          exact (List.nodup_cons.mp h').1
+          change (j :: entryCoords rest).Nodup at hnd
+          exact (List.nodup_cons.mp hnd).1
         have hnot : DSEntry.hole j ∉ rest := by
           intro hm
           apply hjrest
@@ -332,9 +386,10 @@ theorem lineCharge_replaceHoleLine_add_one (x y₀ y : F) (j : Nat)
           exact ⟨DSEntry.hole j, hm, rfl⟩
         have hmap := map_replaceHoleLine_eq_self_of_not_mem rest j x y hnot
         simp [lineCharge, replaceHoleLine, hmap, DSEntry.clash]
+        omega
       · have hmrest : DSEntry.hole j ∈ rest := by
           rcases List.mem_cons.mp hmem with h | h
-          · exact (he h).elim
+          · exact (he h.symm).elim
           · exact h
         have hi := ih hmrest hndRest
         simp only [lineCharge, List.map_cons, List.map_map,
@@ -343,7 +398,7 @@ theorem lineCharge_replaceHoleLine_add_one (x y₀ y : F) (j : Nat)
           simp [replaceHoleLine, he]]
         omega
 
-omit [Field F] [SampleableType F] [Fintype F] in
+omit [Field F] [SampleableType F] in
 /-- Replacing the unique hole by a concrete line removes exactly the
 same-abscissa concrete-line charges listed by `dupTargets`. -/
 theorem scCount_map_replaceHoleLine_add_dupTargets
@@ -358,9 +413,8 @@ theorem scCount_map_replaceHoleLine_add_dupTargets
       by_cases he : e = DSEntry.hole j
       · subst e
         have hjrest : j ∉ entryCoords rest := by
-          have h' : (j :: entryCoords rest).Nodup := by
-            simpa [entryCoords] using hnd
-          exact (List.nodup_cons.mp h').1
+          change (j :: entryCoords rest).Nodup at hnd
+          exact (List.nodup_cons.mp hnd).1
         have hnot : DSEntry.hole j ∉ rest := by
           intro hm
           apply hjrest
@@ -371,7 +425,7 @@ theorem scCount_map_replaceHoleLine_add_dupTargets
           scCount_hole_cons] using scCount_line_cons x y rest
       · have hmrest : DSEntry.hole j ∈ rest := by
           rcases List.mem_cons.mp hmem with h | h
-          · exact (he h).elim
+          · exact (he h.symm).elim
           · exact h
         have hi := ih hmrest hndRest
         cases e with
@@ -409,11 +463,19 @@ theorem scCount_map_replaceHoleLine_add_dupTargets
               apply he
               subst q
               rfl
-            simp [replaceHoleLine, hq, scCount_hole_cons, dupTargets_cons,
-              List.length_map, hi]
+            simp only [List.map_cons]
+            rw [show replaceHoleLine j x y (.hole q) = .hole q by
+              simp [replaceHoleLine, hq]]
+            rw [scCount_hole_cons, scCount_hole_cons, dupTargets_cons]
+            simp only [List.length_map, List.nil_append]
+            omega
         | tline q x₀ =>
-            simp [replaceHoleLine, scCount_tline_cons, dupTargets_cons,
-              List.length_map, hi]
+            simp only [List.map_cons]
+            rw [show replaceHoleLine j x y (.tline q x₀) = .tline q x₀ by
+              simp [replaceHoleLine]]
+            rw [scCount_tline_cons, scCount_tline_cons, dupTargets_cons]
+            simp only [List.length_map, List.nil_append]
+            omega
 
 omit [SampleableType F] [Fintype F] in
 /-- A cache-pattern entry has the structural properties carried by its
@@ -491,20 +553,6 @@ theorem DSShadowInvStrong.coord_ne_of_mem_of_ne_hole
   exact hne (entry_eq_of_coord_nodup h.hnd he hh hq rfl)
 
 omit [SampleableType F] [Fintype F] in
-/-- Consuming an owned hole into a concrete line removes exactly its tape
-coordinate from the shadow. -/
-theorem DSShadowInvStrong.entryCoords_consumeHoleLine
-    {sigma : DSShadowSt F M} {m i j : Nat}
-    (h : DSShadowInvStrong sigma m)
-    (hi : sigma.pat i = some (.hole j)) (x y : F) :
-    entryCoords (sigma.consumeHoleLine i j x y).shadow =
-      (entryCoords sigma.shadow).filter (fun q => q ≠ j) := by
-  apply entryCoords_map_replaceHoleLine_eq_filter
-  intro e he hc
-  have hh : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
-  exact entry_eq_of_coord_nodup h.hnd he hh hc rfl
-
-omit [SampleableType F] [Fintype F] in
 /-- The consumed coordinate is an unread dummy in the concrete-line
 successor. -/
 theorem DSShadowInvStrong.consumeHoleLine_coord_unused
@@ -512,8 +560,10 @@ theorem DSShadowInvStrong.consumeHoleLine_coord_unused
     (h : DSShadowInvStrong sigma m)
     (hi : sigma.pat i = some (.hole j)) (x y : F) :
     j ∉ entryCoords (sigma.consumeHoleLine i j x y).shadow := by
-  rw [h.entryCoords_consumeHoleLine hi x y]
-  simp
+  apply not_mem_entryCoords_map_replaceHoleLine
+  intro e he hc
+  have hh : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
+  exact entry_eq_of_coord_nodup h.hnd he hh hc rfl
 
 omit [SampleableType F] [Fintype F] in
 /-- If a coordinate is absent from the owned shadow, changing that dummy
@@ -902,7 +952,6 @@ theorem DSShadowInvStrong.consumeHoleLine_advance
       ((sigma.consumeHoleLine sigma.ideal.idx j x y).setIdeal ideal) m := by
   have hhole : DSEntry.hole j ∈ sigma.shadow :=
     h.hpat sigma.ideal.idx j hi
-  have hcoords := h.entryCoords_consumeHoleLine hi x y
   refine ⟨?_, ?_⟩
   · refine ⟨?_, ?_, ?_, ?_, hroX, ?_, ?_, ?_⟩
     · intro e he
@@ -911,10 +960,11 @@ theorem DSShadowInvStrong.consumeHoleLine_advance
     · exact pairwise_sep_map_replaceHoleLine sigma.shadow j x y
         h.hsep h.hnd hy
     · intro q hq
-      rw [hcoords] at hq
-      exact h.hlt q (List.mem_of_mem_filter hq)
-    · rw [hcoords]
-      exact h.hnd.filter _
+      exact h.hlt q
+        (mem_entryCoords_of_mem_map_replaceHoleLine
+          sigma.shadow j x y q hq)
+    · exact nodup_entryCoords_map_replaceHoleLine
+        sigma.shadow j x y h.hnd
     · intro q l hq
       have hqi : q ≠ sigma.ideal.idx := by
         intro heq
@@ -1288,6 +1338,20 @@ theorem dsBudget_base_le (sigma : DSShadowSt F M)
 
 /-- A freshly sampled slope can be reparameterized by its public line
 ordinate at any fixed nonzero abscissa. -/
+theorem rlnY_bijective (k x : F) (hx : x ≠ 0) :
+    Function.Bijective (fun a : F => rlnY k a x) := by
+  constructor
+  · intro a b hab
+    simp only [rlnY, add_left_inj] at hab
+    exact mul_right_cancel₀ hx hab
+  · intro y
+    refine ⟨(y - k) / x, ?_⟩
+    simp only [rlnY]
+    rw [div_mul_cancel₀ _ hx]
+    ring
+
+/-- A freshly sampled slope can be reparameterized by its public line
+ordinate at any fixed nonzero abscissa. -/
 theorem evalDist_rlnY_uniform {beta : Type} (k x : F) (hx : x ≠ 0)
     (G : F → ProbComp beta) :
     𝒟[($ᵗ F) >>= fun a => G (rlnY k a x)] =
@@ -1415,6 +1479,50 @@ theorem DSShadowSt.seed_set_of_coord_not_mem_raw
       apply hj
       simp only [entryCoords, List.mem_filterMap]
       exact ⟨e, he, hq⟩
+
+omit [SampleableType F] [Fintype F] in
+/-- Pattern ownership is preserved when the owned hole is replaced by a
+concrete line, independently of the line's separation side condition. -/
+theorem DSShadowInvStrong.hpat_mem_consumeHoleLine
+    {sigma : DSShadowSt F M} {m i j : Nat}
+    (h : DSShadowInvStrong sigma m)
+    (hi : sigma.pat i = some (.hole j)) (x y : F) :
+    forall q e, (sigma.consumeHoleLine i j x y).pat q = some e ->
+      e ∈ (sigma.consumeHoleLine i j x y).shadow := by
+  intro q e he
+  have hhole : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
+  by_cases hqi : q = i
+  · subst q
+    simp only [DSShadowSt.consumeHoleLine, Function.update_self] at he
+    have heq : e = .line x y := (Option.some.inj he).symm
+    subst e
+    refine List.mem_map.2 ⟨.hole j, hhole, ?_⟩
+    simp [replaceHoleLine]
+  · simp only [DSShadowSt.consumeHoleLine,
+      Function.update_of_ne hqi] at he
+    have hne : e ≠ .hole j := by
+      intro heq
+      subst e
+      exact hqi (h.hpatinj q i j he hi)
+    refine List.mem_map.2 ⟨e, h.hpat_mem q e he, ?_⟩
+    simp [replaceHoleLine, hne]
+
+omit [SampleableType F] [Fintype F] in
+/-- After extracting the public ordinate, the replacement tape coordinate
+is a dummy: seeding the concrete-line successor still gives the original
+concrete state. -/
+theorem seed_consumeHoleLine_set_dummy (sigma : DSShadowSt F M)
+    (m i j : Nat) (k x w : F) (vs : List F)
+    (h : DSShadowInvStrong sigma m)
+    (hi : sigma.pat i = some (.hole j)) (hx : x ≠ 0) :
+    (sigma.consumeHoleLine i j x (rlnY k (vs.getD j 0) x)).seed k
+        (vs.set j w) = sigma.seed k vs := by
+  rw [DSShadowSt.seed_set_of_coord_not_mem_raw
+    (sigma.consumeHoleLine i j x (rlnY k (vs.getD j 0) x)) j
+    (h.hpat_mem_consumeHoleLine hi x (rlnY k (vs.getD j 0) x))
+    (h.consumeHoleLine_coord_unused hi x (rlnY k (vs.getD j 0) x))
+    k w vs]
+  exact seed_consumeHoleLine sigma i j k x vs hi hx
 
 /-- Seeded-shadow master bound for an arbitrary query-bounded FRAME
 computation. -/
@@ -1603,9 +1711,174 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                     _ = 𝒟[($ᵗ F) >>= G] :=
                       evalDist_rlnY_uniform k xc.1 hx.1 G
             | some e =>
+                have hehole := hInv.hfresh sigma.ideal.idx le_rfl e hi
+                rcases hehole with ⟨j, rfl⟩
                 simp only [DSShadowSt.seed_slope, hi, Option.map_some,
-                  dsTouch, bind_assoc, pure_bind, DSShadowSt.seed_audit,
+                  DSEntry.eval, dsTouch, bind_assoc, pure_bind,
+                  DSShadowSt.seed_audit,
                   OracleQuery.cont_query]
+                refine probEvent_kTape_core_swap_le m
+                  (lazyROX sigma.ideal.roX msg) _ dsSeededBad _ ?_
+                intro xc hxc
+                have hx := lazyROX_support_nonzero hInv.hroX msg xc hxc
+                have hhole : DSEntry.hole j ∈ sigma.shadow :=
+                  hInv.hpat sigma.ideal.idx j hi
+                have hjm : j < m := hInv.pat_coord_lt hi rfl
+                let cF : ENNReal := (Fintype.card F : ENNReal)⁻¹
+                let goodBudget : ENNReal :=
+                  (dsBudget
+                    (sigma.consumeHoleLine sigma.ideal.idx j xc.1 0)
+                    nA nE nId nNf (nSig - 1) : ENNReal) * cF
+                let dupBudget : ENNReal :=
+                  ((dupTargets xc.1 sigma.shadow).length : ENNReal) * cF
+                have hcanon :
+                    Pr[dsSeededBad | ($ᵗ F) >>= fun k =>
+                      drawList ($ᵗ F) m >>= fun vs =>
+                      ($ᵗ F) >>= fun y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                            .setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z)] ≤
+                      (dsBudget sigma nA nE nId nNf nSig : ENNReal) * cF := by
+                  refine le_trans (probEvent_kTape_core_split_le m ($ᵗ F)
+                    (fun k vs y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                            .setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z))
+                    dsSeededBad (fun y => y ∈ dupTargets xc.1 sigma.shadow)
+                    goodBudget dupBudget
+                    (by
+                      dsimp [dupBudget, cF]
+                      exact probEvent_uniform_mem_list_le _)
+                    (fun y _ hy => ?_)) ?_
+                  · refine probEvent_kTape_core_swap_le m
+                      (lazyRO sigma.ideal.honestNf sigma.ideal.idx)
+                      (fun k vs nc =>
+                        (simulateQ (dsFrameImpl k mclose)
+                          (cont (some ⟨xc.1, y, nc.1⟩))).run
+                            (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                              .setIdeal
+                                { sigma.ideal with
+                                  idx := sigma.ideal.idx + 1
+                                  roX := xc.2
+                                  honestNf := nc.2 }).seed k vs) >>= fun z =>
+                              pure (k, z)) dsSeededBad goodBudget ?_
+                    intro nc hnc
+                    let ideal' : IdealFrameSt F M :=
+                      { sigma.ideal with
+                        idx := sigma.ideal.idx + 1
+                        roX := xc.2
+                        honestNf := nc.2 }
+                    let sigma' := (sigma.consumeHoleLine sigma.ideal.idx
+                      j xc.1 y).setIdeal ideal'
+                    have hinv : DSShadowInvStrong sigma' m :=
+                      hInv.consumeHoleLine_advance ideal' xc.1 y hi rfl
+                        hx.2 hx.1 hy
+                    have hih := ih (some ⟨xc.1, y, nc.1⟩) sigma' m
+                      nA nE nId nNf (nSig - 1) hinv
+                      (by simpa [isDirectRoAQuery] using
+                        hA.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoEQuery] using
+                        hE.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoIdQuery] using
+                        hId.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoNfQuery] using
+                        hNf.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isSignalQuery] using
+                        hSig.2 (some ⟨xc.1, y, nc.1⟩))
+                    have hbud := dsBudget_consumeHoleLine_y_eq sigma
+                      sigma.ideal.idx j xc.1 y 0 nA nE nId nNf
+                        (nSig - 1) hhole hInv.hnd
+                    dsimp [sigma', ideal', goodBudget, cF] at hih ⊢
+                    rw [dsBudget_setIdeal, hbud] at hih
+                    simpa [dsSeededRun] using hih
+                  · dsimp [dupBudget, goodBudget, cF]
+                    have hsum :=
+                      dsBudget_consumeHoleLine_add_dupTargets_le sigma
+                        sigma.ideal.idx j xc.1 0 nA nE nId nNf
+                        (nSig - 1) hhole hInv.hnd
+                    rw [Nat.sub_add_cancel hposSig] at hsum
+                    rw [← add_mul, ← Nat.cast_add]
+                    exact mul_le_mul_right' (Nat.cast_le.2 hsum) _
+                refine le_trans (le_of_eq ?_) hcanon
+                refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
+                  (fun k => ?_)
+                let G : F → List F →
+                    ProbComp (F × (alpha × DSFrameSt F M)) :=
+                  fun y vs =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1, y, nc.1⟩))).run
+                        (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                          .setIdeal
+                            { sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              roX := xc.2
+                              honestNf := nc.2 }).seed k vs) >>= fun z =>
+                          pure (k, z)
+                calc
+                  𝒟[drawList ($ᵗ F) m >>= fun vs =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some
+                          ⟨xc.1, rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
+                          ⟨{ sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              roX := xc.2
+                              honestNf := nc.2 },
+                            (sigma.seed k vs).slope,
+                            (sigma.seed k vs).audit⟩ >>= fun z => pure (k, z)] =
+                      𝒟[drawList ($ᵗ F) m >>= fun vs =>
+                        ($ᵗ F) >>= fun w =>
+                          G (rlnY k (vs.getD j 0) xc.1) (vs.set j w)] := by
+                    refine evalDist_bind_congr' (drawList ($ᵗ F) m)
+                      fun vs => ?_
+                    have hconst : forall w : F,
+                        G (rlnY k (vs.getD j 0) xc.1) (vs.set j w) =
+                          (lazyRO sigma.ideal.honestNf
+                            sigma.ideal.idx >>= fun nc =>
+                            (simulateQ (dsFrameImpl k mclose)
+                              (cont (some ⟨xc.1,
+                                rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
+                              ⟨{ sigma.ideal with
+                                  idx := sigma.ideal.idx + 1
+                                  roX := xc.2
+                                  honestNf := nc.2 },
+                                (sigma.seed k vs).slope,
+                                (sigma.seed k vs).audit⟩ >>= fun z =>
+                                  pure (k, z)) := by
+                      intro w
+                      dsimp [G]
+                      refine bind_congr fun nc => ?_
+                      rw [DSShadowSt.seed_setIdeal,
+                        seed_consumeHoleLine_set_dummy sigma m
+                          sigma.ideal.idx j k xc.1 w vs hInv hi hx.1]
+                    simp_rw [hconst]
+                    exact
+                      (OracleComp.DeferredSampling.evalDist_bind_const_neverFails
+                        ($ᵗ F) (probFailure_uniformSample F) _).symm
+                  _ = 𝒟[($ᵗ F) >>= fun y =>
+                      drawList ($ᵗ F) m >>= fun vs => G y vs] :=
+                    evalDist_drawList_extract_replace m j hjm
+                      (fun a : F => rlnY k a xc.1)
+                      (rlnY_bijective k xc.1 hx.1) G
+                  _ = 𝒟[drawList ($ᵗ F) m >>= fun vs =>
+                      ($ᵗ F) >>= fun y => G y vs] :=
+                    OracleComp.DeferredSampling.evalDist_bind_comm
+                      ($ᵗ F) (drawList ($ᵗ F) m) G
       | close =>
           have hposSig : 0 < nSig := by
             rcases hSig.1 with h | h
@@ -1630,10 +1903,321 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                 rw [DSShadowSt.seed_slope, hi]
                 simp only [Option.map_none, dsTouch, bind_assoc, pure_bind,
                   DSShadowSt.seed_audit, OracleQuery.cont_query]
+                refine probEvent_kTape_core_swap_le m
+                  (lazyROX sigma.ideal.roX mclose) _ dsSeededBad _ ?_
+                intro xc hxc
+                have hx := lazyROX_support_nonzero hInv.hroX mclose xc hxc
+                let cF : ENNReal := (Fintype.card F : ENNReal)⁻¹
+                let goodBudget : ENNReal :=
+                  (dsBudget
+                    (sigma.insertEntry sigma.ideal.idx (.line xc.1 0))
+                    nA nE nId nNf (nSig - 1) : ENNReal) * cF
+                let dupBudget : ENNReal :=
+                  ((dupTargets xc.1 sigma.shadow).length : ENNReal) * cF
+                have hcanon :
+                    Pr[dsSeededBad | ($ᵗ F) >>= fun k =>
+                      drawList ($ᵗ F) m >>= fun vs =>
+                      ($ᵗ F) >>= fun y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.insertEntry sigma.ideal.idx
+                            (.line xc.1 y)).setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                closed := true
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z)] ≤
+                      (dsBudget sigma nA nE nId nNf nSig : ENNReal) * cF := by
+                  refine le_trans (probEvent_kTape_core_split_le m ($ᵗ F)
+                    (fun k vs y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.insertEntry sigma.ideal.idx
+                            (.line xc.1 y)).setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                closed := true
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z))
+                    dsSeededBad (fun y => y ∈ dupTargets xc.1 sigma.shadow)
+                    goodBudget dupBudget
+                    (by
+                      dsimp [dupBudget, cF]
+                      exact probEvent_uniform_mem_list_le _)
+                    (fun y _ hy => ?_)) ?_
+                  · refine probEvent_kTape_core_swap_le m
+                      (lazyRO sigma.ideal.honestNf sigma.ideal.idx)
+                      (fun k vs nc =>
+                        (simulateQ (dsFrameImpl k mclose)
+                          (cont (some ⟨xc.1, y, nc.1⟩))).run
+                            (((sigma.insertEntry sigma.ideal.idx
+                              (.line xc.1 y)).setIdeal
+                                { sigma.ideal with
+                                  idx := sigma.ideal.idx + 1
+                                  closed := true
+                                  roX := xc.2
+                                  honestNf := nc.2 }).seed k vs) >>= fun z =>
+                              pure (k, z)) dsSeededBad goodBudget ?_
+                    intro nc hnc
+                    let ideal' : IdealFrameSt F M :=
+                      { sigma.ideal with
+                        idx := sigma.ideal.idx + 1
+                        closed := true
+                        roX := xc.2
+                        honestNf := nc.2 }
+                    let sigma' := (sigma.insertEntry sigma.ideal.idx
+                      (.line xc.1 y)).setIdeal ideal'
+                    have hinv : DSShadowInvStrong sigma' m :=
+                      hInv.insertLine_advance ideal' xc.1 y hi rfl hx.2 hx.1 hy
+                    have hih := ih (some ⟨xc.1, y, nc.1⟩) sigma' m
+                      nA nE nId nNf (nSig - 1) hinv
+                      (by simpa [isDirectRoAQuery] using
+                        hA.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoEQuery] using
+                        hE.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoIdQuery] using
+                        hId.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoNfQuery] using
+                        hNf.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isSignalQuery] using
+                        hSig.2 (some ⟨xc.1, y, nc.1⟩))
+                    have hbud := dsBudget_insertLine_y_eq sigma
+                      sigma.ideal.idx xc.1 y 0 nA nE nId nNf (nSig - 1)
+                    dsimp [sigma', ideal', goodBudget, cF] at hih ⊢
+                    rw [dsBudget_setIdeal, hbud] at hih
+                    simpa [dsSeededRun] using hih
+                  · dsimp [dupBudget, goodBudget, cF]
+                    have hsum := dsBudget_insertLine_add_dupTargets sigma
+                      sigma.ideal.idx xc.1 0 nA nE nId nNf (nSig - 1)
+                    rw [Nat.sub_add_cancel hposSig] at hsum
+                    rw [← Nat.cast_add, hsum]
+                refine le_trans (le_of_eq ?_) hcanon
+                refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
+                  (fun k => ?_)
+                refine probEvent_bind_congr_inner (drawList ($ᵗ F) m)
+                  _ _ dsSeededBad (fun vs => ?_)
+                refine probEvent_congr' (fun _ _ => Iff.rfl) ?_
+                let G : F → ProbComp (F × (alpha × DSFrameSt F M)) :=
+                  fun y =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1, y, nc.1⟩))).run
+                        (((sigma.insertEntry sigma.ideal.idx
+                          (.line xc.1 y)).setIdeal
+                            { sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              closed := true
+                              roX := xc.2
+                              honestNf := nc.2 }).seed k vs) >>= fun z =>
+                          pure (k, z)
+                calc
+                  𝒟[($ᵗ F) >>= fun a =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, rlnY k a xc.1, nc.1⟩))).run
+                          ⟨{ sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              closed := true
+                              roX := xc.2
+                              honestNf := nc.2 },
+                            Function.update (sigma.seed k vs).slope
+                              sigma.ideal.idx (some a),
+                            { (sigma.seed k vs).audit with
+                              honestSlopes := a ::
+                                (sigma.seed k vs).audit.honestSlopes }⟩
+                            >>= fun z => pure (k, z)] =
+                      𝒟[($ᵗ F) >>= fun a => G (rlnY k a xc.1)] := by
+                        refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
+                        dsimp [G]
+                        refine evalDist_bind_congr'
+                          (lazyRO sigma.ideal.honestNf sigma.ideal.idx)
+                          fun nc => ?_
+                        rw [DSShadowSt.seed_setIdeal,
+                          seed_insertLine sigma sigma.ideal.idx k xc.1
+                            (rlnY k a xc.1) vs hi]
+                        simp [rlnY, hx.1]
+                    _ = 𝒟[($ᵗ F) >>= G] :=
+                      evalDist_rlnY_uniform k xc.1 hx.1 G
             | some e =>
+                have hehole := hInv.hfresh sigma.ideal.idx le_rfl e hi
+                rcases hehole with ⟨j, rfl⟩
                 simp only [DSShadowSt.seed_slope, hi, Option.map_some,
-                  dsTouch, bind_assoc, pure_bind, DSShadowSt.seed_audit,
+                  DSEntry.eval, dsTouch, bind_assoc, pure_bind,
+                  DSShadowSt.seed_audit,
                   OracleQuery.cont_query]
+                refine probEvent_kTape_core_swap_le m
+                  (lazyROX sigma.ideal.roX mclose) _ dsSeededBad _ ?_
+                intro xc hxc
+                have hx := lazyROX_support_nonzero hInv.hroX mclose xc hxc
+                have hhole : DSEntry.hole j ∈ sigma.shadow :=
+                  hInv.hpat sigma.ideal.idx j hi
+                have hjm : j < m := hInv.pat_coord_lt hi rfl
+                let cF : ENNReal := (Fintype.card F : ENNReal)⁻¹
+                let goodBudget : ENNReal :=
+                  (dsBudget
+                    (sigma.consumeHoleLine sigma.ideal.idx j xc.1 0)
+                    nA nE nId nNf (nSig - 1) : ENNReal) * cF
+                let dupBudget : ENNReal :=
+                  ((dupTargets xc.1 sigma.shadow).length : ENNReal) * cF
+                have hcanon :
+                    Pr[dsSeededBad | ($ᵗ F) >>= fun k =>
+                      drawList ($ᵗ F) m >>= fun vs =>
+                      ($ᵗ F) >>= fun y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                            .setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                closed := true
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z)] ≤
+                      (dsBudget sigma nA nE nId nNf nSig : ENNReal) * cF := by
+                  refine le_trans (probEvent_kTape_core_split_le m ($ᵗ F)
+                    (fun k vs y =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some ⟨xc.1, y, nc.1⟩))).run
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                            .setIdeal
+                              { sigma.ideal with
+                                idx := sigma.ideal.idx + 1
+                                closed := true
+                                roX := xc.2
+                                honestNf := nc.2 }).seed k vs) >>= fun z =>
+                            pure (k, z))
+                    dsSeededBad (fun y => y ∈ dupTargets xc.1 sigma.shadow)
+                    goodBudget dupBudget
+                    (by
+                      dsimp [dupBudget, cF]
+                      exact probEvent_uniform_mem_list_le _)
+                    (fun y _ hy => ?_)) ?_
+                  · refine probEvent_kTape_core_swap_le m
+                      (lazyRO sigma.ideal.honestNf sigma.ideal.idx)
+                      (fun k vs nc =>
+                        (simulateQ (dsFrameImpl k mclose)
+                          (cont (some ⟨xc.1, y, nc.1⟩))).run
+                            (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                              .setIdeal
+                                { sigma.ideal with
+                                  idx := sigma.ideal.idx + 1
+                                  closed := true
+                                  roX := xc.2
+                                  honestNf := nc.2 }).seed k vs) >>= fun z =>
+                              pure (k, z)) dsSeededBad goodBudget ?_
+                    intro nc hnc
+                    let ideal' : IdealFrameSt F M :=
+                      { sigma.ideal with
+                        idx := sigma.ideal.idx + 1
+                        closed := true
+                        roX := xc.2
+                        honestNf := nc.2 }
+                    let sigma' := (sigma.consumeHoleLine sigma.ideal.idx
+                      j xc.1 y).setIdeal ideal'
+                    have hinv : DSShadowInvStrong sigma' m :=
+                      hInv.consumeHoleLine_advance ideal' xc.1 y hi rfl
+                        hx.2 hx.1 hy
+                    have hih := ih (some ⟨xc.1, y, nc.1⟩) sigma' m
+                      nA nE nId nNf (nSig - 1) hinv
+                      (by simpa [isDirectRoAQuery] using
+                        hA.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoEQuery] using
+                        hE.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoIdQuery] using
+                        hId.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isDirectRoNfQuery] using
+                        hNf.2 (some ⟨xc.1, y, nc.1⟩))
+                      (by simpa [isSignalQuery] using
+                        hSig.2 (some ⟨xc.1, y, nc.1⟩))
+                    have hbud := dsBudget_consumeHoleLine_y_eq sigma
+                      sigma.ideal.idx j xc.1 y 0 nA nE nId nNf
+                        (nSig - 1) hhole hInv.hnd
+                    dsimp [sigma', ideal', goodBudget, cF] at hih ⊢
+                    rw [dsBudget_setIdeal, hbud] at hih
+                    simpa [dsSeededRun] using hih
+                  · dsimp [dupBudget, goodBudget, cF]
+                    have hsum :=
+                      dsBudget_consumeHoleLine_add_dupTargets_le sigma
+                        sigma.ideal.idx j xc.1 0 nA nE nId nNf
+                        (nSig - 1) hhole hInv.hnd
+                    rw [Nat.sub_add_cancel hposSig] at hsum
+                    rw [← add_mul, ← Nat.cast_add]
+                    exact mul_le_mul_right' (Nat.cast_le.2 hsum) _
+                refine le_trans (le_of_eq ?_) hcanon
+                refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
+                  (fun k => ?_)
+                let G : F → List F →
+                    ProbComp (F × (alpha × DSFrameSt F M)) :=
+                  fun y vs =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1, y, nc.1⟩))).run
+                        (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
+                          .setIdeal
+                            { sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              closed := true
+                              roX := xc.2
+                              honestNf := nc.2 }).seed k vs) >>= fun z =>
+                          pure (k, z)
+                calc
+                  𝒟[drawList ($ᵗ F) m >>= fun vs =>
+                      lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                      (simulateQ (dsFrameImpl k mclose)
+                        (cont (some
+                          ⟨xc.1, rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
+                          ⟨{ sigma.ideal with
+                              idx := sigma.ideal.idx + 1
+                              closed := true
+                              roX := xc.2
+                              honestNf := nc.2 },
+                            (sigma.seed k vs).slope,
+                            (sigma.seed k vs).audit⟩ >>= fun z => pure (k, z)] =
+                      𝒟[drawList ($ᵗ F) m >>= fun vs =>
+                        ($ᵗ F) >>= fun w =>
+                          G (rlnY k (vs.getD j 0) xc.1) (vs.set j w)] := by
+                    refine evalDist_bind_congr' (drawList ($ᵗ F) m)
+                      fun vs => ?_
+                    have hconst : forall w : F,
+                        G (rlnY k (vs.getD j 0) xc.1) (vs.set j w) =
+                          (lazyRO sigma.ideal.honestNf
+                            sigma.ideal.idx >>= fun nc =>
+                            (simulateQ (dsFrameImpl k mclose)
+                              (cont (some ⟨xc.1,
+                                rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
+                              ⟨{ sigma.ideal with
+                                  idx := sigma.ideal.idx + 1
+                                  closed := true
+                                  roX := xc.2
+                                  honestNf := nc.2 },
+                                (sigma.seed k vs).slope,
+                                (sigma.seed k vs).audit⟩ >>= fun z =>
+                                  pure (k, z)) := by
+                      intro w
+                      dsimp [G]
+                      refine bind_congr fun nc => ?_
+                      rw [DSShadowSt.seed_setIdeal,
+                        seed_consumeHoleLine_set_dummy sigma m
+                          sigma.ideal.idx j k xc.1 w vs hInv hi hx.1]
+                    simp_rw [hconst]
+                    exact
+                      (OracleComp.DeferredSampling.evalDist_bind_const_neverFails
+                        ($ᵗ F) (probFailure_uniformSample F) _).symm
+                  _ = 𝒟[($ᵗ F) >>= fun y =>
+                      drawList ($ᵗ F) m >>= fun vs => G y vs] :=
+                    evalDist_drawList_extract_replace m j hjm
+                      (fun a : F => rlnY k a xc.1)
+                      (rlnY_bijective k xc.1 hx.1) G
+                  _ = 𝒟[drawList ($ᵗ F) m >>= fun vs =>
+                      ($ᵗ F) >>= fun y => G y vs] :=
+                    OracleComp.DeferredSampling.evalDist_bind_comm
+                      ($ᵗ F) (drawList ($ᵗ F) m) G
       | nfAt i =>
           have hposSig : 0 < nSig := by
             rcases hSig.1 with h | h
@@ -1864,26 +2448,30 @@ theorem dsBadMassLe_of_queryBounds (mclose : M)
             >>= fun z => pure (k, z)] =
         𝒟[($ᵗ F) >>= fun cm => dsSeededRun mclose (A cm)
           (dsShadowInit F M) 0] := by
-    simpa [dsSeededRun] using OracleComp.DeferredSampling.evalDist_bind_comm
+    unfold dsSeededRun
+    rw [show drawList ($ᵗ F) 0 = (pure [] : ProbComp (List F)) from rfl]
+    simp only [pure_bind, dsShadowInit_seed]
+    exact OracleComp.DeferredSampling.evalDist_bind_comm
       ($ᵗ F) ($ᵗ F)
       (fun k cm => (simulateQ (dsFrameImpl k mclose) (A cm)).run
         (DSFrameSt.init F M) >>= fun z => pure (k, z))
-  rw [show (do
-      let k ← ($ᵗ F)
-      let cm ← ($ᵗ F)
-      let z ← (simulateQ (dsFrameImpl k mclose) (A cm)).run
-        (DSFrameSt.init F M)
-      pure (k, z)) =
-      (($ᵗ F) >>= fun k => ($ᵗ F) >>= fun cm =>
-        (simulateQ (dsFrameImpl k mclose) (A cm)).run (DSFrameSt.init F M)
-          >>= fun z => pure (k, z)) from rfl]
+  simp only [bind_assoc]
   refine le_trans (le_of_eq (probEvent_congr' (fun _ _ => Iff.rfl) hswap)) ?_
   refine probEvent_bind_le_of_forall_le fun cm _ => ?_
   have h := dsFrameImpl_seeded_bad_le mclose (A cm) (dsShadowInit F M) 0
     qb.qA qb.qE qb.qId qb.qNf qb.qSig dsShadowInvStrong_init
     (qb.roA_bound cm) (qb.roE_bound cm) (qb.roId_bound cm)
     (qb.roNf_bound cm) (qb.signal_bound cm)
-  simpa [dsSeededBad, dsBudget, dsShadowInit, FrameQueryBounds.total] using h
+  have hbudget :
+      dsBudget (dsShadowInit F M) qb.qA qb.qE qb.qId qb.qNf qb.qSig ≤
+        qb.total := by
+    have hc : Nat.choose qb.qSig 2 ≤ qb.qSig * qb.qSig := by
+      simpa [pow_two] using Nat.choose_le_pow qb.qSig 2
+    simp only [dsBudget, dsShadowInit, List.length_nil, zero_add, zero_mul,
+      scCount, FrameQueryBounds.total]
+    omega
+  refine le_trans (by simpa [dsSeededBad] using h) ?_
+  exact mul_le_mul_right' (Nat.cast_le.2 hbudget) _
 
 /-- Public stage-2 endpoint: the deferred FRAME leakage mass satisfies the
 declared aggregate query budget. -/
