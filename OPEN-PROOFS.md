@@ -544,3 +544,6 @@ exactly two named residuals:
    refutes the left event), so the good-slice lane can equivalently close
    by comparing the deferred-run win mass to the ghost win mass with the
    same pad/tape machinery as `DSBadMassLe`.
+   **Lane claim (2026-07-10):** FrameGoodSliceTransfer alt-route via ds
+   coupling: in progress (second angle, complementary to tape-induction
+   lane); new work in `Zkpc/Games/FrameGoodSliceDS.lean`.
