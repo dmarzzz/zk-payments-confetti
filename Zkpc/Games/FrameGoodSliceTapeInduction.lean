@@ -267,6 +267,35 @@ theorem futureDSFrameImpl_run_evidence_eq_pending (k : F) (mclose : M) :
                 (⟨{ p.ideal with roId := a.2 }, p.pending⟩ :
                   PendingFrameSt F M) hp hx0
 
+/-- Deferred-slope execution from its initial state has the same evidence
+distribution as the plain ideal handler.  This composes dead-slope erasure,
+the empty pending-slope tape, and pending-index erasure; it is the final
+distributional bridge used by the general good-slice transfer. -/
+theorem dsFrameImpl_init_evidence_eq_ideal (k : F) (mclose : M)
+    (oa : OracleComp (frameSpec F M) (Evidence F)) :
+    𝒟[Prod.fst <$> (simulateQ (dsFrameImpl k mclose) oa).run
+      (DSFrameSt.init F M)] =
+      𝒟[Prod.fst <$> (simulateQ (idealFrameImpl mclose) oa).run
+        (IdealFrameSt.init F M)] := by
+  calc
+    𝒟[Prod.fst <$> (simulateQ (dsFrameImpl k mclose) oa).run
+        (DSFrameSt.init F M)] =
+        𝒟[Prod.fst <$> (simulateQ (futureDSFrameImpl k mclose) oa).run
+          (FutureDSSt.init F M)] := by
+          simpa [dsFrameSt_init_future] using
+            (dsFrameImpl_run_evidence_eq_future k mclose oa
+              (DSFrameSt.init F M))
+    _ = 𝒟[Prod.fst <$> (simulateQ (pendingFrameImpl mclose) oa).run
+          (PendingFrameSt.init F M)] := by
+          simpa [drawPendingSlopes, FutureDSSt.init, PendingFrameSt.init] using
+            (futureDSFrameImpl_run_evidence_eq_pending k mclose oa
+              (PendingFrameSt.init F M) pendingValid_init
+              (roXCacheNonzero_init (F := F) (M := M)))
+    _ = 𝒟[Prod.fst <$> (simulateQ (idealFrameImpl mclose) oa).run
+          (IdealFrameSt.init F M)] :=
+      pendingFrameImpl_run_evidence_eq_ideal mclose oa
+        (PendingFrameSt.init F M)
+
 end TapeInduction
 
 end Zkpc.Games
