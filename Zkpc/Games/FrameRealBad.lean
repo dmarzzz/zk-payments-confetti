@@ -430,6 +430,18 @@ theorem dsFrameImpl_run_slopesCovered (k : F) (mclose : M)
     (fun op st h st' hs => dsFrameImpl_slopesCovered_step k mclose op st h st' hs)
     oa g hcov z hz
 
+/-- Every supported complete deferred-slope experiment has its private slope
+tape covered by the public audit transcript. -/
+theorem dsFrameRun_slopesCovered (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (z : Evidence F × DSFrameSt F M)
+    (hz : z ∈ support (dsFrameRun k mclose A)) :
+    DSSlopesCovered z.2 := by
+  unfold dsFrameRun at hz
+  obtain ⟨cm, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+  exact dsFrameImpl_run_slopesCovered k mclose (A cm)
+    (DSFrameSt.init F M) dsSlopesCovered_init z hz
+
 /-- Every supported deferred-slope step preserves an already-raised leakage
 event: audit lists only grow. -/
 theorem dsFrameImpl_bad_monotone (k : F) (mclose : M) (op : FrameOp F M)
@@ -548,5 +560,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.RealDSCoupled.frameCoupled
 #print axioms Zkpc.Games.dsFrameImpl_slopesCovered_step
 #print axioms Zkpc.Games.dsFrameImpl_run_slopesCovered
+#print axioms Zkpc.Games.dsFrameRun_slopesCovered
 #print axioms Zkpc.Games.dsFrameImpl_bad_monotone
 #print axioms Zkpc.Games.dsFrameImpl_run_bad_monotone
