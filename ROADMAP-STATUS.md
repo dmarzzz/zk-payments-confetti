@@ -171,7 +171,13 @@ open.
    populated `roX` cache entry remains nonzero. The former handles a
    direct-secret query that becomes bad while materializing an otherwise
    unaudited slope; the latter justifies the line-value bijection on cache
-   hits as well as fresh digests.
+   hits as well as fresh digests. The deferred-secret consumption step is now
+   checked in both atomic orderings: `initial_spend_deferredSecret_ghost_eq`
+   couples a fresh spend's complete answer-plus-audit distribution, while
+   `initial_nfAt_spend_deferredSecret_ghost_eq` covers a slope first pinned by
+   `nfAt` and consumed by a later spend. The shared
+   `evalDist_uniform_add_pad` lemma formalizes the one-time-pad use of the
+   uniformly deferred secret.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
