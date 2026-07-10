@@ -266,9 +266,7 @@ theorem goodSlice_step_le_of_idealize_eq (k : F) (mclose : M)
   refine ENNReal.tsum_le_tsum fun z => mul_le_mul_right ?_ _
   show (if FrameLeakBad k z.2.audit then 0 else G (z.1, idealizeFrame k z.2))
     ≤ G (z.1, idealizeFrame k z.2)
-  split
-  · exact zero_le
-  · exact le_rfl
+  split <;> simp
 
 /-! ## Support-wise bad extraction for the secret-touching operations -/
 
