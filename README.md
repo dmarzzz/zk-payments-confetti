@@ -83,14 +83,20 @@ this claim. It is formally refuted by `frameDeferredSampling_refuted` in
 `Zkpc/Games/FrameDeferred.lean`; the security game itself samples the secret,
 so the corrected theorem works at exactly that secret-averaged level.
 
-The source-level release claim above is **subject to final release
-validation**: a cold dependency fetch, clean full build, forbidden-token
-scan, endpoint axiom printout, and diff check. The finite endpoint also does
-not by itself prove asymptotic negligibility for every PPT adversary or give
-a reduction for a deployed hash function. The Fiat--Shamir results are for
-the stated ideal lazy-ROM reference model; concrete-hash, production refund
-cryptography, and adaptive multi-session threshold/network reductions remain
-separate research extensions.
+The source-level claim above was validated at checkpoint `abb878f`: a fresh
+checkout restored 8,283 cached files, the Lean 4.30.0 root build completed
+all 3,595 jobs, the exact T7/composition/scaling/refund endpoint axiom capture
+used only standard Lean axioms, and the source scans plus diff hygiene checks
+were clean. This checkpoint does not by itself validate the later final
+documentation/PDF head; that exact SHA will be recorded in the PR and issues
+after the PDF is regenerated and visually inspected.
+
+The finite endpoint also does not by itself prove asymptotic negligibility
+for every PPT adversary or give a reduction for a deployed hash function.
+The Fiat--Shamir results are for the stated ideal lazy-ROM reference model;
+concrete-hash, DDH/IND-CPA refund encryption, shared-key multi-query EUF-CMA,
+and adaptive multi-session threshold/network reductions remain separate
+research extensions.
 
 If you are extending the project, start from `OPEN-PROOFS.md`, the template
 for the relevant proof class, the corresponding `Spec.md` clause, and the
@@ -115,10 +121,11 @@ external-cryptographer reviews. Those exercises strengthened the
 unlinkability game rather than narrowing it. They are evidence, but they do
 **not** satisfy the executor contract's independent-human acceptance gate:
 B1, B3, and K1 still require a human who did not write the statements to
-review and sign off. The field has already shown why that distinction
-matters: A2L's privacy model passed peer review in 2021 and was shown a year
-later to admit insecure instantiations. Wrong definition, correct proof.
-That is precisely where the remaining human review belongs.
+review and sign off, and K4 still requires a real outside cryptographer rather
+than the recorded simulated-external exercise. The field has already shown
+why that distinction matters: A2L's privacy model passed peer review in 2021
+and was shown a year later to admit insecure instantiations. Wrong definition,
+correct proof. That is precisely where the remaining human review belongs.
 
 One unplanned result is worth flagging for anyone assessing the method: a
 TLA+ model checker independently found the deepest definitional hole (a
@@ -146,15 +153,17 @@ The precise T7 claim is finite and query-bounded: for every `A` with
 `(qb.total + 1) / |F|`. It is not a pointwise-in-secret statement, an
 asymptotic PPT theorem, or a deployed-cryptography claim; it is the
 mechanized finite counterpart to, not a proof of, `Spec.md`'s literal
-PPT/negligibility clause. Release-wide build
-and axiom status remain subject to final release validation; nothing should
-be described as release-verified until that validation completes.
+PPT/negligibility clause. The Lean source and final endpoint axioms are
+validated at `abb878f`; “final artifact verified” remains reserved for the
+later documentation/PDF head after regeneration and page-by-page visual QA.
 
 `Zkpc/Games/FrameAsymptotic.lean` provides only a conditional scaling lift:
-it derives negligibility from per-parameter query certificates plus either
-an explicit negligibility hypothesis for the displayed ratio, or an explicit
-polynomial numerator bound together with negligible inverse field size. It
-does not define PPT adversaries or prove that PPT implies those query bounds.
+its first theorem transfers an explicit negligibility hypothesis for the
+displayed query/field-size ratio, while its corollary derives that hypothesis
+from an explicit polynomial numerator bound together with negligible inverse
+field size. Both require per-parameter query certificates. Neither defines
+PPT adversaries, derives query bounds or field growth from PPT, or reduces a
+deployed primitive.
 
 ## Layout
 
@@ -168,7 +177,7 @@ does not define PPT adversaries or prove that PPT implies those query bounds.
 | `RESEARCH.md` | The verified field report: six literature angles, ten open problems. |
 | `BRIEF.md` | The original executor contract: model boundary, theorem targets, milestones, gates (kept as provenance; `Spec.md` cites it). |
 | `PROVING.md` | One-page contributor guide: model boundary, rules, how to add a theorem. |
-| `research_knowledge/` | The gate record, the audits (K1 statement, K2 axiom, K3 vacuity, K4 external, T7 stack), the VCV-io prover-choice survey, the TLA+ findings, the experiment outcome. |
+| `research_knowledge/` | The gate record, the audits (K1 statement, K2 axiom, K3 vacuity, simulated K4 exercise, T7 stack), the VCV-io prover-choice survey, the TLA+ findings, the experiment outcome. |
 | `tla/` | The TLA+ model and its model-checking configs. |
 
 ## Provenance
@@ -179,4 +188,5 @@ github.com/dmarzzz/reputation-gated-onion-egress) and a conversation about
 whether zk payment channel literature should exist. The research sweep, the
 brief, the definitions, and the proofs were produced agentically; the
 definitions were reviewed adversarially by independent agents. The separate
-human acceptance required by `BRIEF.md` remains to be logged.
+human acceptance and real outside K4 review required by `BRIEF.md` remain to
+be logged.

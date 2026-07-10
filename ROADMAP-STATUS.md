@@ -1,8 +1,12 @@
 # End-to-end formalization status
 
-Current source checkpoint for the implementation PR. All release-wide claims
-in this document are **subject to final release validation**; no validated
-build commit or completed release audit is claimed here yet.
+Current source checkpoint for the implementation PR. The Lean tree was
+source-validated at `abb878f`: a fresh checkout restored 8,283 cached files,
+the Lean 4.30.0 root build completed all 3,595 jobs, the exact endpoint axiom
+capture used only standard Lean axioms, and the source scans/diff hygiene
+checks were clean. The later final documentation/PDF head is not being
+retroactively identified with that checkpoint; its exact SHA will be
+recorded in the PR and issues after PDF regeneration and visual QA.
 
 ## Release theorem boundary
 
@@ -96,8 +100,10 @@ The branch contains source for the following components:
 - the nullifier-chain channel safety, collision, anonymity, and refinement
   results.
 
-This is an implementation inventory. The final clean build and trust audit
-remain pending release gates rather than facts inferred from file presence.
+This implementation inventory is backed by the `abb878f` clean build and
+trust audit described above. It does not upgrade the reference constructions
+into production cryptographic reductions, and it does not claim that the
+still-pending final PDF artifact has been rebuilt or visually checked.
 
 ## Exact non-claims
 
@@ -120,25 +126,25 @@ adversary term that carries the declared structural query bounds and charges
 all direct-secret, slope-preimage, and signal-collision opportunities in
 `qb.total`.
 
-## Final release validation
+## Source validation and remaining artifact gates
 
-The release is not validated until all of the following are recorded against
-one immutable commit:
+The technical source gates K2/K5 completed at `abb878f`:
 
-1. cold dependency fetch in a fresh checkout;
-2. clean full build of the root target;
-3. repository forbidden-token/source-placeholder audit;
-4. `#print axioms` review for every headline theorem, including
-   `T7_frame_query_bound_unconditional`, `T7Certificate.ofQueryBounds`, and
-   both unconditional composition endpoints;
-5. `git diff --check` and generated-artifact consistency;
-6. reconciliation of `Spec.md`, README/status files, paper theorem tables,
-   and assumption registries; and
-7. the required human statement review recorded separately from automated
-   proof validation.
+1. fresh checkout and dependency cache restore (8,283 files);
+2. clean full root build (3,595 jobs, Lean 4.30.0);
+3. repository forbidden-token/project-axiom scan;
+4. exact `#print axioms` review for the final T7 chain, both unconditional
+   composition endpoints, both conditional scaling endpoints, and the
+   root-imported refund reference endpoints; and
+5. clean diff hygiene checks.
 
-Until those gates finish, use “implemented in source, subject to final
-release validation,” not “release-verified.”
+Every captured endpoint uses only a subset of `propext`,
+`Classical.choice`, and `Quot.sound`. The remaining artifact work is to
+finish the documentation reconciliation, rebuild the final PDF, inspect it
+page by page, and record that later exact head in the PR and issue tracker.
+Separately, the non-author human B1/B3/K1 acceptance and a real outside K4
+definition review remain pending; agent and simulated-external reviews do
+not satisfy them.
 
 ## Research roadmap beyond this release
 
@@ -149,8 +155,8 @@ completed T7 route:
 2. deployed rerandomizable refund encryption and multi-query authentication;
 3. adaptive multi-session threshold issuance/network unlinkability and
    production threshold-signature unforgeability;
-4. complete the conditional scaling wrapper with an explicit PPT/runtime
-   model and PPT-to-query/field-growth derivations; and
+4. extend the existing conditional scaling wrapper with an explicit
+   PPT/runtime model and PPT-to-query/field-growth derivations; and
 5. refinement from deployed contracts, cryptographic implementations, and
    schedulers to the synchronized reference traces.
 

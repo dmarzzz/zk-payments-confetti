@@ -79,7 +79,8 @@ not evidence for endpoints added after that audited tree.
 Clean for the endpoints and tree actually captured. Each listed theorem
 reduces to Lean's three standard axioms; the crypto assumptions live as
 reviewed model shapes, not project axioms; the scan found no escape hatches.
-Later endpoints require the pending refresh below. The K3
+Later endpoints were not covered by this captured audit; the completion
+addendum below records their subsequent validation. The K3
 adversarial-vacuity review (separate) checks the complementary risk — that a
 clean-but-vacuous statement was proved — which axioms alone cannot detect.
 
@@ -173,10 +174,10 @@ consumed as hypotheses by the assembly theorems — they appear in theorem
 *statements*, never as axioms, so nothing in this extension weakens the
 verdict above.
 
-## T7 closure extension — final evidence pending (2026-07-10)
+## T7 closure extension — technical validation complete at source checkpoint `abb878f` (2026-07-10)
 
-The paragraph immediately above is preserved as the status of the audited
-commits. Later source introduces the no-residual chain
+The paragraph immediately above is preserved as the status of the earlier
+audited commits. Later source introduces the no-residual chain
 `dsBadMassLe_of_queryBounds` → `frameDeferredSamplingAvg_holds` →
 `T7_frame_query_bound_unconditional`, with
 `T7Certificate.ofQueryBounds` as the composition wrapper. At the statement
@@ -185,31 +186,39 @@ ambient finite-field/typeclass data and conclude the secret-averaged bound
 `(qb.total + 1)/|F|`; the former residual Props are no longer endpoint
 hypotheses.
 
-This addendum intentionally does **not** extend the axiom-output table from
-source text alone. Required release evidence is still:
+The required technical validation was completed against proof-bearing source
+checkpoint `abb878f` in a fresh clone:
 
-- [pending] a successful clean build of the exact final candidate containing
-  the final T7, composition, and scaling theorems;
-- [pending] captured `#print axioms` output for
+- the pinned dependency-cache restore fetched 8,283 files;
+- the full root build succeeded on Lean 4.30.0, completing 3,595 jobs;
+- explicit `#print axioms` output covered the full T7 route:
   `T7_frame_query_bound_avg`, `frameGoodSliceTransfer_of_tape`,
   `dsBadMassLe_of_queryBounds`, `frameRealBadMassLe_of_dsCount`,
   `frameDeferredSamplingAvg_of_goodSlice_and_realBad`,
-  `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`,
-  `T7Certificate.ofAveraged`, and `T7Certificate.ofQueryBounds`;
-- [pending] captured `#print axioms` output for both composition wrappers and
-  both `FrameAsymptotic` scaling theorems;
-- [pending] captured output for the newly root-imported refund reference
-  endpoints in `ElGamal.lean`, `ReceiptMac.lean`, and
-  `AuthenticatedFleet.lean`, with their narrow independent-key/no-IND-CPA
-  scope reviewed separately from the Spec-B model guards;
-- [pending] the final audited commit SHA, repository escape-hatch greps, and
-  diff hygiene checks.
+  `frameDeferredSamplingAvg_holds`, and
+  `T7_frame_query_bound_unconditional`;
+- the same capture covered both certificate constructors
+  (`T7Certificate.ofAveraged`, `T7Certificate.ofQueryBounds`), both
+  end-to-end wrappers (`flat_endToEnd_unconditional`,
+  `refund_endToEnd_unconditional`), and both `FrameAsymptotic` scaling
+  theorems;
+- the release-wide reference audit also covered all five audited
+  `ElGamal.lean` endpoints, all six `ReceiptMac.lean` endpoints, and the one
+  `AuthenticatedFleet.lean` endpoint;
+- every captured declaration used only a subset of Lean's standard
+  `propext`, `Classical.choice`, and `Quot.sound` axioms;
+- project `rg` scans found no `sorry`, `admit`, or `native_decide`, and no
+  `axiom` outside `Zkpc/Assumptions.lean`; and
+- `git diff --check` was clean.
 
-Until those observations are recorded, the 2026-07-08 and earlier
-2026-07-10 axiom claims remain the last evidence-backed table. The intended
-trust boundary is unchanged: an exact finite query bound in ideal random
-oracles, not a formal PPT-asymptotic theorem and not a concrete/deployed-hash
-reduction. The optional scaling theorems do not change that description:
-they assume per-parameter query certificates and explicit ratio
-negligibility, or a polynomial numerator plus negligible inverse field size.
-They do not classify adversaries as PPT or derive those premises from PPT.
+This completes the technical K2/build/escape-hatch evidence for the
+proof-bearing source checkpoint. The exact final PR head will be recorded
+externally after the documentation/PDF-only release commit; that SHA handoff
+is release bookkeeping, not pending proof evidence.
+
+The intended trust boundary is unchanged: an exact finite query bound in
+ideal random oracles, not a PPT-derived asymptotic theorem and not a
+concrete/deployed-hash reduction. The scaling theorems assume per-parameter
+query certificates and explicit ratio negligibility, or a polynomial
+numerator plus negligible inverse field size. They do not classify
+adversaries as PPT or derive those premises from PPT.

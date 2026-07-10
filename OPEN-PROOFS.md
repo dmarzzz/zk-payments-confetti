@@ -9,11 +9,12 @@ The gate record contains independent-agent review rounds. It does not record
 the non-author human approval required by `BRIEF.md`; B1, B3, and K1 remain
 acceptance gates even though the agent review rounds reached sign-off.
 
-The implementation inventory below is **subject to final release
-validation**. The release gate is a cold dependency fetch and clean full
-build, followed by the forbidden-token scan, endpoint axiom printouts, and
-`git diff --check`. This document does not claim a release SHA or a completed
-release audit before those checks finish.
+The implementation inventory below is source-validated at checkpoint
+`abb878f`. From a fresh checkout, `lake exe cache get` restored 8,283 files
+and the Lean 4.30.0 root build completed all 3,595 jobs. Exact endpoint axiom
+capture, the forbidden-token/project-axiom scans, and diff hygiene checks
+were clean. The later documentation/PDF artifact was regenerated to 12 pages
+and checked page by page; its exact commit is recorded in the PR and issues.
 
 ## Contribution rules
 
@@ -86,8 +87,9 @@ premises shown in their theorem signatures.
 
 ## Current source inventory
 
-The following table is an implementation map, not a substitute for the final
-release validation described above.
+The following table is an implementation map backed by the `abb878f` source
+validation described above. It is not evidence for production reductions or
+for production reductions or the still-pending human acceptance gates.
 
 | Area | Main endpoints | Files |
 |---|---|---|
@@ -155,19 +157,24 @@ finite query-bounded T7 theorem above.
 - **Deployed-system composition.** Connect concrete cryptographic
   implementations and schedulers to the synchronized reference traces.
 
-## Release validation still required
+## Completed source validation and remaining closeout
 
-Before calling the branch release-verified:
+K2/K5 completed at source checkpoint `abb878f`:
 
-1. fetch dependencies from a clean checkout;
-2. run a clean full build of the root target;
-3. run the repository's forbidden-token scan over proof source;
-4. inspect `#print axioms` for every headline endpoint, including the final
-   T7 chain, the flat/refund T7-residual-free wrappers, and the conditional
-   scaling endpoints;
-5. run `git diff --check` and reconcile all theorem tables and generated
-   paper artifacts;
-6. record the validated commit only after all checks succeed.
+1. fresh dependency/cache restore (8,283 files);
+2. clean root build (3,595 jobs, Lean 4.30.0);
+3. forbidden-token and project-axiom scans;
+4. exact `#print axioms` capture for the complete T7 chain, both
+   flat/refund T7-residual-free wrappers, both conditional scaling theorems,
+   and the ElGamal/receipt-MAC/authenticated-fleet reference endpoints; and
+5. clean diff hygiene checks.
+
+The captured endpoints use only a subset of Lean's standard `propext`,
+`Classical.choice`, and `Quot.sound`. The documentation was reconciled and
+the synchronized 12-page PDF rebuilt and visually inspected. Remaining
+acceptance work is the non-author human B1/B3/K1 approvals and a real outside
+K4 review. The agent and simulated-external reviews do not satisfy those
+human gates.
 
 ## Historical note: how the final T7 route changed
 

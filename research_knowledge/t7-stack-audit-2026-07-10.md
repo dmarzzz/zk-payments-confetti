@@ -11,9 +11,12 @@ Freeze baseline: `28b7f80`. The live tree had
 
 **Current-status note.** F1 below is intentionally preserved as a finding
 about the named historical commits. Later source contains a repair, described
-in “Post-F1 reconciliation” at the end. Because the exact-candidate clean
-build, axiom output, scans, and SHA are still pending, neither historical F1
-nor mere source presence should be paraphrased as the final release verdict.
+in “Post-F1 reconciliation” at the end. Technical validation of that repair
+completed at proof-bearing source checkpoint `abb878f`: a fresh-clone full
+build, explicit axiom capture, source scans, and diff hygiene now supersede
+F1's kernel-status verdict for the repaired source. The exact final PR head
+will be recorded externally after the documentation/PDF-only release commit;
+that SHA handoff is not pending proof evidence.
 
 ---
 
@@ -224,7 +227,7 @@ there.
 
 ---
 
-## Post-F1 reconciliation — repaired endpoint, validation pending
+## Post-F1 reconciliation — repaired endpoint validated at source checkpoint `abb878f`
 
 F1 is a historical finding about `ecdbcec` and `acba6cf`; it is not erased
 by later edits. The repair now present in source changes the disputed
@@ -257,24 +260,30 @@ assumes a polynomial numerator bound and negligible inverse field size.
 Both require per-parameter `FrameQueryBounds`; neither defines PPT or proves
 PPT-to-query boundedness.
 
-### Evidence required before superseding F1's kernel-status verdict
+### Technical evidence superseding F1 for the repaired source
 
-- [pending] final commit SHA;
-- [pending] successful source check of
-  `Zkpc/Games/FrameDSCountInduction.lean`,
-  `Zkpc/Games/FrameComplete.lean`, and
-  `Zkpc/Composition/EndToEnd.lean`;
-- [pending] clean full build from the release audit environment;
-- [pending] exact `#print axioms` output for
+The required observations were completed against source checkpoint
+`abb878f` in a fresh clone:
+
+- the pinned cache restore fetched 8,283 files;
+- the full root build succeeded on Lean 4.30.0, completing 3,595 jobs;
+- explicit `#print axioms` output covered
   `T7_frame_query_bound_avg`, `frameGoodSliceTransfer_of_tape`,
   `dsBadMassLe_of_queryBounds`, `frameRealBadMassLe_of_dsCount`,
   `frameDeferredSamplingAvg_of_goodSlice_and_realBad`,
   `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`,
-  `T7Certificate.ofAveraged`, and `T7Certificate.ofQueryBounds`;
-- [pending] exact `#print axioms` output for the flat/refund end-to-end
-  wrappers and both `FrameAsymptotic` theorems;
-- [pending] final forbidden-token greps and diff hygiene checks.
+  both `T7Certificate` constructors, both flat/refund end-to-end wrappers,
+  and both `FrameAsymptotic` theorems;
+- the same release audit covered five `ElGamal.lean` endpoints, six
+  `ReceiptMac.lean` endpoints, and one `AuthenticatedFleet.lean` endpoint;
+- every captured result used only a subset of `propext`,
+  `Classical.choice`, and `Quot.sound`;
+- project `rg` scans found no `sorry`, `admit`, or `native_decide`, and no
+  `axiom` outside `Zkpc/Assumptions.lean`; and
+- `git diff --check` was clean.
 
-Until those observations are filled from real command output, this section
-reconciles the statement and dependency shape only. It does not claim that
-F1's compilation failure has already been overturned by the kernel.
+F1 remains the accurate historical verdict for `ecdbcec` and `acba6cf`; the
+fresh-clone evidence above overturns it for the repaired proof source at
+`abb878f`. The exact final PR head will be recorded externally after the
+documentation/PDF-only release commit. That final SHA record is release
+bookkeeping, not an outstanding source check, build, or axiom audit.
