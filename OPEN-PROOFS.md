@@ -310,15 +310,21 @@ that list with at most the corresponding `1/|F|` mass. The two singleton
 root equivalences are also proved. What remains is only transporting the
 actual adaptive handler into this fixed transcript form.
 
-**Lane claim (2026-07-10, orchestrator):** `FrameGoodSliceTransfer` —
-the good-slice consumption of the shared substrate, in
-`Zkpc/Games/FrameGoodSlice.lean`: the `mulRight`-bijection win-functional
-transport through the stage-1 deferred-slope equivalence and the stage-2
-ghost coupling as they land (consumed by their committed names, never
-redefined), the good-slice mass-drop bookkeeping at bad-firing steps, and
-the final instantiation into `T7_frame_query_bound_of_goodSlice_and_realBad`.
-Stage 1 itself belongs to the route-B lane above; if its shape shifts,
-only the transport re-targets.
+**Lane claim (2026-07-10, orchestrator; updated after 2d9988f):**
+`FrameGoodSliceTransfer` is reduced in `Zkpc/Games/FrameGoodSlice.lean`
+(28 kernel-clean results, adversarially verified) to the single
+pointwise-in-`k` residual `FramePointwiseGoodSlice`; the `nfAt`-free
+adversary class is fully discharged
+(`frameGoodSliceTransfer_of_nfAtFree`). The one remaining induction case
+is honest emission at an `nfAt`-pinned slope, which is provably NOT
+closable by any pointwise state coupling (pinned `a₀ = 0` counterexample
+in the module docstring): the pin value must stay deferred between its
+`nfAt` draw and its consuming emission, a
+`FrameBadMass.materializeSlopeTape`-style run-level tape induction against
+the landed interface `framePointwiseGoodSlice_of_idealDom`. That tape
+induction is claimed by the orchestrator lane in
+`Zkpc/Games/FrameGoodSliceTape.lean` (in flight). Note: the route-B
+`dsFrameImpl` pins at first touch, so it does not resolve this case.
 
 ### 2. The ZK bridge, O1 (Class D, high value)
 
