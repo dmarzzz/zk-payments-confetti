@@ -31,7 +31,12 @@ loss; an executable ledger refines every relational transition; a
 multi-recipient portable-deposit accounting layer with a threshold-issuance
 reference construction closes the definitional half of the named open
 problem; and one-trace composition theorems deliver the channel and wire
-guarantee bundles simultaneously on a single reachable trace. The definition went
+guarantee bundles simultaneously on a single reachable trace. A third,
+post-quantum instantiation — Buterin's unidirectional nullifier-chain
+channel — is placed in the design space and its core is machine-checked
+too: balance safety, both directions of the collision-based stale-close
+mechanism, refund liveness, and per-request anonymity at advantage
+exactly zero. The definition went
 through eleven rounds of independent adversarial review, producing concrete
 counterexamples against ten successive revisions; the repairs
 those counterexamples forced — gateway-bound messages, close-time netting,
@@ -571,10 +576,11 @@ balance would let Bob rejoin the chain from his own $\delta$ records,
 which high-entropy $\delta$ makes easier, not harder). The construction is
 also natively post-quantum (hashes and STARK-friendly signatures; no
 curves), which none of A/B's reference wires are. Its Lean formalization
-(`Zkpc/Chain/`) targets the same split this paper uses everywhere: safety
+(`Zkpc/Chain/`) follows the same split this paper uses everywhere — safety
 and stale-close collision detection as Class-A invariants, per-request
 anonymity as a Class-B coupling, with the STARK and signature scheme
-idealized at the same boundary as A and B's proofs.
+idealized at the same boundary as A and B's proofs — and is
+machine-checked (§5).
 
 ## 5. Results: what is machine-checked
 
@@ -831,6 +837,34 @@ settled exactly (T2), and the honest closer is unslashed (exculpability).
 perfect T4 unlinkability and the zero-loss ZK bridge hold together. Both
 are axiom-clean.
 
+**Machine-checked nullifier-chain channel (instantiation C).** The §4
+design is formalized in `Zkpc/Chain/` with the signature scheme idealized
+as transition guards and the hash chain as a lazily-sampled random oracle
+(collision-freedom carried as an explicit injectivity hypothesis on the
+chain, stated where used). Safety (`State.lean`, Class A):
+`chain_no_overspend`, `bob_never_loses` (honest close pays exactly the
+closed balance — `honest_close_exact`; challenged stale close and
+Alice-AWOL timeout forfeit the whole deposit), `alice_refund_liveness` (a
+never-countersigned channel refunds exactly $D$), `conservation`, and
+`no_overpay_recovery`. The collision mechanism (`Collision.lean`) is
+proved in *both* directions: `stale_close_detectable` (closing any
+extended state — the genesis-refund case uniformly included — opens a
+nullifier some message already revealed, so an honest Bob holds the
+colliding challenge witness) and `honest_close_unchallengeable` /
+`honest_close_never_slashed` (closing the latest countersigned state opens
+a nullifier no message ever revealed — the design's exculpability,
+obtained without any FRAME-style probabilistic argument), with the
+exactness lemma `collision_iff_stale` justifying the challenge guard.
+Per-request anonymity (`Anonymity.lean`, Class B):
+`chain_two_payment_anonymity` proves advantage exactly $0$ for every
+adversary in the two-payment linkage game (same-chain-consecutive vs
+independent-channels), by coupling both worlds to one canonical fresh
+view — nullifiers as fresh-uniform oracle slots, balance commitments as
+one-time additive masks. The game's docstring pins what is *not* covered:
+$\delta$-value correlation, timing, and the base protocol's boundary
+leaks ($D$, close amounts, recipient, footprint). An executable
+refinement (`Chain/Refinement.lean`) drives the machine.
+
 An earlier review round on the game files produced a fix list — the
 adversary's view omitting the proof object (which would trivialize the
 zero-knowledge step), the refund genesis receipt needing the adversary in
@@ -1042,6 +1076,7 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | Executable refinement | `Zkpc/Core/Refinement.lean`, `Zkpc/Refund/Refinement.lean`, `Zkpc/Fleet/Refinement.lean` | `sweep_refines_trace`, `refined_steps_reachable`, `exec*_refines_step`, `exec_step_reachable` |
 | Multi-recipient network | `Zkpc/Network/State.lean`, `Zkpc/Network/Credential.lean`, `Zkpc/Network/Issuance.lean` | `no_overspend`, `global_dedup`, `redeem_rejects_global_replay`, `credential_payment_end_to_end`, `evalDist_blindRequest_uniform`, `ticket_fork_extracts`, `recipientView_unlinkable` |
 | One-trace composition | `Zkpc/Core/Composition.lean` | `channel_endToEnd_composition`, `wire_endToEnd_composition` |
+| Nullifier-chain channel (C) | `Zkpc/Chain/{State,Collision,Anonymity,Refinement}.lean` | `chain_no_overspend`, `bob_never_loses`, `honest_close_exact`, `alice_refund_liveness`, `conservation`, `no_overpay_recovery`, `stale_close_detectable`, `honest_close_unchallengeable`, `collision_iff_stale`, `honest_close_never_slashed`, `chain_two_payment_anonymity` |
 | Calibration | `Zkpc/Games/Calibration.lean` | `unlinkAdvantage_staticDistinguisher_eq_half`, `unlinkAdvantage_bRerand_eq_zero`, `unlinkAdvantage_aIndexLeak`, `unlinkAdvantage_nfeReuse`, `unlinkAdvantage_multTagDistinguisher_eq_half` |
 | Refund variant (B, N=1) | `Zkpc/Refund/Safety.lean`, `Zkpc/Refund/State.lean` | `T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed` |
 | Assumption registry | `Zkpc/Assumptions.lean` | `Named`, `dischargedBy` (no `axiom` declarations exist) |
