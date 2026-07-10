@@ -229,10 +229,12 @@ genesis-refund case. It trades away non-interactivity, epochs, rate
 limiting, and the fleet, and its base form leaks $D$ and the split at the
 boundaries — but its penalties are fund-forfeit only, so the
 identity-slash retroactive-deanonymization limit of the RLN design simply
-does not exist there, and the stack is natively post-quantum. We archive
-the design in-repo and formalize its core (safety and collision
-detection as invariants, per-request anonymity as an RO coupling) in
-`Zkpc/Chain/`.
+does not exist there, and the stack is natively post-quantum. We archive the design in-repo and machine-check its core in
+`Zkpc/Chain/`: balance safety and refund liveness as Class-A invariants,
+both directions of the collision mechanism (stale closes always
+challengeable, honest closes never challengeable — its exculpability
+needs no probabilistic argument at all), and per-request anonymity at
+advantage exactly zero as an RO coupling.
 
 ## What is machine-checked, exactly
 

@@ -61,8 +61,12 @@ loss; an executable ledger refines every relational transition; a
 multi-recipient portable-deposit accounting layer with a threshold-issuance
 reference construction closes the definitional half of the named open
 problem; and one-trace composition theorems deliver the channel and wire
-guarantee bundles simultaneously on a single reachable trace. The
-definition went through eleven rounds of
+guarantee bundles simultaneously on a single reachable trace. A third,
+post-quantum instantiation --- Buterin's unidirectional nullifier-chain
+channel --- is placed in the design space and its core is machine-checked
+too: balance safety, both directions of the collision-based stale-close
+mechanism, refund liveness, and per-request anonymity at advantage exactly
+zero. The definition went through eleven rounds of
 independent adversarial review, producing concrete counterexamples against
 ten successive revisions; the repairs those
 counterexamples forced --- gateway-bound messages, close-time netting,
@@ -678,11 +682,12 @@ are what make it hold (a visible cumulative balance would let Bob rejoin
 the chain from his own $\delta$ records, which high-entropy $\delta$ makes
 easier, not harder). The construction is also natively post-quantum
 (hashes and STARK-friendly signatures; no curves), which none of A/B's
-reference wires are. Its Lean formalization (\texttt{Zkpc/Chain/}) targets
-the same split this paper uses everywhere: safety and stale-close
+reference wires are. Its Lean formalization (\texttt{Zkpc/Chain/}) follows
+the same split this paper uses everywhere --- safety and stale-close
 collision detection as Class-A invariants, per-request anonymity as a
 Class-B coupling, with the STARK and signature scheme idealized at the
-same boundary as A and B's proofs.
+same boundary as A and B's proofs --- and is machine-checked
+(\S\ref{sec:results}).
 
 
 \section{Results: what is machine-checked}\label{sec:results}
@@ -960,6 +965,38 @@ unslashed (exculpability). \decl{wire\_endToEnd\_composition}: for the
 verified Fiat--Shamir wire family, perfect T4 unlinkability and the
 zero-loss ZK bridge hold together. Both are axiom-clean.
 
+\paragraph{Machine-checked nullifier-chain channel (instantiation C).}
+The \S\ref{sec:constructions} design is formalized in
+\texttt{Zkpc/Chain/} with the signature scheme idealized as transition
+guards and the hash chain as a lazily-sampled random oracle
+(collision-freedom carried as an explicit injectivity hypothesis on the
+chain, stated where used). Safety (\texttt{State.lean}, Class A):
+\decl{chain\_no\_overspend}, \decl{bob\_never\_loses} (honest close
+pays exactly the closed balance --- \decl{honest\_close\_exact};
+challenged stale close and Alice-AWOL timeout forfeit the whole deposit),
+\decl{alice\_refund\_liveness} (a never-countersigned channel refunds
+exactly $D$), \decl{conservation}, and \decl{no\_overpay\_recovery}.
+The collision mechanism (\texttt{Collision.lean}) is proved in
+\emph{both} directions: \decl{stale\_close\_detectable} (closing any
+extended state --- the genesis-refund case uniformly included --- opens a
+nullifier some message already revealed, so an honest Bob holds the
+colliding challenge witness) and \decl{honest\_close\_unchallengeable}
+/ \decl{honest\_close\_never\_slashed} (closing the latest
+countersigned state opens a nullifier no message ever revealed --- the
+design's exculpability, obtained without any FRAME-style probabilistic
+argument), with the exactness lemma \decl{collision\_iff\_stale}
+justifying the challenge guard. Per-request anonymity
+(\texttt{Anonymity.lean}, Class B):
+\decl{chain\_two\_payment\_anonymity} proves advantage exactly $0$
+for every adversary in the two-payment linkage game
+(same-chain-consecutive vs independent-channels), by coupling both worlds
+to one canonical fresh view --- nullifiers as fresh-uniform oracle slots,
+balance commitments as one-time additive masks. The game's docstring pins
+what is \emph{not} covered: $\delta$-value correlation, timing, and the
+base protocol's boundary leaks ($D$, close amounts, recipient,
+footprint). An executable refinement (\texttt{Chain/Refinement.lean})
+drives the machine.
+
 An earlier review round on the game files produced a fix list --- the
 adversary's view omitting the proof object (which would trivialize the
 zero-knowledge step), the refund genesis receipt needing the adversary in
@@ -1188,6 +1225,7 @@ Fleet recovery (MC19) & \texttt{Zkpc/Fleet/Recovery.lean} & \decl{identityRecove
 Executable refinement & \texttt{Zkpc/\{Core,Refund,Fleet\}/Refinement.lean} & \decl{sweep\_refines\_trace}, \decl{refined\_steps\_reachable}, \decl{exec*\_refines\_step}, \decl{exec\_step\_reachable} \\
 Multi-recipient network & \texttt{Zkpc/Network/\{State,Credential,Issuance\}.lean} & \decl{no\_overspend}, \decl{global\_dedup}, \decl{redeem\_rejects\_global\_replay}, \decl{credential\_payment\_end\_to\_end}, \decl{evalDist\_blindRequest\_uniform}, \decl{ticket\_fork\_extracts}, \decl{recipientView\_unlinkable} \\
 One-trace composition & \texttt{Zkpc/Core/Composition.lean} & \decl{channel\_endToEnd\_composition}, \decl{wire\_endToEnd\_composition} \\
+Nullifier-chain channel (C) & \texttt{Zkpc/Chain/\{State,Collision,Anonymity,Refinement\}.lean} & \decl{chain\_no\_overspend}, \decl{bob\_never\_loses}, \decl{honest\_close\_exact}, \decl{alice\_refund\_liveness}, \decl{conservation}, \decl{no\_overpay\_recovery}, \decl{stale\_close\_detectable}, \decl{honest\_close\_unchallengeable}, \decl{collision\_iff\_stale}, \decl{chain\_two\_payment\_anonymity} \\
 Calibration & \texttt{Zkpc/Games/Calibration.lean} & \decl{unlinkAdvantage\_staticDistinguisher\_eq\_half}, \decl{unlinkAdvantage\_bRerand\_eq\_zero}, \decl{unlinkAdvantage\_aIndexLeak}, \decl{unlinkAdvantage\_nfeReuse}, \decl{unlinkAdvantage\_multTagDistinguisher\_eq\_half} \\
 Refund variant (B, $N{=}1$) & \texttt{Zkpc/Refund/Safety.lean}, \texttt{Zkpc/Refund/State.lean} & \decl{T1\_B\_no\_overspend}, \decl{T3\_B\_floor}, \decl{conservation}, \decl{self\_slash\_race\_closed} \\
 Assumption registry & \texttt{Zkpc/Assumptions.lean} & \decl{Named}, \decl{dischargedBy} (no \texttt{axiom} declarations exist) \\
