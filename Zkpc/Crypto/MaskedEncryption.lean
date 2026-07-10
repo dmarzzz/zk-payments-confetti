@@ -69,8 +69,79 @@ theorem decrypt_refundUpdate (ct r refund ρ : F) :
   unfold add encrypt decrypt
   ring
 
+/-! ## Distributional privacy laws
+
+The adversary view of a refund receipt is the ciphertext alone (openings are
+payer-private). The three theorems below are the distributional
+rerandomization-privacy layer: fresh-opening encryption is perfectly secret,
+a rerandomized ciphertext is fresh-uniform regardless of its predecessor, and
+consequently receipt updates are unlinkable across any two histories. -/
+
+section Privacy
+
+variable [Fintype F] [SampleableType F]
+
+/-- **Perfect secrecy of fresh-opening encryption**: the ciphertext of any
+plaintext under a uniform opening is exactly uniform, so the ciphertext
+distribution is independent of the plaintext. -/
+theorem evalDist_encrypt_uniform (m : F) :
+    𝒟[do let r ← ($ᵗ F); pure (encrypt m r)] = 𝒟[($ᵗ F)] := by
+  unfold encrypt
+  simp only [add_comm m]
+  rw [show (do let r ← ($ᵗ F); pure (r + m) : ProbComp F)
+      = (do let r ← ($ᵗ F); pure ((fun x : F => x) r + m)) from rfl]
+  rw [evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+    Function.bijective_id m pure]
+  rw [bind_pure]
+
+/-- **Rerandomization privacy**: with a fresh uniform mask the rerandomized
+ciphertext is exactly uniform, independent of the input ciphertext. -/
+theorem evalDist_rerandomize_cipher_uniform (ct r : F) :
+    𝒟[do let ρ ← ($ᵗ F); pure (rerandomize ct r ρ).1] = 𝒟[($ᵗ F)] := by
+  unfold rerandomize
+  simp only [add_comm ct]
+  rw [show (do let ρ ← ($ᵗ F); pure (ρ + ct) : ProbComp F)
+      = (do let ρ ← ($ᵗ F); pure ((fun x : F => x) ρ + ct)) from rfl]
+  rw [evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+    Function.bijective_id ct pure]
+  rw [bind_pure]
+
+/-- **Receipt unlinkability**: rerandomized ciphertexts from any two receipt
+histories are identically distributed. -/
+theorem evalDist_rerandomize_cipher_eq (ct₁ r₁ ct₂ r₂ : F) :
+    𝒟[do let ρ ← ($ᵗ F); pure (rerandomize ct₁ r₁ ρ).1] =
+      𝒟[do let ρ ← ($ᵗ F); pure (rerandomize ct₂ r₂ ρ).1] := by
+  rw [evalDist_rerandomize_cipher_uniform, evalDist_rerandomize_cipher_uniform]
+
+/-- **Refund-update privacy**: the updated receipt ciphertext is exactly
+uniform, revealing nothing about the prior balance or the refund amount. -/
+theorem evalDist_refundUpdate_cipher_uniform (ct r refund : F) :
+    𝒟[do let ρ ← ($ᵗ F); pure (refundUpdate ct r refund ρ).1] = 𝒟[($ᵗ F)] := by
+  unfold refundUpdate rerandomize add encrypt
+  simp only [add_comm]
+  rw [show (do let ρ ← ($ᵗ F); pure (ρ + (ct + (refund + 0))) : ProbComp F)
+      = (do let ρ ← ($ᵗ F); pure ((fun x : F => x) ρ + (ct + (refund + 0))))
+      from rfl]
+  rw [evalDist_bind_bijective_add_right_uniform F (fun x : F => x)
+    Function.bijective_id (ct + (refund + 0)) pure]
+  rw [bind_pure]
+
+/-- **Refund-update unlinkability**: updated receipt ciphertexts from any two
+balance/refund histories are identically distributed. -/
+theorem evalDist_refundUpdate_cipher_eq (ct₁ r₁ v₁ ct₂ r₂ v₂ : F) :
+    𝒟[do let ρ ← ($ᵗ F); pure (refundUpdate ct₁ r₁ v₁ ρ).1] =
+      𝒟[do let ρ ← ($ᵗ F); pure (refundUpdate ct₂ r₂ v₂ ρ).1] := by
+  rw [evalDist_refundUpdate_cipher_uniform, evalDist_refundUpdate_cipher_uniform]
+
+end Privacy
+
 end Zkpc.Crypto.MaskedEncryption
 
+#print axioms Zkpc.Crypto.MaskedEncryption.evalDist_encrypt_uniform
+#print axioms Zkpc.Crypto.MaskedEncryption.evalDist_rerandomize_cipher_uniform
+#print axioms Zkpc.Crypto.MaskedEncryption.evalDist_rerandomize_cipher_eq
+#print axioms Zkpc.Crypto.MaskedEncryption.evalDist_refundUpdate_cipher_uniform
+#print axioms Zkpc.Crypto.MaskedEncryption.evalDist_refundUpdate_cipher_eq
 #print axioms Zkpc.Crypto.MaskedEncryption.decrypt_encrypt
 #print axioms Zkpc.Crypto.MaskedEncryption.add_encrypt
 #print axioms Zkpc.Crypto.MaskedEncryption.decrypt_rerandomize
