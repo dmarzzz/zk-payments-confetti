@@ -521,7 +521,10 @@ deferred bad mass, unconditional) and `frameRealBadMassLe_of_dsCount`:
 `T7_frame_query_bound_of_goodSlice_and_dsCount` — is now reduced to
 exactly two named residuals:
 
-1. `DSBadMassLe` (`FrameRealBadTransfer.lean`, stage 2): the k-averaged
+1. `DSBadMassLe` (`FrameRealBadTransfer.lean`, stage 2) — **in progress
+   (2026-07-10), claimed by the route-B counting agent, executing the
+   recorded plan below; new work in `Zkpc/Games/FrameDSCount.lean`.**
+   Statement: the k-averaged
    leakage mass of the k-root-clean deferred run `dsFrameJoint` is at most
    `qb.total/|F|`. Proof plan: per-emission pad bijection `a ↦ k + a·x`
    (fresh consumption) plus tape-deferral of pinned-but-unconsumed
