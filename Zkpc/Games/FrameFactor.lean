@@ -522,6 +522,281 @@ theorem auditedFrameImpl_run_roXNonzero (k : F) (mclose : M) {α : Type}
     (fun t u hu y hy => auditedFrameImpl_roXNonzero_step k mclose t u hu y hy)
     oa s hx z hz
 
+omit [Field F] [DecidableEq F] [SampleableType F] in
+/-- **Bad-event bridge across the two audit types.** The real leakage event and
+the ghost leakage event coincide whenever the audits agree on the membership of
+the merged direct-probe list and on the slope-probe and honest-slope lists —
+exactly the audit-data correspondence the off-bad coupling maintains (the real
+audit interleaves the three secret channels into one list, the ghost audit
+keeps them per channel, so only membership of the merge is invariant). -/
+theorem frameLeakBad_iff_ghostLeakBad_of_corr (k : F) (fa : FrameAudit F)
+    (ga : GhostAudit F)
+    (hsec : ∀ x : F, x ∈ fa.secretProbes ↔ x ∈ ga.secretProbes)
+    (hslp : fa.slopeProbes = ga.slopeProbes)
+    (hhon : fa.honestSlopes = ga.honestSlopes) :
+    FrameLeakBad k fa ↔ GhostLeakBad k ga := by
+  unfold FrameLeakBad GhostLeakBad
+  rw [hslp, hhon, hsec k]
+
+/-! ## The deferred-secret crux instances
+
+The two hardest steps of the good-slice coupling, closed in atomic form at the
+initial state. Both consume the secret draw as a *one-time pad*: for a fixed
+hidden slope `a`, the map `k ↦ k + a·x` is a bijection of the uniform secret,
+so deferring the secret makes the emitted line value an independent fresh
+uniform — jointly with the recorded honest slope, which is exactly what the
+audit ornament coupling needs (pointwise in `k` the pair `(y, a)` is
+constrained by `y = k + a·x`; averaged over `k` it is uniform on `F²`). -/
+
+section DeferredSecretCrux
+
+variable [Finite F]
+
+omit [DecidableEq F] in
+/-- **The secret-consumption pad.** A uniform draw used exactly once, in an
+additively shifted position, is itself fresh uniform: `k + c` for uniform `k`
+is uniform, for any fixed offset `c`. This is the atomic "spend the deferred
+secret at its unique consumption point and re-emit a fresh draw" step of the
+k-averaged spend coupling. -/
+theorem evalDist_uniform_add_pad {γ : Type} (c : F) (cont : F → ProbComp γ) :
+    𝒟[($ᵗ F) >>= fun k => cont (k + c)] = 𝒟[($ᵗ F) >>= fun y => cont y] :=
+  evalDist_bind_bijective_add_right_uniform F (fun k : F => k)
+    Function.bijective_id c cont
+
+/-- **Deferred-secret crux, fresh-slope form.** From the initial state, the
+audited real `spend` — with the honest secret drawn (anywhere, hence averaged)
+— produces the *joint* distribution of the answer and the recorded honest
+slope of the ghost `spend`: the real slope `a` and line value `y = k + a·x`
+are decorrelated by the secret pad, matching the ghost's independent fresh
+`y` and ghost slope `v`. This is the atomic form of the audit-ornament
+coupling at honest signal emissions, strengthening the answer-only
+`initial_spend_step_evalDist_eq` by the audit component. -/
+theorem initial_spend_deferredSecret_ghost_eq (mclose m : M) :
+    𝒟[do
+      let k ← ($ᵗ F)
+      let z ← ((auditedFrameImpl k mclose) (.spend m)).run (AuditedFrameSt.init F M)
+      pure (z.1, z.2.audit.honestSlopes)] =
+    𝒟[do
+      let w ← ((ghostFrameImpl mclose) (.spend m)).run (GhostFrameSt.init F M)
+      pure (w.1, w.2.audit.honestSlopes)] := by
+  have hreal : ∀ k : F,
+      ((do
+        let z ← ((auditedFrameImpl k mclose) (.spend m)).run (AuditedFrameSt.init F M)
+        pure (z.1, z.2.audit.honestSlopes)) : ProbComp (Option (Signal F) × List F))
+      = (do
+        let raw ← ($ᵗ F)
+        let a ← ($ᵗ F)
+        let nf ← ($ᵗ F)
+        pure ((some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+          Option (Signal F)), [a])) := by
+    intro k
+    unfold auditedFrameImpl frameImpl AuditedFrameSt.init FrameSt.init
+      FrameAudit.init emitSignal lazyRO lazyROX
+    simp [StateT.run_mk, auditAfter, Function.update_self]
+  have hghost :
+      ((do
+        let w ← ((ghostFrameImpl mclose) (.spend m)).run (GhostFrameSt.init F M)
+        pure (w.1, w.2.audit.honestSlopes)) : ProbComp (Option (Signal F) × List F))
+      = (do
+        let raw ← ($ᵗ F)
+        let y ← ($ᵗ F)
+        let nf ← ($ᵗ F)
+        let v ← ($ᵗ F)
+        pure ((some ⟨nonzeroDigest raw, y, nf⟩ : Option (Signal F)), [v])) := by
+    unfold ghostFrameImpl emitIdealSignal ghostTouch GhostFrameSt.init
+      IdealFrameSt.init GhostAudit.init lazyRO lazyROX
+    simp [StateT.run_mk]
+  calc 𝒟[do
+        let k ← ($ᵗ F)
+        let z ← ((auditedFrameImpl k mclose) (.spend m)).run (AuditedFrameSt.init F M)
+        pure (z.1, z.2.audit.honestSlopes)]
+      = 𝒟[($ᵗ F) >>= fun k => ($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun a =>
+          ($ᵗ F) >>= fun nf =>
+          (pure ((some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun k => by rw [hreal k]
+    _ = 𝒟[($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun k => ($ᵗ F) >>= fun a =>
+          ($ᵗ F) >>= fun nf =>
+          (pure ((some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (Option (Signal F) × List F))] :=
+        OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun a => ($ᵗ F) >>= fun k =>
+          ($ᵗ F) >>= fun nf =>
+          (pure ((some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun raw =>
+          OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun a => ($ᵗ F) >>= fun nf =>
+          ($ᵗ F) >>= fun k =>
+          (pure ((some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun raw =>
+          evalDist_bind_congr' ($ᵗ F) fun a =>
+            OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun a => ($ᵗ F) >>= fun nf =>
+          ($ᵗ F) >>= fun y =>
+          (pure ((some ⟨nonzeroDigest raw, y, nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun raw =>
+          evalDist_bind_congr' ($ᵗ F) fun a =>
+            evalDist_bind_congr' ($ᵗ F) fun nf => by
+              simp only [rlnY]
+              exact evalDist_uniform_add_pad (a * nonzeroDigest raw)
+                (fun y => pure ((some ⟨nonzeroDigest raw, y, nf⟩ :
+                  Option (Signal F)), [a]))
+    _ = 𝒟[($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun nf => ($ᵗ F) >>= fun a =>
+          ($ᵗ F) >>= fun y =>
+          (pure ((some ⟨nonzeroDigest raw, y, nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun raw =>
+          OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun nf => ($ᵗ F) >>= fun y =>
+          ($ᵗ F) >>= fun a =>
+          (pure ((some ⟨nonzeroDigest raw, y, nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun raw =>
+          evalDist_bind_congr' ($ᵗ F) fun nf =>
+            OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun raw => ($ᵗ F) >>= fun y => ($ᵗ F) >>= fun nf =>
+          ($ᵗ F) >>= fun v =>
+          (pure ((some ⟨nonzeroDigest raw, y, nf⟩ :
+            Option (Signal F)), [v]) : ProbComp (Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun raw =>
+          OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[do
+          let w ← ((ghostFrameImpl mclose) (.spend m)).run (GhostFrameSt.init F M)
+          pure (w.1, w.2.audit.honestSlopes)] := by rw [hghost]
+
+/-- **Deferred-secret crux, pinned-slope form (the slope-draw deferral).** An
+`nfAt 0` reveal followed by the `spend` that consumes the pinned slope: at a
+fixed secret the spend's line value is *determined* by the earlier `nfAt`
+sampling (the eager-read obstruction), but the joint distribution of both
+answers and the recorded honest slope still equals the ghost's, because the
+slope draw commutes distributionally from its `nfAt` sampling point to the
+spend that consumes it, where the secret pad decorrelates it. This is the
+atomic closed form of the deepest step of the good-slice coupling. -/
+theorem initial_nfAt_spend_deferredSecret_ghost_eq (mclose m : M) :
+    𝒟[do
+      let k ← ($ᵗ F)
+      let z₁ ← ((auditedFrameImpl k mclose) (.nfAt 0)).run (AuditedFrameSt.init F M)
+      let z₂ ← ((auditedFrameImpl k mclose) (.spend m)).run z₁.2
+      pure (z₁.1, z₂.1, z₂.2.audit.honestSlopes)] =
+    𝒟[do
+      let w₁ ← ((ghostFrameImpl mclose) (.nfAt 0)).run (GhostFrameSt.init F M)
+      let w₂ ← ((ghostFrameImpl mclose) (.spend m)).run w₁.2
+      pure (w₁.1, w₂.1, w₂.2.audit.honestSlopes)] := by
+  have hreal : ∀ k : F,
+      ((do
+        let z₁ ← ((auditedFrameImpl k mclose) (.nfAt 0)).run (AuditedFrameSt.init F M)
+        let z₂ ← ((auditedFrameImpl k mclose) (.spend m)).run z₁.2
+        pure (z₁.1, z₂.1, z₂.2.audit.honestSlopes)) :
+          ProbComp (F × Option (Signal F) × List F))
+      = (do
+        let a ← ($ᵗ F)
+        let nf ← ($ᵗ F)
+        let raw ← ($ᵗ F)
+        pure ((nf : F), (some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+          Option (Signal F)), [a])) := by
+    intro k
+    have hstep1 : ((auditedFrameImpl k mclose) (.nfAt 0)).run (AuditedFrameSt.init F M)
+        = (do
+          let a ← ($ᵗ F)
+          let nf ← ($ᵗ F)
+          pure ((nf : F),
+            (⟨{ FrameSt.init F M with
+                roA := Function.update (FrameSt.init F M).roA (k, 0) (some a),
+                roNf := Function.update (FrameSt.init F M).roNf a (some nf) },
+              { FrameAudit.init with honestSlopes := [a] }⟩ : AuditedFrameSt F M))) := by
+      unfold auditedFrameImpl frameImpl AuditedFrameSt.init lazyRO
+      simp [StateT.run_mk, auditAfter, FrameSt.init, FrameAudit.init,
+        Function.update_self]
+    rw [hstep1]
+    simp only [bind_assoc, pure_bind]
+    refine bind_congr fun a => ?_
+    refine bind_congr fun nf => ?_
+    unfold auditedFrameImpl frameImpl emitSignal lazyRO lazyROX
+    simp [StateT.run_mk, auditAfter, FrameSt.init, FrameAudit.init,
+      Function.update_self]
+  have hghost :
+      ((do
+        let w₁ ← ((ghostFrameImpl mclose) (.nfAt 0)).run (GhostFrameSt.init F M)
+        let w₂ ← ((ghostFrameImpl mclose) (.spend m)).run w₁.2
+        pure (w₁.1, w₂.1, w₂.2.audit.honestSlopes)) :
+          ProbComp (F × Option (Signal F) × List F))
+      = (do
+        let nf ← ($ᵗ F)
+        let v ← ($ᵗ F)
+        let raw ← ($ᵗ F)
+        let y ← ($ᵗ F)
+        pure ((nf : F), (some ⟨nonzeroDigest raw, y, nf⟩ : Option (Signal F)), [v])) := by
+    have hstep1 : ((ghostFrameImpl mclose) (.nfAt 0)).run (GhostFrameSt.init F M)
+        = (do
+          let nf ← ($ᵗ F)
+          let v ← ($ᵗ F)
+          pure ((nf : F),
+            (⟨{ IdealFrameSt.init F M with
+                honestNf := Function.update (IdealFrameSt.init F M).honestNf 0 (some nf) },
+              Function.update (fun _ => none) 0 (some v),
+              { GhostAudit.init with honestSlopes := [v] }⟩ : GhostFrameSt F M))) := by
+      unfold ghostFrameImpl ghostTouch GhostFrameSt.init lazyRO
+      simp [StateT.run_mk, IdealFrameSt.init, GhostAudit.init]
+    rw [hstep1]
+    simp only [bind_assoc, pure_bind]
+    refine bind_congr fun nf => ?_
+    refine bind_congr fun v => ?_
+    unfold ghostFrameImpl emitIdealSignal ghostTouch lazyRO lazyROX
+    simp [StateT.run_mk, IdealFrameSt.init, GhostAudit.init, Function.update_self]
+  calc 𝒟[do
+        let k ← ($ᵗ F)
+        let z₁ ← ((auditedFrameImpl k mclose) (.nfAt 0)).run (AuditedFrameSt.init F M)
+        let z₂ ← ((auditedFrameImpl k mclose) (.spend m)).run z₁.2
+        pure (z₁.1, z₂.1, z₂.2.audit.honestSlopes)]
+      = 𝒟[($ᵗ F) >>= fun k => ($ᵗ F) >>= fun a => ($ᵗ F) >>= fun nf =>
+          ($ᵗ F) >>= fun raw =>
+          (pure ((nf : F), (some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (F × Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun k => by rw [hreal k]
+    _ = 𝒟[($ᵗ F) >>= fun a => ($ᵗ F) >>= fun k => ($ᵗ F) >>= fun nf =>
+          ($ᵗ F) >>= fun raw =>
+          (pure ((nf : F), (some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (F × Option (Signal F) × List F))] :=
+        OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun a => ($ᵗ F) >>= fun nf => ($ᵗ F) >>= fun k =>
+          ($ᵗ F) >>= fun raw =>
+          (pure ((nf : F), (some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (F × Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun a =>
+          OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun a => ($ᵗ F) >>= fun nf => ($ᵗ F) >>= fun raw =>
+          ($ᵗ F) >>= fun k =>
+          (pure ((nf : F), (some ⟨nonzeroDigest raw, rlnY k a (nonzeroDigest raw), nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (F × Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun a =>
+          evalDist_bind_congr' ($ᵗ F) fun nf =>
+            OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[($ᵗ F) >>= fun a => ($ᵗ F) >>= fun nf => ($ᵗ F) >>= fun raw =>
+          ($ᵗ F) >>= fun y =>
+          (pure ((nf : F), (some ⟨nonzeroDigest raw, y, nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (F × Option (Signal F) × List F))] :=
+        evalDist_bind_congr' ($ᵗ F) fun a =>
+          evalDist_bind_congr' ($ᵗ F) fun nf =>
+            evalDist_bind_congr' ($ᵗ F) fun raw => by
+              simp only [rlnY]
+              exact evalDist_uniform_add_pad (a * nonzeroDigest raw)
+                (fun y => pure ((nf : F), (some ⟨nonzeroDigest raw, y, nf⟩ :
+                  Option (Signal F)), [a]))
+    _ = 𝒟[($ᵗ F) >>= fun nf => ($ᵗ F) >>= fun a => ($ᵗ F) >>= fun raw =>
+          ($ᵗ F) >>= fun y =>
+          (pure ((nf : F), (some ⟨nonzeroDigest raw, y, nf⟩ :
+            Option (Signal F)), [a]) : ProbComp (F × Option (Signal F) × List F))] :=
+        OracleComp.DeferredSampling.evalDist_bind_comm _ _ _
+    _ = 𝒟[do
+          let w₁ ← ((ghostFrameImpl mclose) (.nfAt 0)).run (GhostFrameSt.init F M)
+          let w₂ ← ((ghostFrameImpl mclose) (.spend m)).run w₁.2
+          pure (w₁.1, w₂.1, w₂.2.audit.honestSlopes)] := by rw [hghost]
+
+end DeferredSecretCrux
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
@@ -537,3 +812,7 @@ end Zkpc.Games
 #print axioms Zkpc.Games.roXCacheNonzero_init
 #print axioms Zkpc.Games.auditedFrameImpl_roXNonzero_step
 #print axioms Zkpc.Games.auditedFrameImpl_run_roXNonzero
+#print axioms Zkpc.Games.frameLeakBad_iff_ghostLeakBad_of_corr
+#print axioms Zkpc.Games.evalDist_uniform_add_pad
+#print axioms Zkpc.Games.initial_spend_deferredSecret_ghost_eq
+#print axioms Zkpc.Games.initial_nfAt_spend_deferredSecret_ghost_eq
