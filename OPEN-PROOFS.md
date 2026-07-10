@@ -159,6 +159,53 @@ coupling work includes source-valid public-oracle function-update relations,
 the signal/`nfAt` bad-or-good relation, and application of VCV-io's
 heterogeneous bad-plus-slack simulation theorem.
 
+**General-state coupling bricks landed (2026-07-09,
+`Zkpc/Games/FrameCoupling.lean`):** the per-operation real/ideal
+commutation is now discharged at *arbitrary* audit-complete states for
+every FRAME operation except fresh-slope signal emission. New invariants:
+`HiddenSlopeInj` (distinct honest indices never share a materialized
+slope; automatic on the good event) and `RoNfCovered` (every `H_nf` cache
+key is a recorded probe or a recorded honest slope, making honest-slope
+collisions with the public nullifier cache *detected* bad events). New
+theorems: `idealize_nfAt_step_cached` / `idealize_nfAt_step_freshNf` (the
+MC20 reveal at a materialized slope commutes exactly with `idealizeFrame`,
+using injectivity to confine the ideal per-index image change), and
+good-outcome preservation of `HiddenSlopeInj` across all eight operations
+(`hiddenSlopeInj_{roA_step,public_step,nfAt_step,emitSignal}` — the
+duplication branches are absorbed into `FrameLeakBad`).
+
+**The two remaining per-step obligations, precisely:**
+
+1. *Fresh-slope emission collision carve-out* (`spend`/`close`/`nfAt` at an
+   unmaterialized index, general state): the freshly sampled slope can hit
+   an existing public `H_nf` entry, so the step is not an exact
+   commutation but an identical-until-bad step whose mismatch mass is
+   contained in `FrameLeakBad` via `RoNfCovered` (adversary-probe hits are
+   the `slopeProbes` branch, honest repeats the duplication branch). This
+   needs the inequality-shaped `hstep` of VCV-io's
+   `probOutput_simulateQ_run'_le_add_bad_add_slack` rather than a
+   distributional equality; it is mechanical but voluminous.
+2. *The eager-read obstruction* (`spend` at an index whose slope was
+   pre-materialized by an earlier `nfAt` at or beyond the counter): from a
+   *fixed* real state the emitted `y = k + a·x` is deterministic (both `k`
+   and the cached `a` are fixed) while the ideal `y` is fresh-uniform, so
+   the per-state step TV distance is ≈ 1 and no pointwise state coupling
+   can close it — even though the *run-level* distributions agree (the
+   slope was sampled inside the run). This is exactly the eager-commit
+   read-back failure mode described in VCV-io's averaged-state-measure
+   section (`avgBadM`, `ProgramLogic/Relational/SimulateQ.lean`): the
+   resolution is either (i) instantiating that state-*law* scaffold for
+   the FRAME handler, or (ii) first proving `frameImpl` distributionally
+   equivalent to a deferred-sampling variant whose `nfAt` draws the
+   nullifier directly and defers the slope to first spend — itself an
+   identical-until-bad handler equivalence. Either route is the genuinely
+   hard residual core; everything else in the per-`k` half is now reduced
+   to bookkeeping over the landed bricks. The averaged bad-mass kernel
+   `E_k[Pr[FrameLeakBad k]] ≤ qb.total/|F|` (route (c)) in turn consumes
+   the same coupling to transport the transcript law to the secret-free
+   world before applying the hidden-target bounds
+   (`uniformSecretProbeBound` / `uniformSlopeProbeBound`).
+
 ### 2. The ZK bridge, O1 (Class D, high value)
 
 `Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
