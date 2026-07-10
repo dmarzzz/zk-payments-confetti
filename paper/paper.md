@@ -300,8 +300,9 @@ pseudonym $nf_{e^*}$), the adversary receives the batch, **and the game
 ends**: the guess is a pure function of retained memory plus the challenge
 response. Advantage is $|\Pr[b' = b] - 1/2|$, with $b$ sampled at game start
 so $\bot$-paths contribute exactly $1/2$. The session form — an
-adversary-chosen vector rather than a single spend — is itself a repair the
-external review forced: the single-spend game certifies only unlinkability
+adversary-chosen vector rather than a single spend — is itself a repair forced
+by the simulated K4 external-review exercise: the single-spend game certifies
+only unlinkability
 of a member's *first* spend of an epoch, and a scheme leaking a persistent
 cross-epoch tag on second-and-later spends would pass it while being
 lifetime-linkable for any member that spends twice in an epoch (the deployed
@@ -697,11 +698,12 @@ by type; the abort/evict wrapper `withEvict`), and both are proved.
   matches the uniform-secret average used by FRAME and preserves the same
   finite query bound; the completed proof constructs it from `frameImpl`
   with no residual coupling or counting hypothesis. This is a concrete
-  finite-query theorem. `Zkpc/Games/FrameAsymptotic.lean` lifts it to a
-  negligible family when the certified query numerator is polynomially
-  bounded and inverse field cardinality is negligible; that scaling bridge
-  does not classify adversary runtime as PPT or reduce deployed hash or
-  signature implementations. Three *must-win*
+  finite-query theorem. `Zkpc/Games/FrameAsymptotic.lean` supplies two
+  conditional lifts: one assumes the explicit query/field-size ratio is
+  negligible; its corollary assumes a polynomial numerator bound and
+  negligible inverse field cardinality. Neither derives query certificates
+  from PPT, classifies runtime, or reduces deployed hash or signature
+  implementations. Three *must-win*
   calibration adversaries confirm the game has teeth: `frameWinProb_YK_eq_one`
   (degenerate $y = k$) and `frameWinProb_aReuse_eq_one` ($a$ reused across
   indices) each frame with probability exactly $1$; a third,
@@ -845,8 +847,9 @@ guarantees with the re-randomized-refund T4 theorem and the same T7
 certificate. The operational fields are trace-derived; T4 and T7 remain
 scheme-level games, not consequences of the symbolic trace. The T7 field is
 the secret-averaged finite-query bound for an adversary carrying
-`FrameQueryBounds`; these composition theorems do not add an asymptotic PPT
-or deployed-hash claim. Their source contains no project-specific axiom;
+`FrameQueryBounds`; these composition theorems do not derive that bound from
+a PPT/runtime classifier or add a deployed-hash claim. Their source contains
+no project-specific axiom;
 the final release-wide K2 capture remains pending.
 
 **Machine-checked nullifier-chain channel (instantiation C).** The §4
@@ -897,7 +900,11 @@ confirms the games are not vacuous; and the channel and wire guarantees
 compose on one trace. T7's
 secret-averaged handler coupling and adaptive count are discharged at the
 concrete finite-field query bound, while the stronger pointwise certificate
-remains kernel-refuted. The result is not a formal asymptotic PPT theorem.
+remains kernel-refuted. `FrameAsymptotic.lean` supplies two conditional lifts:
+one assumes the explicit query/field-size ratio is negligible; its corollary
+assumes a polynomial numerator bound and negligible inverse field
+cardinality. Neither derives query certificates from PPT, supplies the
+missing runtime bridge, or derives field growth.
 The release K2 addendum for the final endpoint is tracked separately and is
 not claimed complete here.
 Remaining formal work includes a PPT-to-query/runtime bridge, the adaptive
@@ -1081,7 +1088,7 @@ CI runs the build on the pinned toolchain and additionally fails on:
 | Game framework | `Zkpc/Games/Framework.lean` | `guessGap`, `guessGap_eq`, `hiddenBitAdvantage_eq_half_boolDistAdvantage`, `hiddenBitAdvantage_const`, `hiddenBitAdvantage_eq_zero_of_distEquiv`, `ChalAdversary`, `withEvict` |
 | T4 (unlinkability) | `Zkpc/Games/T4.lean`, `Zkpc/Games/Unlink.lean` | `T4_flat_unlinkability` (= 0), `unlinkGame`, `unlinkAdvantage`, `UnlinkScheme`, `flat_closeViewSimulatable` |
 | T7 (framing) | `Zkpc/Games/T7.lean`, `Zkpc/Games/Frame.lean` | `T7_frame_bound` (≤ 1/\|F\| under `hobliv`), `frameWinProb_YK_eq_one`, `frameWinProb_aReuse_eq_one`, `frameWinProb_slopeReveal_eq_one`, `frameGame`, `frameWinProb`, `Slashes` |
-| T7 query-budget composition and scaling | `Zkpc/Games/{T7,FrameDeferred,FrameRealBadStep,FrameDSCountInduction,FrameGoodSliceTapeInduction,FrameComplete,FrameAsymptotic}.lean`, `Zkpc/Composition/EndToEnd.lean` | `FrameQueryBounds`, `frameDeferredSampling_refuted`, `FrameDeferredSamplingAvg`, `frameGoodSliceTransfer_of_tape`, `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`, `T7Certificate.ofQueryBounds`, `frameWinProb_negligible_of_query_bound`, `frameWinProb_negligible_of_polynomial_query_bound` |
+| T7 query-budget composition and scaling | `Zkpc/Games/{T7,FrameDeferred,FrameTransfer,FrameRealBadStep,FrameDSCountInduction,FrameGoodSliceTapeInduction,FrameComplete,FrameAsymptotic}.lean`, `Zkpc/Composition/EndToEnd.lean` | `FrameQueryBounds`, `frameDeferredSampling_refuted`, `FrameDeferredSamplingAvg`, `T7_frame_query_bound_avg`, `frameGoodSliceTransfer_of_tape`, `dsBadMassLe_of_queryBounds`, `frameRealBadMassLe_of_dsCount`, `frameDeferredSamplingAvg_of_goodSlice_and_realBad`, `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional`, `T7Certificate.ofAveraged`, `T7Certificate.ofQueryBounds`, `frameWinProb_negligible_of_query_bound`, `frameWinProb_negligible_of_polynomial_query_bound` |
 | Wire ZK bridges (O1) | `Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Games/SigmaInstance.lean` | `T4_maskedProof_unlinkability`, `maskedProof_zkBridge`, `T4_sigmaFlat_unlinkability`, `sigmaFlat_zkBridge`, `T4_fsFlat_unlinkability`, `fsFlat_zkBridge`, `fullFlat_zkBridge` |
 | Sigma / Fiat–Shamir cores | `Zkpc/Crypto/LinearSigma.lean`, `Zkpc/Crypto/FSRom.lean` | `completeness`, `evalDist_real_eq_simulated`, `special_soundness`, `evalDist_fsProveLazy_eq_simulated`, `fsProgramCollisionBound`, `fsForkChallengeCollisionBound` |
 | B-instance obligations (O2–O4) | `Zkpc/Games/BInstances.lean` | `bRerand_spendBatch_none_zero`, `bIdeal_openCh_adversary_genesis`, `bIdeal_serve_issuer_receipt`, `bIdeal_serve_capable_mono`, `bIdeal_closeViewSimulatable` |

@@ -14,10 +14,11 @@ machinery cannot run for fund-slashes — rev-10 states the A
 checkpoint-dispute remainder rule (pool-retained, no bounty) and scopes
 B's per-nullifier claims to identity-slashes with fund-slashes settling
 by forfeit; plus the F9-m1 joint-transcript sharpening of the CloseView
-obligation and the F9-m2 multiplicity-tag calibration point. Rev-8 was
-SIGNED OFF at gate B1 (round 8); rev-9/10
-are scoped, gate-tracked amendments from the K4 external review
-(simulated outside cryptographer attacking the definitions): the T4
+obligation and the F9-m2 multiplicity-tag calibration point. Rev-8 received
+B1 agent-review sign-off (round 8); revision 11 later received final
+agent-review sign-off. Required non-author human B1/B3/K1 acceptance remains
+pending, and K4 was a simulated outside-review exercise. Rev-9/10 are scoped,
+gate-tracked amendments from that K4 exercise: the T4
 challenge upgraded from single-spend to **session form** (the $q=1$ game
 certified only first-spend-per-epoch unlinkability — a definitional
 hole for the fleet's real usage), the **CloseView-simulatability
@@ -30,7 +31,7 @@ receipt withholding (→ receipt-bearing checkpoint disputes with an
 upgrade sub-window; $j{=}0$ closes receipt-free) and the sweep bar
 one-directional (→ two-sided, with on-ledger disproof at settlement) —
 both repaired in this revision. Earlier gate history, six
-rounds so far, every round by a fresh reviewer who did not write the text:
+rounds so far, every round by a fresh agent reviewer who did not write the text:
 rev-1, three-lens panel, 3× REVISE — T6 false via cross-gateway replay
 (→ MC14), UNLINK unsatisfiable (→ MC15), merge evidence missing (→ MC17),
 receipt splicing (→ MC7 tags); rev-2 verified plus two new blockings — B
@@ -169,8 +170,8 @@ the payee's revenue settles per channel at close time (see §2 Close and
 §4).
 
 **$Setup(1^\lambda, params) \to pp$.**
-Run once, honestly (trusted setup is axiomatized, §5). Outputs public
-parameters: the NIZK common reference string, hash descriptions, the field,
+Run once, honestly (trusted setup is an idealized model assumption, §5).
+Outputs public parameters: the NIZK common reference string, hash descriptions, the field,
 the constants of §1, the **gateway roster** (the $N$ sweep-authorized payee
 identities), and (instantiation B only) the payee's signature keypair
 $(vk_S, sk_S)$ and the re-randomizable encryption public key $pk_E$ (MC7) —
