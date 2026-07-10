@@ -44,6 +44,7 @@ import Zkpc.Games.FrameTransfer
 import Zkpc.Games.FrameRealBad
 import Zkpc.Games.FrameRealBadTransfer
 import Zkpc.Games.FrameRealBadStep
+import Zkpc.Games.FrameRealBadSignal
 import Zkpc.Games.FrameGoodSlice
 import Zkpc.Games.FrameGhost
 import Zkpc.Games.FrameGhostBounds

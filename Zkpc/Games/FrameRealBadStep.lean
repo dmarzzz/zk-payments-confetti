@@ -140,6 +140,43 @@ theorem relTriple_bothBad {k : F} {γ : Type}
         (FrameLeakBad k p₁.2.audit ∧ FrameLeakBad k p₂.2.audit)) :=
   relTriple_post_mono (relTriple_prod h₁ h₂) fun _ _ h => Or.inr h
 
+/-! ## Reduction equations for the lazy primitives -/
+
+omit [Field F] in
+/-- Cache-hit reduction of `lazyRO`. -/
+theorem lazyRO_of_some {α : Type} [DecidableEq α] {cache : α → Option F}
+    {q : α} {v : F} (h : cache q = some v) :
+    lazyRO cache q = pure (v, cache) := by
+  unfold lazyRO
+  rw [h]
+
+omit [Field F] in
+/-- Cache-miss reduction of `lazyRO`. -/
+theorem lazyRO_of_none {α : Type} [DecidableEq α] {cache : α → Option F}
+    {q : α} (h : cache q = none) :
+    lazyRO cache q = ($ᵗ F) >>= fun v =>
+      pure (v, Function.update cache q (some v)) := by
+  unfold lazyRO
+  rw [h]
+
+omit [Field F] [DecidableEq F] in
+/-- Pinned reduction of `dsTouch`. -/
+theorem dsTouch_of_some {gs : ℕ → Option F} {audit : FrameAudit F} {i : ℕ}
+    {a : F} (h : gs i = some a) :
+    dsTouch gs audit i = pure (a, gs, audit) := by
+  unfold dsTouch
+  rw [h]
+
+omit [Field F] [DecidableEq F] in
+/-- Fresh reduction of `dsTouch`. -/
+theorem dsTouch_of_none {gs : ℕ → Option F} {audit : FrameAudit F} {i : ℕ}
+    (h : gs i = none) :
+    dsTouch gs audit i = ($ᵗ F) >>= fun v =>
+      pure (v, Function.update gs i (some v),
+        { audit with honestSlopes := v :: audit.honestSlopes }) := by
+  unfold dsTouch
+  rw [h]
+
 /-! ## Per-operation step couplings: public random oracles -/
 
 /-- The step postcondition, abbreviated. -/
@@ -457,6 +494,23 @@ theorem realDSStep_roNf (k : F) (mclose : M) (aq : F)
           · exact Or.inl (List.mem_cons_of_mem aq h)
           · exact Or.inr h
 
+/-- A spend request after closure is an exact no-op in both handlers, hence
+preserves the entire good-state relation without invoking slope sampling. -/
+theorem realDSStep_spend_closed (k : F) (mclose m : M)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M)
+    (hg : RealDSGood k r d) (hcl : r.base.closed = true) :
+    RelTriple (((auditedFrameImpl k mclose) (.spend m)).run r)
+      (((dsFrameImpl k mclose) (.spend m)).run d)
+      (StepPost k ((frameSpec F M).Range (.spend m))) := by
+  have hdcl : d.ideal.closed = true := by
+    rw [RealDSCoupled.closed_eq hg.1]
+    exact hcl
+  simpa [auditedFrameImpl, dsFrameImpl, frameImpl, StateT.run_mk, hcl, hdcl,
+    auditAfter] using
+      (relTriple_pure_pure (spec₁ := unifSpec) (spec₂ := unifSpec)
+        (R := StepPost k ((frameSpec F M).Range (.spend m)))
+        (Or.inl ⟨rfl, hg⟩))
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
@@ -465,3 +519,4 @@ end Zkpc.Games
 #print axioms Zkpc.Games.realDSStep_roA
 #print axioms Zkpc.Games.realDSStep_roId
 #print axioms Zkpc.Games.realDSStep_roNf
+#print axioms Zkpc.Games.realDSStep_spend_closed
