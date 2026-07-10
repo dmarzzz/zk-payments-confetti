@@ -83,7 +83,7 @@ the close is stale (`i < len`). Packages the two directions above; this
 equivalence is what justifies transcribing the design doc's evidence-based
 challenge rule as the index guard `i < len` in `Zkpc.Chain.Step`. -/
 theorem collision_iff_stale (nul : ℕ → N) (hinj : Function.Injective nul)
-    {i len : ℕ} (hi : i ≤ len) :
+    {i len : ℕ} (_hi : i ≤ len) :
     Revealed nul len (opensAtClose nul i) ↔ i < len := by
   constructor
   · rintro ⟨j, h1, h2, hj⟩
@@ -102,7 +102,7 @@ challenge window is running on a stale index (`closing = some i`, `i < len`),
 honest Bob's collision evidence exists (`stale_close_detectable`) and the
 `challenge` transition is enabled: the whole deposit is awardable to Bob. -/
 theorem challenge_enabled_of_stale {D : ℕ} {s : St} (nul : ℕ → N)
-    (hreach : Reach D s) (hlive : s.settled = false) {i : ℕ}
+    (_hreach : Reach D s) (hlive : s.settled = false) {i : ℕ}
     (hcl : s.closing = some i) (hstale : i < s.len) :
     Revealed nul s.len (opensAtClose nul i) ∧
       ∃ s', Step D s .challenge s' :=
@@ -115,7 +115,7 @@ one (under chain collision-freedom), so no challenge evidence exists — and
 correspondingly no `challenge` transition is enabled: an honest closer is
 never slashed, and only the cooperative `settleSplit` can settle her close. -/
 theorem honest_close_never_slashed {D : ℕ} {s : St} (nul : ℕ → N)
-    (hinj : Function.Injective nul) (hreach : Reach D s) {i : ℕ}
+    (hinj : Function.Injective nul) (_hreach : Reach D s) {i : ℕ}
     (hcl : s.closing = some i) (hlatest : i = s.len) :
     ¬ Revealed nul s.len (opensAtClose nul i) ∧
       ¬ ∃ s', Step D s .challenge s' := by

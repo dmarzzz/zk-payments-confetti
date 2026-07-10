@@ -88,7 +88,7 @@ instance (k : F) (a : GhostAudit F) : Decidable (GhostLeakBad k a) := by
   unfold GhostLeakBad
   infer_instance
 
-omit [Field F] [SampleableType F] in
+omit [Field F] [DecidableEq F] [SampleableType F] in
 /-- The ghost leakage event is monotone under suffix extension of all five
 audit lists: once raised, no further recording can clear it. -/
 theorem GhostLeakBad.mono {k : F} {a b : GhostAudit F}
@@ -151,7 +151,7 @@ def ghostTouch (gs : ℕ → Option F) (audit : GhostAudit F) (i : ℕ) :
       pure (Function.update gs i (some v),
         { audit with honestSlopes := v :: audit.honestSlopes })
 
-omit [Field F] in
+omit [Field F] [DecidableEq F] in
 /-- Support characterization of `ghostTouch`: either the touch was a cache
 hit and nothing changed, or the index was fresh and exactly one new ghost
 slope was cached and recorded. -/
@@ -171,7 +171,7 @@ theorem ghostTouch_support (gs : ℕ → Option F) (audit : GhostAudit F)
     rw [support_pure, Set.mem_singleton_iff] at hz
     exact Or.inr ⟨v, h, hz⟩
 
-omit [Field F] in
+omit [Field F] [DecidableEq F] in
 /-- The ghost slope sample is answer-irrelevant discarded randomness: any
 continuation that ignores the `ghostTouch` result keeps its distribution. -/
 theorem evalDist_ghostTouch_bind_const {β : Type} (gs : ℕ → Option F)
@@ -409,7 +409,6 @@ theorem ghostFrameEvidence_evalDist_eq (mclose : M)
 
 /-! ## Per-operation audit transitions -/
 
-omit [Field F] in
 /-- A `spend` step either leaves the audit unchanged (closed member or ghost
 cache hit) or records exactly one fresh ghost honest slope. -/
 theorem ghostFrameImpl_audit_spend (mclose : M) (m : M)
@@ -434,7 +433,6 @@ theorem ghostFrameImpl_audit_spend (mclose : M) (m : M)
     · exact Or.inl (by rw [h])
     · exact Or.inr ⟨v, by rw [h]⟩
 
-omit [Field F] in
 /-- A legacy `close` step either leaves the audit unchanged or records
 exactly one fresh ghost honest slope. -/
 theorem ghostFrameImpl_audit_close (mclose : M)
@@ -459,7 +457,6 @@ theorem ghostFrameImpl_audit_close (mclose : M)
     · exact Or.inl (by rw [h])
     · exact Or.inr ⟨v, by rw [h]⟩
 
-omit [Field F] in
 /-- An `nfAt` step either leaves the audit unchanged (ghost cache hit) or
 records exactly one fresh ghost honest slope (first touch of index `i`). -/
 theorem ghostFrameImpl_audit_nfAt (mclose : M) (i : ℕ)
@@ -478,7 +475,6 @@ theorem ghostFrameImpl_audit_nfAt (mclose : M) (i : ℕ)
   · exact Or.inl (by rw [h])
   · exact Or.inr ⟨v, by rw [h]⟩
 
-omit [Field F] in
 /-- A direct `roA` query records exactly its candidate secret. -/
 theorem ghostFrameImpl_audit_roA (mclose : M) (kq : F) (i : ℕ)
     (g : GhostFrameSt F M) (z : F × GhostFrameSt F M)
@@ -491,7 +487,6 @@ theorem ghostFrameImpl_audit_roA (mclose : M) (kq : F) (i : ℕ)
   subst hz
   rfl
 
-omit [Field F] in
 /-- A direct `roX` query records nothing. -/
 theorem ghostFrameImpl_audit_roX (mclose : M) (m : M)
     (g : GhostFrameSt F M) (z : F × GhostFrameSt F M)
@@ -504,7 +499,6 @@ theorem ghostFrameImpl_audit_roX (mclose : M) (m : M)
   subst hz
   rfl
 
-omit [Field F] in
 /-- A direct `roNf` query records exactly its candidate slope. -/
 theorem ghostFrameImpl_audit_roNf (mclose : M) (aq : F)
     (g : GhostFrameSt F M) (z : F × GhostFrameSt F M)
@@ -517,7 +511,6 @@ theorem ghostFrameImpl_audit_roNf (mclose : M) (aq : F)
   subst hz
   rfl
 
-omit [Field F] in
 /-- A direct `roE` query records exactly its candidate secret. -/
 theorem ghostFrameImpl_audit_roE (mclose : M) (kq : F) (e : ℕ)
     (g : GhostFrameSt F M) (z : F × GhostFrameSt F M)
@@ -530,7 +523,6 @@ theorem ghostFrameImpl_audit_roE (mclose : M) (kq : F) (e : ℕ)
   subst hz
   rfl
 
-omit [Field F] in
 /-- A direct `roId` query records exactly its candidate secret. -/
 theorem ghostFrameImpl_audit_roId (mclose : M) (kq : F)
     (g : GhostFrameSt F M) (z : F × GhostFrameSt F M)
@@ -545,7 +537,6 @@ theorem ghostFrameImpl_audit_roId (mclose : M) (kq : F)
 
 /-! ## Audit monotonicity -/
 
-omit [Field F] in
 /-- **Audit lists only grow.** Every supported ghost step extends each of
 the five audit lists by a suffix relation (in fact by at most one cons). -/
 theorem ghostFrameImpl_audit_suffix_step (mclose : M) (op : FrameOp F M)
@@ -560,29 +551,28 @@ theorem ghostFrameImpl_audit_suffix_step (mclose : M) (op : FrameOp F M)
   cases op with
   | spend m =>
       rcases ghostFrameImpl_audit_spend mclose m g z hz with h | ⟨v, h⟩ <;>
-        simp [h, List.suffix_cons, List.suffix_refl]
+        simp [h, List.suffix_cons]
   | close =>
       rcases ghostFrameImpl_audit_close mclose g z hz with h | ⟨v, h⟩ <;>
-        simp [h, List.suffix_cons, List.suffix_refl]
+        simp [h, List.suffix_cons]
   | nfAt i =>
       rcases ghostFrameImpl_audit_nfAt mclose i g z hz with h | ⟨v, h⟩ <;>
-        simp [h, List.suffix_cons, List.suffix_refl]
+        simp [h, List.suffix_cons]
   | roA kq i =>
       simp [ghostFrameImpl_audit_roA mclose kq i g z hz,
-        List.suffix_cons, List.suffix_refl]
+        List.suffix_cons]
   | roX m =>
-      simp [ghostFrameImpl_audit_roX mclose m g z hz, List.suffix_refl]
+      simp [ghostFrameImpl_audit_roX mclose m g z hz]
   | roNf aq =>
       simp [ghostFrameImpl_audit_roNf mclose aq g z hz,
-        List.suffix_cons, List.suffix_refl]
+        List.suffix_cons]
   | roE kq e =>
       simp [ghostFrameImpl_audit_roE mclose kq e g z hz,
-        List.suffix_cons, List.suffix_refl]
+        List.suffix_cons]
   | roId kq =>
       simp [ghostFrameImpl_audit_roId mclose kq g z hz,
-        List.suffix_cons, List.suffix_refl]
+        List.suffix_cons]
 
-omit [Field F] in
 /-- The ghost leakage event, once raised, is preserved by every supported
 ghost step. -/
 theorem ghostFrameImpl_bad_monotone (mclose : M) (k : F) (op : FrameOp F M)
@@ -594,7 +584,6 @@ theorem ghostFrameImpl_bad_monotone (mclose : M) (k : F) (op : FrameOp F M)
   exact GhostLeakBad.mono hsuf.1 hsuf.2.1 hsuf.2.2.1 hsuf.2.2.2.1
     hsuf.2.2.2.2 hbad
 
-omit [Field F] in
 /-- Run-level bad-event monotonicity: an already-raised ghost leakage event
 survives any full simulated ghost run. -/
 theorem ghostFrameImpl_run_bad_monotone (mclose : M) (k : F) {α : Type}
@@ -617,14 +606,14 @@ slopes. -/
 def GhostSlopesComplete (g : GhostFrameSt F M) : Prop :=
   ∀ i v, g.ghostSlope i = some v → v ∈ g.audit.honestSlopes
 
-omit [Field F] [DecidableEq F] [SampleableType F] in
+omit [Field F] [DecidableEq F] [SampleableType F] [DecidableEq M] in
 /-- The initial ghost state has no materialized ghost slopes. -/
 theorem ghostSlopesComplete_init :
     GhostSlopesComplete (GhostFrameSt.init F M) := by
   intro i v h
   simp [GhostFrameSt.init] at h
 
-omit [Field F] in
+omit [Field F] [DecidableEq F] in
 /-- `ghostTouch` preserves ghost-slope completeness: a fresh sample is
 recorded, and cache hits were covered by the incoming invariant. -/
 theorem ghostTouch_complete (gs : ℕ → Option F) (audit : GhostAudit F)
@@ -637,16 +626,17 @@ theorem ghostTouch_complete (gs : ℕ → Option F) (audit : GhostAudit F)
     exact hg
   · subst h
     intro j w hjw
+    change Function.update gs i (some v) j = some w at hjw
+    change w ∈ v :: audit.honestSlopes
     by_cases hj : j = i
     · subst hj
       rw [Function.update_self] at hjw
       have hvw := Option.some.inj hjw
       subst hvw
-      exact List.mem_cons_self
+      simp
     · rw [Function.update_of_ne hj] at hjw
       exact List.mem_cons_of_mem _ (hg j w hjw)
 
-omit [Field F] in
 /-- Every supported ghost step preserves ghost-slope completeness. -/
 theorem ghostFrameImpl_ghostSlopesComplete (mclose : M) (op : FrameOp F M)
     (g : GhostFrameSt F M) (hg : GhostSlopesComplete g)
@@ -724,7 +714,6 @@ theorem ghostFrameImpl_ghostSlopesComplete (mclose : M) (op : FrameOp F M)
       subst hz
       exact hg
 
-omit [Field F] in
 /-- Run-level ghost-slope completeness: it holds at every supported outcome
 of a full simulated ghost run from a complete state (in particular from the
 initial state). -/
@@ -741,7 +730,6 @@ theorem ghostFrameImpl_run_ghostSlopesComplete (mclose : M) {α : Type}
 
 /-! ## Support-wise audit length bounds -/
 
-omit [Field F] in
 /-- Per-step audit length accounting: each supported ghost step grows each
 audit list by at most one, and only when the operation is classified by the
 matching T7 budget channel (`isDirectRoAQuery`/`isDirectRoEQuery`/
@@ -828,7 +816,6 @@ theorem support_measure_le_of_isQueryBoundP
           ih p.1 (by simpa [hc] using hb.2 p.1) p.2 hz
         omega
 
-omit [Field F] in
 /-- **Support-wise audit length bounds for the ghost run.** For a
 query-bounded FRAME adversary, every supported outcome of the ghost run
 from the initial state has per-channel audit lists bounded by the matching
@@ -876,7 +863,6 @@ theorem ghostFrameImpl_run_audit_bounds (mclose : M)
       (A cm) (qb.signal_bound cm) (GhostFrameSt.init F M) z hz
     simpa [GhostFrameSt.init, GhostAudit.init] using h
 
-omit [Field F] in
 /-- The same audit length bounds over the support of the complete paired
 ghost run (public commitment sampled inside). -/
 theorem ghostFrameRun_audit_bounds (mclose : M)
@@ -893,7 +879,6 @@ theorem ghostFrameRun_audit_bounds (mclose : M)
   obtain ⟨cm, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
   exact ghostFrameImpl_run_audit_bounds mclose A qb cm z hz
 
-omit [Field F] in
 /-- Aggregate direct-secret probe bound over the paired ghost run: the
 combined candidate-secret list is bounded by `qA + qE + qId`, the T7
 direct-probe numerator contribution. -/
