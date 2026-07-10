@@ -139,10 +139,12 @@ open.
    handler, transcript monotonicity/completeness, and support-wise structural
    query bounds. `Games.FrameGhostBounds` proves the deferred-uniform
    direct-secret contribution `(qA+qE+qId)/|F|` and assembles the full
-   `qb.total/|F|` leakage bound from the precise remaining
-   `GhostSlopeBadBounds` interface. Thus only the adaptive slope-hit and
-   honest-slope collision fields, followed by real/ghost off-bad coupling,
-   remain in this lane. `Games.FrameGhostCoupling` now supplies the missing
+   `qb.total/|F|` leakage bound from `GhostSlopeBadBounds`.
+   `Games.FrameBadMass` now discharges that interface unconditionally by a
+   continuation-level erased-handler induction: fresh slope draws commute
+   through adaptive continuations, yielding the exact `qNf*qSig/|F|`
+   slope-hit and `qSig²/|F|` collision bounds. Thus only the real/ghost
+   off-bad coupling remains in this lane. `Games.FrameGhostCoupling` supplies the
    run invariant: programmed initialization, canonical real/ideal state
    relation, hidden-slope/cache alignment, exact real/ghost bad-event
    equivalence, and transfer of ghost slope completeness to the audited real
@@ -177,29 +179,18 @@ open.
    `initial_nfAt_spend_deferredSecret_ghost_eq` covers a slope first pinned by
    `nfAt` and consumed by a later spend. The shared
    `evalDist_uniform_add_pad` lemma formalizes the one-time-pad use of the
-   uniformly deferred secret. `Games.FrameBadMass` now lands the complementary
-   source-valid bad-mass substrate: fixed-list uniform-tape membership and
-   collision bounds, a commutation rule for inserting a fresh tape draw around
-   an independent core computation, a value-erased ghost handler, exact
-   per-step and adaptive-run erasure, and equality of all audit events between
-   the ghost and erased runs. The theorem intentionally still missing is the
-   continuation-level adaptive tape extraction: turn an arbitrary erased run
-   with at most `qSig` fresh slope materializations into an independent uniform
-   tape while preserving its adaptively generated `slopeProbes`, then apply the
-   landed `qNf*qSig/|F|` membership and `qSig²/|F|` collision kernels. That
-   theorem supplies `GhostSlopeBadBounds`, after which the already-factored
-   `FrameBadMassTransfer` and `FrameGoodSliceTransfer` remain to close the
-   unconditional averaged T7 endpoint. The quantitative half of that target
-   is now factored and proved: `GhostSlopeTapeExtraction` records the exact
-   continuation-level distribution equality and its two structural support
-   bounds, while `ghostSlopeBadBounds_of_tape` derives both adaptive
-   `qNf*qSig/|F|` and `qSig²/|F|` fields without further hypotheses. The
-   canonical witness is no longer existential: `slopeCoreFrameImpl` removes
-   slope draws from the handler, counts cache misses, and `slopeCoreRun`
-   exposes the concrete core generator. What remains in this sublane is to
-   prove that materializing its counted tape equals the erased ghost run and
-   thread the already available query bounds into its counter/probe support
-   fields.
+   uniformly deferred secret. `Games.FrameBadMass` contains both the generic
+   extraction interface/canonical slope-free core and the stronger direct
+   averaged induction; `ghostSlopeBadBounds_holds`,
+   `ghostFrameRun_leakBad_le`, and its Boolean counterpart have no residual
+   hypotheses. `Games.FrameAssembly` converts this into the corrected
+   deferred-sampling certificate and final T7 bound using only
+   `FrameGoodSliceTransfer` and `FrameBadMassTransfer`. Because the latter is
+   not pointwise transcript-dominated, `Games.FrameTransfer` also records the
+   safer route-B assembly: `FrameGoodSliceTransfer` plus a direct real-side
+   union bound `FrameRealBadMassLe`. The recommended remaining T7 work is to
+   prove route B's two first-order obligations; route A remains available if
+   the second-order real-bad/ghost-bad comparison is established.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
