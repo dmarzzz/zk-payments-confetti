@@ -802,11 +802,24 @@ theorem RefundStep.preserves_valueAlignment
       have hnotmem : cert.ticket.event ∉ s.networkSt.accepted := by
         intro hmem
         cases cert.networkStep with
-        | accept _ _ hfresh => exact (hfresh cert.ticket.event hmem) rfl
-      simpa [RefundValueAligned, RefundAdmissionCert.next,
-        refundAcceptNext, refundNetworkAcceptNext, Network.valueSum,
-        Finset.sum_insert hnotmem, cert.value_eq] using
-        congrArg (· + cert.cost) haligned
+        | accept _ hfresh => exact (hfresh cert.ticket.event hmem) rfl
+      have hvalue : cert.ticket.event.value = cert.cost := by
+        simpa [Network.Credential.Ticket.event] using cert.value_eq
+      change s.refundSt.sumc + cert.cost =
+        Network.valueSum (insert cert.ticket.event s.networkSt.accepted)
+      calc
+        s.refundSt.sumc + cert.cost =
+            Network.valueSum s.networkSt.accepted + cert.cost :=
+          congrArg (· + cert.cost) haligned
+        _ = cert.ticket.event.value +
+            Network.valueSum s.networkSt.accepted := by
+          rw [hvalue, Nat.add_comm]
+        _ = Network.valueSum
+            (insert cert.ticket.event s.networkSt.accepted) := by
+          change cert.ticket.event.value +
+              ∑ e ∈ s.networkSt.accepted, e.value =
+            ∑ e ∈ insert cert.ticket.event s.networkSt.accepted, e.value
+          exact (Finset.sum_insert hnotmem).symm
   | close _ => simpa [RefundValueAligned, refundCloseNext] using haligned
   | forceClose _ =>
       simpa [RefundValueAligned, refundForceCloseNext] using haligned
