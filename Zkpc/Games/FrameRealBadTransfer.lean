@@ -315,6 +315,10 @@ end Counting
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
+#print axioms Zkpc.Games.realDS_roA_secret_step_bad
+#print axioms Zkpc.Games.realDS_roE_secret_step_bad
+#print axioms Zkpc.Games.realDS_roId_secret_step_bad
+#print axioms Zkpc.Games.realDS_roNf_slopeHit_step_bad
 #print axioms Zkpc.Games.auditedFrameImpl_bad_le_ds
 #print axioms Zkpc.Games.auditedFrameJoint_bad_le_dsFrameJoint
 #print axioms Zkpc.Games.frameRealBadMassLe_of_stepCoupling_and_count
