@@ -1495,6 +1495,58 @@ theorem realDSStep_close_closed (k : F) (mclose : M)
         (R := StepPost k ((frameSpec F M).Range .close))
         (Or.inl ⟨rfl, hg⟩))
 
+/-- **Stage 1 discharged: the complete per-operation coupling.** Every
+FRAME operation satisfies the real/deferred-slope identical-until-bad step
+obligation (Spec.md §7 T7, route B stage 1). -/
+theorem realDSStepCoupling_holds (k : F) (mclose : M) :
+    RealDSStepCoupling (F := F) (M := M) k mclose := by
+  intro op r d hg
+  cases op with
+  | spend m =>
+      cases hcl : r.base.closed with
+      | true => exact realDSStep_spend_closed k mclose m r d hg hcl
+      | false => exact realDSStep_spend_open k mclose m r d hg hcl
+  | close =>
+      cases hcl : r.base.closed with
+      | true => exact realDSStep_close_closed k mclose r d hg hcl
+      | false => exact realDSStep_close_open k mclose r d hg hcl
+  | nfAt i => exact realDSStep_nfAt k mclose i r d hg
+  | roA kq i => exact realDSStep_roA k mclose kq i r d hg
+  | roX m => exact realDSStep_roX k mclose m r d hg
+  | roNf aq => exact realDSStep_roNf k mclose aq r d hg
+  | roE kq e => exact realDSStep_roE k mclose kq e r d hg
+  | roId kq => exact realDSStep_roId k mclose kq r d hg
+
+section Endpoint
+
+variable [Fintype F]
+
+/-- **Route-B endpoint, stage 1 unconditional** (Spec.md §7 T7). With the
+per-operation coupling fully discharged, the direct real-side bad-mass
+bound follows from the deferred-slope counting residual alone. -/
+theorem frameRealBadMassLe_of_dsCount (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (hcount : DSBadMassLe mclose A qb) :
+    FrameRealBadMassLe mclose A qb :=
+  frameRealBadMassLe_of_stepCoupling_and_count mclose A qb
+    (fun k => realDSStepCoupling_holds k mclose) hcount
+
+/-- **T7 endpoint shape after stage 1** (Spec.md §7 T7): the unconditional
+corrected FRAME bound now needs only the good-slice transfer and the
+deferred-slope k-root counting. -/
+theorem T7_frame_query_bound_of_goodSlice_and_dsCount (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (hgood : FrameGoodSliceTransfer mclose A)
+    (hcount : DSBadMassLe mclose A qb) :
+    frameWinProb mclose A
+      ≤ ((qb.total + 1 : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ :=
+  T7_frame_query_bound_of_goodSlice_and_realBad mclose A qb hgood
+    (frameRealBadMassLe_of_dsCount mclose A qb hcount)
+
+end Endpoint
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
@@ -1508,3 +1560,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.realDSStep_spend_open
 #print axioms Zkpc.Games.realDSStep_close_open
 #print axioms Zkpc.Games.realDSStep_close_closed
+#print axioms Zkpc.Games.realDSStepCoupling_holds
+#print axioms Zkpc.Games.frameRealBadMassLe_of_dsCount
+#print axioms Zkpc.Games.T7_frame_query_bound_of_goodSlice_and_dsCount
