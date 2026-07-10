@@ -1130,6 +1130,371 @@ theorem realDSStep_spend_open (k : F) (mclose m : M)
         exact hcont (nonzeroDigest raw)
           (Function.update r.base.roX m (some (nonzeroDigest raw)))
 
+/-- **Step coupling, `close` (open).** The honest emission couples the
+shared digest read, pins or reuses the hidden slope identically on both
+sides, emits the same line value `y = k + a·x`, and sources the same
+(fresh or replayed) nullifier; every divergence — a fresh slope colliding
+with a recorded probe or slope — raises the leakage event on both sides in
+this step. -/
+theorem realDSStep_close_open (k : F) (mclose : M)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M)
+    (hg : RealDSGood k r d) (hop : r.base.closed = false) :
+    RelTriple (((auditedFrameImpl k mclose) .close).run r)
+      (((dsFrameImpl k mclose) .close).run d)
+      (StepPost k ((frameSpec F M).Range .close)) := by
+  obtain ⟨hc, hcov, hnfcov, hinj, hbad⟩ := hg
+  have hcomplete : FrameAuditComplete k r := hc.frameAuditComplete hcov
+  have hdop : d.ideal.closed = false := by rw [hc.closed_eq]; exact hop
+  have hidx : d.ideal.idx = r.base.idx := hc.idx_eq
+  cases hpin : r.base.roA (k, r.base.idx) with
+  | some a =>
+      have hpin' : d.slope d.ideal.idx = some a := by
+        rw [hidx, ← hc.hiddenSlope r.base.idx]; exact hpin
+      have hnfd : d.ideal.honestNf d.ideal.idx = r.base.roNf a := by
+        rw [hidx, hc.honestNf_eq r.base.idx, hpin]; rfl
+      have hL : ((auditedFrameImpl k mclose) .close).run r
+          = lazyROX r.base.roX mclose >>= fun px =>
+              lazyRO r.base.roNf a >>= fun pn =>
+                pure ((some ⟨px.1, rlnY k a px.1, pn.1⟩ :
+                    Option (Signal F)),
+                  (⟨{ r.base with
+                        idx := r.base.idx + 1
+                        closed := true
+                        roX := px.2
+                        roNf := pn.2 }, r.audit⟩ : AuditedFrameSt F M)) := by
+        simp [auditedFrameImpl, frameImpl, emitSignal, StateT.run_mk,
+          auditAfter, lazyRO_of_some hpin, hpin, hop]
+      have hR : ((dsFrameImpl k mclose) .close).run d
+          = lazyROX r.base.roX mclose >>= fun px =>
+              lazyRO d.ideal.honestNf d.ideal.idx >>= fun pn =>
+                pure ((some ⟨px.1, rlnY k a px.1, pn.1⟩ :
+                    Option (Signal F)),
+                  (⟨{ d.ideal with
+                        idx := d.ideal.idx + 1
+                        closed := true
+                        roX := px.2
+                        honestNf := pn.2 }, d.slope, d.audit⟩ :
+                    DSFrameSt F M)) := by
+        rw [← hc.roX_eq]
+        simp [dsFrameImpl, StateT.run_mk, dsTouch_of_some hpin', hdop]
+      rw [hL, hR]
+      have hcont : ∀ (x : F) (cX : M → Option F),
+          RelTriple
+            (lazyRO r.base.roNf a >>= fun pn =>
+              pure ((some ⟨x, rlnY k a x, pn.1⟩ : Option (Signal F)),
+                (⟨{ r.base with
+                      idx := r.base.idx + 1
+                      closed := true
+                      roX := cX
+                      roNf := pn.2 }, r.audit⟩ : AuditedFrameSt F M)))
+            (lazyRO d.ideal.honestNf d.ideal.idx >>= fun pn =>
+              pure ((some ⟨x, rlnY k a x, pn.1⟩ : Option (Signal F)),
+                (⟨{ d.ideal with
+                      idx := d.ideal.idx + 1
+                      closed := true
+                      roX := cX
+                      honestNf := pn.2 }, d.slope, d.audit⟩ :
+                  DSFrameSt F M)))
+            (StepPost k ((frameSpec F M).Range .close)) := by
+        intro x cX
+        cases hnf : r.base.roNf a with
+        | some nf =>
+            rw [lazyRO_of_some hnf, lazyRO_of_some (hnfd.trans hnf)]
+            simp only [pure_bind]
+            refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, hc.hiddenSlope,
+              by rw [hc.audit]⟩, hcov, hnfcov, hinj, hbad⟩⟩)
+            rw [← hc.ideal]
+            apply IdealFrameSt.ext <;> rfl
+        | none =>
+            rw [lazyRO_of_none hnf, lazyRO_of_none (hnfd.trans hnf)]
+            simp only [bind_assoc, pure_bind]
+            refine relTriple_bind relTriple_uniformSample_refl
+              fun nf nf' hnf' => ?_
+            cases hnf'
+            have hahs : a ∈ r.audit.honestSlopes := hcomplete _ a hpin
+            refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, hc.hiddenSlope,
+              by rw [hc.audit]⟩, hcov, ?_, hinj, hbad⟩⟩)
+            · rw [← hc.ideal]
+              apply IdealFrameSt.ext <;> try rfl
+              · funext q
+                show (if q ∈ r.audit.honestSlopes then none
+                    else Function.update r.base.roNf a (some nf) q)
+                  = (if q ∈ r.audit.honestSlopes then none
+                      else r.base.roNf q)
+                by_cases hqa : q = a
+                · subst hqa
+                  simp [hahs]
+                · rw [Function.update_of_ne hqa]
+              · funext j
+                show (r.base.roA (k, j)).bind
+                    (Function.update r.base.roNf a (some nf))
+                  = Function.update
+                      (fun j' => (r.base.roA (k, j')).bind r.base.roNf)
+                      r.base.idx (some nf) j
+                by_cases hji : j = r.base.idx
+                · subst hji
+                  simp [hpin, Function.update_self]
+                · rw [Function.update_of_ne hji]
+                  cases hja : r.base.roA (k, j) with
+                  | none => rfl
+                  | some aj =>
+                      have hne : aj ≠ a := fun h =>
+                        hji (hinj j r.base.idx a (h ▸ hja) hpin)
+                      simp [Option.bind_some, Function.update_of_ne hne]
+            · intro q w hq
+              have hq' : Function.update r.base.roNf a (some nf) q
+                  = some w := hq
+              by_cases hqa : q = a
+              · subst hqa
+                exact Or.inr hahs
+              · rw [Function.update_of_ne hqa] at hq'
+                exact hnfcov q w hq'
+      refine relTriple_lazyROX_bind _ _ mclose rfl _ _ _ ?_ ?_
+      · intro x hx
+        exact hcont x r.base.roX
+      · intro hxnone raw
+        exact hcont (nonzeroDigest raw)
+          (Function.update r.base.roX mclose (some (nonzeroDigest raw)))
+  | none =>
+      have hpin' : d.slope d.ideal.idx = none := by
+        rw [hidx, ← hc.hiddenSlope r.base.idx]; exact hpin
+      have hnfd : d.ideal.honestNf d.ideal.idx = none := by
+        rw [hidx, hc.honestNf_eq r.base.idx, hpin]; rfl
+      have hL : ((auditedFrameImpl k mclose) .close).run r
+          = lazyROX r.base.roX mclose >>= fun px =>
+              ($ᵗ F) >>= fun a =>
+                lazyRO r.base.roNf a >>= fun pn =>
+                  pure ((some ⟨px.1, rlnY k a px.1, pn.1⟩ :
+                      Option (Signal F)),
+                    (⟨{ r.base with
+                          idx := r.base.idx + 1
+                          closed := true
+                          roA := Function.update r.base.roA
+                            (k, r.base.idx) (some a)
+                          roX := px.2
+                          roNf := pn.2 },
+                      { r.audit with
+                        honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                      AuditedFrameSt F M)) := by
+        simp [auditedFrameImpl, frameImpl, emitSignal, StateT.run_mk,
+          auditAfter, lazyRO_of_none hpin, hpin, hop,
+          Function.update_self]
+      have hR : ((dsFrameImpl k mclose) .close).run d
+          = lazyROX r.base.roX mclose >>= fun px =>
+              ($ᵗ F) >>= fun v =>
+                ($ᵗ F) >>= fun nf =>
+                  pure ((some ⟨px.1, rlnY k v px.1, nf⟩ :
+                      Option (Signal F)),
+                    (⟨{ d.ideal with
+                          idx := d.ideal.idx + 1
+                          closed := true
+                          roX := px.2
+                          honestNf := Function.update d.ideal.honestNf
+                            d.ideal.idx (some nf) },
+                      Function.update d.slope d.ideal.idx (some v),
+                      { d.audit with
+                        honestSlopes := v :: d.audit.honestSlopes }⟩ :
+                      DSFrameSt F M)) := by
+        rw [← hc.roX_eq]
+        simp [dsFrameImpl, StateT.run_mk, dsTouch_of_none hpin',
+          lazyRO_of_none hnfd, hdop]
+      rw [hL, hR]
+      have hcont : ∀ (x : F) (cX : M → Option F),
+          RelTriple
+            (($ᵗ F) >>= fun a =>
+              lazyRO r.base.roNf a >>= fun pn =>
+                pure ((some ⟨x, rlnY k a x, pn.1⟩ : Option (Signal F)),
+                  (⟨{ r.base with
+                        idx := r.base.idx + 1
+                        closed := true
+                        roA := Function.update r.base.roA
+                          (k, r.base.idx) (some a)
+                        roX := cX
+                        roNf := pn.2 },
+                    { r.audit with
+                      honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                    AuditedFrameSt F M)))
+            (($ᵗ F) >>= fun v =>
+              ($ᵗ F) >>= fun nf =>
+                pure ((some ⟨x, rlnY k v x, nf⟩ : Option (Signal F)),
+                  (⟨{ d.ideal with
+                        idx := d.ideal.idx + 1
+                        closed := true
+                        roX := cX
+                        honestNf := Function.update d.ideal.honestNf
+                          d.ideal.idx (some nf) },
+                    Function.update d.slope d.ideal.idx (some v),
+                    { d.audit with
+                      honestSlopes := v :: d.audit.honestSlopes }⟩ :
+                    DSFrameSt F M)))
+            (StepPost k ((frameSpec F M).Range .close)) := by
+        intro x cX
+        refine relTriple_bind relTriple_uniformSample_refl
+          fun a v hav => ?_
+        cases hav
+        by_cases hmem : a ∈ r.audit.slopeProbes ∨ a ∈ r.audit.honestSlopes
+        · refine relTriple_bothBad ?_ ?_
+          · intro z hz
+            obtain ⟨p, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+            rw [support_pure, Set.mem_singleton_iff] at hz
+            subst hz
+            exact FrameLeakBad.honest_collision k a r.audit hmem
+          · intro z hz
+            obtain ⟨p, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+            rw [support_pure, Set.mem_singleton_iff] at hz
+            subst hz
+            exact FrameLeakBad.honest_collision k a d.audit
+              (hc.audit ▸ hmem)
+        · push_neg at hmem
+          obtain ⟨hmp, hmh⟩ := hmem
+          have hnfa : r.base.roNf a = none := by
+            cases hnfa : r.base.roNf a with
+            | none => rfl
+            | some w =>
+                rcases hnfcov a w hnfa with h | h
+                · exact absurd h hmp
+                · exact absurd h hmh
+          rw [lazyRO_of_none hnfa]
+          simp only [bind_assoc, pure_bind]
+          refine relTriple_bind relTriple_uniformSample_refl
+            fun nf nf' hnf' => ?_
+          cases hnf'
+          refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, ?_,
+            by rw [hc.audit]⟩, ?_, ?_, ?_,
+            not_frameLeakBad_honest_cons hbad hmp hmh⟩⟩)
+          · rw [← hc.ideal]
+            apply IdealFrameSt.ext <;> try rfl
+            · funext q
+              show (if q.1 = k then none
+                  else Function.update r.base.roA
+                    (k, r.base.idx) (some a) q)
+                = (if q.1 = k then none else r.base.roA q)
+              by_cases hq1 : q.1 = k
+              · simp [hq1]
+              · have hqne : q ≠ (k, r.base.idx) := fun h =>
+                  hq1 (by rw [h])
+                simp [hq1, Function.update_of_ne hqne]
+            · funext q
+              show (if q ∈ a :: r.audit.honestSlopes then none
+                  else Function.update r.base.roNf a (some nf) q)
+                = (if q ∈ r.audit.honestSlopes then none
+                    else r.base.roNf q)
+              by_cases hqa : q = a
+              · subst hqa
+                simp [List.mem_cons, hmh, hnfa]
+              · by_cases hqh : q ∈ r.audit.honestSlopes
+                · simp [List.mem_cons, hqh, hqa]
+                · simp [List.mem_cons, hqh, hqa,
+                    Function.update_of_ne hqa]
+            · funext j
+              show (Function.update r.base.roA (k, r.base.idx)
+                    (some a) (k, j)).bind
+                  (Function.update r.base.roNf a (some nf))
+                = Function.update
+                    (fun j' => (r.base.roA (k, j')).bind r.base.roNf)
+                    r.base.idx (some nf) j
+              by_cases hji : j = r.base.idx
+              · subst hji
+                simp [Function.update_self]
+              · have hne : (k, j) ≠ (k, r.base.idx) := fun h =>
+                  hji (congrArg Prod.snd h)
+                rw [Function.update_of_ne hne, Function.update_of_ne hji]
+                cases hja : r.base.roA (k, j) with
+                | none => rfl
+                | some aj =>
+                    have haj : aj ∈ r.audit.honestSlopes :=
+                      hcomplete j aj hja
+                    have hane : aj ≠ a := fun h => hmh (h ▸ haj)
+                    simp [Option.bind_some, Function.update_of_ne hane]
+          · intro j
+            show Function.update r.base.roA (k, r.base.idx)
+                (some a) (k, j)
+              = Function.update d.slope d.ideal.idx (some a) j
+            rw [hidx]
+            by_cases hji : j = r.base.idx
+            · subst hji
+              simp [Function.update_self]
+            · have hne : (k, j) ≠ (k, r.base.idx) := fun h =>
+                hji (congrArg Prod.snd h)
+              rw [Function.update_of_ne hne, Function.update_of_ne hji]
+              exact hc.hiddenSlope j
+          · intro j b hb
+            have hb' : Function.update d.slope d.ideal.idx (some a) j
+                = some b := hb
+            by_cases hji : j = d.ideal.idx
+            · subst hji
+              rw [Function.update_self] at hb'
+              cases hb'
+              exact List.mem_cons_self
+            · rw [Function.update_of_ne hji] at hb'
+              exact List.mem_cons_of_mem a (hcov j b hb')
+          · intro q w hq
+            have hq' : Function.update r.base.roNf a (some nf) q
+                = some w := hq
+            by_cases hqa : q = a
+            · subst hqa
+              exact Or.inr List.mem_cons_self
+            · rw [Function.update_of_ne hqa] at hq'
+              rcases hnfcov q w hq' with h | h
+              · exact Or.inl h
+              · exact Or.inr (List.mem_cons_of_mem a h)
+          · intro j₁ j₂ b h₁ h₂
+            have h₁' : Function.update r.base.roA (k, r.base.idx)
+                (some a) (k, j₁) = some b := h₁
+            have h₂' : Function.update r.base.roA (k, r.base.idx)
+                (some a) (k, j₂) = some b := h₂
+            by_cases hj₁ : j₁ = r.base.idx <;>
+              by_cases hj₂ : j₂ = r.base.idx
+            · rw [hj₁, hj₂]
+            · exfalso
+              have hba : b = a := by
+                rw [hj₁, Function.update_self] at h₁'
+                exact (Option.some.inj h₁').symm
+              subst hba
+              have hne : (k, j₂) ≠ (k, r.base.idx) := fun h =>
+                hj₂ (congrArg Prod.snd h)
+              rw [Function.update_of_ne hne] at h₂'
+              exact hmh (hcomplete j₂ b h₂')
+            · exfalso
+              have hba : b = a := by
+                rw [hj₂, Function.update_self] at h₂'
+                exact (Option.some.inj h₂').symm
+              subst hba
+              have hne : (k, j₁) ≠ (k, r.base.idx) := fun h =>
+                hj₁ (congrArg Prod.snd h)
+              rw [Function.update_of_ne hne] at h₁'
+              exact hmh (hcomplete j₁ b h₁')
+            · have hne₁ : (k, j₁) ≠ (k, r.base.idx) := fun h =>
+                hj₁ (congrArg Prod.snd h)
+              have hne₂ : (k, j₂) ≠ (k, r.base.idx) := fun h =>
+                hj₂ (congrArg Prod.snd h)
+              rw [Function.update_of_ne hne₁] at h₁'
+              rw [Function.update_of_ne hne₂] at h₂'
+              exact hinj j₁ j₂ b h₁' h₂'
+      refine relTriple_lazyROX_bind _ _ mclose rfl _ _ _ ?_ ?_
+      · intro x hx
+        exact hcont x r.base.roX
+      · intro hxnone raw
+        exact hcont (nonzeroDigest raw)
+          (Function.update r.base.roX mclose (some (nonzeroDigest raw)))
+
+/-- **Step coupling, `close` (already closed).** Both handlers answer
+`none` and change nothing. -/
+theorem realDSStep_close_closed (k : F) (mclose : M)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M)
+    (hg : RealDSGood k r d) (hcl : r.base.closed = true) :
+    RelTriple (((auditedFrameImpl k mclose) .close).run r)
+      (((dsFrameImpl k mclose) .close).run d)
+      (StepPost k ((frameSpec F M).Range .close)) := by
+  have hdcl : d.ideal.closed = true := by
+    rw [RealDSCoupled.closed_eq hg.1]
+    exact hcl
+  simpa [auditedFrameImpl, dsFrameImpl, frameImpl, StateT.run_mk, hcl, hdcl,
+    auditAfter] using
+      (relTriple_pure_pure (spec₁ := unifSpec) (spec₂ := unifSpec)
+        (R := StepPost k ((frameSpec F M).Range .close))
+        (Or.inl ⟨rfl, hg⟩))
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
@@ -1141,3 +1506,5 @@ end Zkpc.Games
 #print axioms Zkpc.Games.realDSStep_spend_closed
 #print axioms Zkpc.Games.realDSStep_nfAt
 #print axioms Zkpc.Games.realDSStep_spend_open
+#print axioms Zkpc.Games.realDSStep_close_open
+#print axioms Zkpc.Games.realDSStep_close_closed
