@@ -61,6 +61,7 @@ import Zkpc.Games.FrameAsymptotic
 import Zkpc.Refund.State
 import Zkpc.Refund.Safety
 import Zkpc.Refund.Fleet
+import Zkpc.Refund.AuthenticatedFleet
 import Zkpc.Refund.Refinement
 import Zkpc.Refund.Cascade
 import Zkpc.Composition.EndToEnd
