@@ -22,14 +22,12 @@ pairwise-independent one-time MAC `tag(m) = a·m + b` under payer-issuer key
   slope in the reparametrized view. The forgery pair is a parameter of the
   statement, not adversary output.
 
-What is *not* formalized here, and is the intended unformalized reading
-toward the issue-#5 reduction: the adaptive forgery game in which the
-adversary chooses `(m', t')` as a function of the observed tag (the standard
-argument conditions on `t` via `evalDist_keyTag_eq` and applies the
-fixed-pair bound per branch), and the `n`-link chain claim that a receipt
-chain of `n` adversarial links is broken with probability at most `n/|F|` by
-a union bound over links. Both are prose motivation until stated as games in
-this file.
+* `adaptiveForgeryGame` / `adaptive_mac_forgery_bound` — the actual adaptive
+  one-query EUF game: after seeing the authentic tag, the adversary chooses
+  its fresh-message forgery, and the proof conditions on the observed tag.
+
+* `runForgeryChain_bound` / `adaptive_mac_chain_bound` — composition of
+  independently keyed receipt links, with total failure at most `n/|F|`.
 -/
 
 open OracleSpec OracleComp
@@ -122,6 +120,99 @@ theorem mac_forgery_bound (m t m' t' : F) (hne : m' ≠ m) :
         simp
     _ = (Fintype.card F : ENNReal)⁻¹ := by rw [probOutput_uniformSample]
 
+/-- Adaptive one-query EUF game in the reparametrized transcript view.
+The adversary observes the authentic tag `t`, then chooses both the forged
+message and tag.  The hidden slope is sampled only after that choice has been
+fixed; this is distributionally equivalent to sampling the original uniform
+key before revealing its tag by `evalDist_keyTag_eq`. -/
+def adaptiveForgeryGame (m : F) (forge : F → F × F) : ProbComp Bool := do
+  let t ← ($ᵗ F)
+  let a ← ($ᵗ F)
+  let out := forge t
+  pure (decide (verify a (t - a * m) out.1 out.2))
+
+/-- **Adaptive one-query unforgeability.** Even when the forgery is an
+arbitrary function of the observed authentic tag, every fresh-message
+forgery succeeds with probability at most `1/|F|`. -/
+theorem adaptive_mac_forgery_bound (m : F) (forge : F → F × F)
+    (fresh : ∀ t, (forge t).1 ≠ m) :
+    Pr[= true | adaptiveForgeryGame m forge]
+      ≤ (Fintype.card F : ENNReal)⁻¹ := by
+  unfold adaptiveForgeryGame
+  rw [← probEvent_eq_eq_probOutput]
+  refine probEvent_bind_le_of_forall_le (m := ProbComp)
+    (q := fun b : Bool => b = true) ?_
+  intro t _
+  rw [probEvent_eq_eq_probOutput]
+  exact mac_forgery_bound m t (forge t).1 (forge t).2 (fresh t)
+
+/-- Sequentially execute independently keyed per-link forgery experiments and
+report whether any receipt link was forged.  Short-circuiting is operationally
+useful and does not weaken the union-bound proof. -/
+def runForgeryChain : List (ProbComp Bool) → ProbComp Bool
+  | [] => pure false
+  | game :: games => do
+      let forged ← game
+      if forged then pure true else runForgeryChain games
+
+/-- Generic finite-chain union bound.  It applies to adaptive per-link games:
+each `game` may already include an arbitrary attacker strategy conditioned on
+that link's authentic transcript. -/
+theorem runForgeryChain_bound (games : List (ProbComp Bool)) (ε : ENNReal)
+    (bounded : ∀ game ∈ games, Pr[= true | game] ≤ ε) :
+    Pr[= true | runForgeryChain games] ≤ (games.length : ENNReal) * ε := by
+  induction games with
+  | nil => simp [runForgeryChain]
+  | cons game games ih =>
+      rw [← probEvent_eq_eq_probOutput]
+      unfold runForgeryChain
+      have hub :
+          Pr[fun forged : Bool => ¬ forged = false |
+            game >>= fun forged =>
+              if forged then pure true else runForgeryChain games]
+            ≤ ε + (games.length : ENNReal) * ε := by
+        refine probEvent_bind_le_add (m := ProbComp)
+          (mx := game)
+          (my := fun forged =>
+            if forged then pure true else runForgeryChain games)
+          (p := fun forged : Bool => forged = false)
+          (q := fun forged : Bool => forged = false)
+          (ε₁ := ε) (ε₂ := (games.length : ENNReal) * ε) ?_ ?_
+        · simpa only [Bool.not_eq_false, probEvent_eq_eq_probOutput] using
+            bounded game (by simp)
+        · intro forged _ hfalse
+          subst forged
+          simp only [Bool.false_eq_true, ↓reduceIte]
+          simpa only [Bool.not_eq_false, probEvent_eq_eq_probOutput] using
+            ih (fun g hg => bounded g (by simp [hg]))
+      have hub' :
+          Pr[fun forged : Bool => forged = true |
+            (do
+              let forged ← game
+              if forged then pure true else runForgeryChain games)]
+            ≤ ε + (games.length : ENNReal) * ε := by
+        simpa only [Bool.not_eq_false] using hub
+      refine hub'.trans ?_
+      simp only [List.length_cons, Nat.cast_add, Nat.cast_one]
+      ring_nf
+      exact le_rfl
+
+/-- A chain of adaptive one-query receipt forgeries has total failure
+probability at most `n/|F|`. -/
+theorem adaptive_mac_chain_bound (m : F) (forges : List (F → F × F))
+    (fresh : ∀ forge ∈ forges, ∀ t, (forge t).1 ≠ m) :
+    Pr[= true |
+        runForgeryChain (forges.map (adaptiveForgeryGame m))]
+      ≤ (forges.length : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
+  have h := runForgeryChain_bound
+    (forges.map (adaptiveForgeryGame m))
+    (Fintype.card F : ENNReal)⁻¹ (by
+      intro game hgame
+      simp only [List.mem_map] at hgame
+      obtain ⟨forge, hforge, rfl⟩ := hgame
+      exact adaptive_mac_forgery_bound m forge (fresh forge hforge))
+  simpa only [List.length_map] using h
+
 end Privacy
 
 end Zkpc.Crypto.ReceiptMac
@@ -129,3 +220,6 @@ end Zkpc.Crypto.ReceiptMac
 #print axioms Zkpc.Crypto.ReceiptMac.verify_tag
 #print axioms Zkpc.Crypto.ReceiptMac.evalDist_keyTag_eq
 #print axioms Zkpc.Crypto.ReceiptMac.mac_forgery_bound
+#print axioms Zkpc.Crypto.ReceiptMac.adaptive_mac_forgery_bound
+#print axioms Zkpc.Crypto.ReceiptMac.runForgeryChain_bound
+#print axioms Zkpc.Crypto.ReceiptMac.adaptive_mac_chain_bound
