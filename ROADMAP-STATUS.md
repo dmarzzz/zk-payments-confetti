@@ -153,7 +153,19 @@ open.
    `realGhost_nfAt_materialized_erase_evalDist_eq` covers both cached and
    fresh-nullifier branches whenever the hidden slope is already
    materialized. Only operations that create a fresh hidden slope remain in
-   the probabilistic step relation.
+   the probabilistic step relation. `Games.FrameGhostCoverage` additionally
+   proves, per step and for full adaptive runs, that every populated public
+   ghost `roNf` entry came from a recorded adversarial slope probe; the
+   coupling transfers this to the real `RoNfCovered` invariant. Consequently
+   a fresh honest slope cannot collide with a pre-existing public nullifier
+   entry without raising the charged slope-hit event.
+   `Games.FrameFactor` now also performs the run-level algebra: exact audit
+   erasure, rewriting the real slash game as one audited joint experiment,
+   the generic good/bad probability split, and the master
+   `frame_real_le_ghost_plus_bad` inequality. Its only hypotheses are the
+   explicitly named `FrameGoodSliceTransfer` and `FrameBadMassTransfer`, so
+   completing the fresh-slope induction plugs directly into the averaged T7
+   endpoint without further game rearrangement.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
