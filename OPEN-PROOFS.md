@@ -499,3 +499,39 @@ deferred-slope handler up to `FrameLeakBad`; stage 2: per-transcript k-root
 union bound mirroring the landed tape kernels). New work goes in
 `Zkpc/Games/FrameRealBad.lean`; `FrameTransfer.lean` is not edited by this
 lane.
+
+**Route-B stage 1 DISCHARGED (2026-07-10, continuation session):**
+`RealDSStepCoupling` is now a kernel-checked theorem
+(`realDSStepCoupling_holds`, `Zkpc/Games/FrameRealBadStep.lean`): all eight
+FRAME operations satisfy the real/deferred-slope identical-until-bad step
+coupling over `RealDSGood` (canonical secret-erasure + hidden-slope
+retention + literal audit equality + `DSSlopesCovered`/`RoNfCovered`/
+`HiddenSlopeInj` + goodness). The deferred-slope handler `dsFrameImpl`
+(`FrameRealBad.lean`) pins each hidden slope at first honest touch — the
+same instant the real audit records it — which eliminates the eager-read
+obstruction from this lane entirely: every divergence (secret probes,
+`H_nf` probes at recorded slopes, fresh-slope collisions, `H_id(k)` reads)
+raises `FrameLeakBad` on both sides in the same step. The generic coupling
+rule is `relTriple_simulateQ_run_untilAbsorbing` (reusable; built on
+VCV-io's relational `simulateQ` layer). Consequences
+(`FrameRealBadTransfer.lean`, `FrameRealBadStep.lean`, all axiom-clean):
+`auditedFrameJoint_bad_le_dsFrameJoint` (k-averaged real bad mass ≤
+deferred bad mass, unconditional) and `frameRealBadMassLe_of_dsCount`:
+`FrameRealBadMassLe` — hence the complete corrected T7 via
+`T7_frame_query_bound_of_goodSlice_and_dsCount` — is now reduced to
+exactly two named residuals:
+
+1. `DSBadMassLe` (`FrameRealBadTransfer.lean`, stage 2): the k-averaged
+   leakage mass of the k-root-clean deferred run `dsFrameJoint` is at most
+   `qb.total/|F|`. Proof plan: per-emission pad bijection `a ↦ k + a·x`
+   (fresh consumption) plus tape-deferral of pinned-but-unconsumed
+   `nfAt` slopes (mirror `FrameBadMass.materializeSlopeTape` /
+   `skelFrameImpl_*_prob_le`), then the landed root kernels
+   (`frameRealRootCandidates`, `probEvent_uniform_mem_list_le`).
+2. `FramePointwiseGoodSlice` (`FrameGoodSlice.lean`, orchestrator lane).
+   Note: the ds coupling gives an alternative consumption path — the
+   until-absorbing coupling already yields, pointwise in `k`,
+   `Pr[Slashes ∧ ¬bad | real] ≤ Pr[Slashes | dsFrameRun k]` (bad branch
+   refutes the left event), so the good-slice lane can equivalently close
+   by comparing the deferred-run win mass to the ghost win mass with the
+   same pad/tape machinery as `DSBadMassLe`.
