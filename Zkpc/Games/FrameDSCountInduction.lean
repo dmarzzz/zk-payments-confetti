@@ -1133,8 +1133,11 @@ theorem seed_consumeHoleLine (sigma : DSShadowSt F M) (i j : Nat)
       refine List.map_congr_left fun e he => ?_
       by_cases heq : e = .hole j
       · subst e
-        simp only [Function.comp_apply, replaceHoleLine, if_pos rfl,
-          DSEntry.eval, rlnY]
+        simp only [Function.comp_apply]
+        rw [show replaceHoleLine j x (rlnY k (vs.getD j 0) x) (.hole j) =
+            .line x (rlnY k (vs.getD j 0) x) by
+          simp [replaceHoleLine]]
+        simp only [DSEntry.eval, rlnY]
         rw [add_sub_cancel_left, mul_div_cancel_right₀ _ hx]
       · simp [Function.comp_apply, replaceHoleLine, heq]
 
