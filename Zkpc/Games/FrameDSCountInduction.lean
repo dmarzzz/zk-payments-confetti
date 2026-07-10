@@ -1347,7 +1347,7 @@ theorem rlnY_bijective (k x : F) (hx : x ≠ 0) :
   · intro a b hab
     simp only [rlnY] at hab
     have hmul : a * x = b * x := add_left_cancel hab
-    exact (mul_right_injective₀ hx) hmul
+    exact (mul_left_injective₀ hx) hmul
   · intro y
     refine ⟨(y - k) / x, ?_⟩
     simp only [rlnY]
@@ -1527,7 +1527,7 @@ theorem seed_consumeHoleLine_set_dummy (sigma : DSShadowSt F M)
     k w vs]
   exact seed_consumeHoleLine sigma i j k x vs hi hx
 
-set_option maxHeartbeats 0 in
+set_option maxHeartbeats 400000 in
 /-- Seeded-shadow master bound for an arbitrary query-bounded FRAME
 computation. -/
 theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
@@ -1576,13 +1576,33 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
             simpa [Nat.sub_add_cancel hposSig] using
               (dsBudget_signal_same_le sigma nA nE nId nNf (nSig - 1))
           · simp only [hc, if_neg]
+            have hclosed : sigma.ideal.closed = false :=
+              Bool.eq_false_of_not_eq_true hc
             cases hi : sigma.pat sigma.ideal.idx with
             | none =>
-                simp only [dsTouch, DSShadowSt.seed_slope, hi,
+                simp only [hclosed, Bool.false_eq_true, if_false, dsTouch,
+                  DSShadowSt.seed_slope, hi,
                   Option.map_none, bind_assoc, pure_bind,
                   DSShadowSt.seed_audit, OracleQuery.cont_query]
                 refine probEvent_kTape_core_swap_le m
-                  (lazyROX sigma.ideal.roX msg) _ dsSeededBad _ ?_
+                  (lazyROX sigma.ideal.roX msg)
+                  (fun k vs xc =>
+                    ($ᵗ F) >>= fun a =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1, rlnY k a xc.1, nc.1⟩))).run
+                        ⟨{ sigma.ideal with
+                            idx := sigma.ideal.idx + 1
+                            closed := false
+                            roX := xc.2
+                            honestNf := nc.2 },
+                          Function.update (sigma.seed k vs).slope
+                            sigma.ideal.idx (some a),
+                          ⟨sigma.secretProbes, sigma.slopeProbes,
+                            a :: sigma.shadow.map (DSEntry.eval k vs)⟩⟩ >>= fun z =>
+                        pure (k, z)) dsSeededBad
+                  ((dsBudget sigma nA nE nId nNf nSig : ENNReal) *
+                    (Fintype.card F : ENNReal)⁻¹) ?_
                 intro xc hxc
                 have hx := lazyROX_support_nonzero hInv.hroX msg xc hxc
                 let cF : ENNReal := (Fintype.card F : ENNReal)⁻¹
@@ -1668,7 +1688,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                     have hsum := dsBudget_insertLine_add_dupTargets sigma
                       sigma.ideal.idx xc.1 0 nA nE nId nNf (nSig - 1)
                     rw [Nat.sub_add_cancel hposSig] at hsum
-                    rw [← Nat.cast_add, hsum]
+                    rw [← add_mul, ← Nat.cast_add, hsum]
                 refine le_trans (le_of_eq ?_) hcanon
                 refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
                   (fun k => ?_)
@@ -1694,13 +1714,13 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                         (cont (some ⟨xc.1, rlnY k a xc.1, nc.1⟩))).run
                           ⟨{ sigma.ideal with
                               idx := sigma.ideal.idx + 1
+                              closed := false
                               roX := xc.2
                               honestNf := nc.2 },
                             Function.update (sigma.seed k vs).slope
                               sigma.ideal.idx (some a),
-                            { (sigma.seed k vs).audit with
-                              honestSlopes := a ::
-                                (sigma.seed k vs).audit.honestSlopes }⟩
+                            ⟨sigma.secretProbes, sigma.slopeProbes,
+                              a :: sigma.shadow.map (DSEntry.eval k vs)⟩⟩
                             >>= fun z => pure (k, z)] =
                       𝒟[($ᵗ F) >>= fun a => G (rlnY k a xc.1)] := by
                         refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
@@ -1711,18 +1731,36 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                         rw [DSShadowSt.seed_setIdeal,
                           seed_insertLine sigma sigma.ideal.idx k xc.1
                             (rlnY k a xc.1) vs hi]
-                        simp [rlnY, hx.1]
+                        simp [rlnY, hx.1, hclosed, DSShadowSt.seed_audit]
                     _ = 𝒟[($ᵗ F) >>= G] :=
                       evalDist_rlnY_uniform k xc.1 hx.1 G
             | some e =>
                 have hehole := hInv.hfresh sigma.ideal.idx le_rfl e hi
                 rcases hehole with ⟨j, rfl⟩
-                simp only [DSShadowSt.seed_slope, hi, Option.map_some,
+                simp only [hclosed, Bool.false_eq_true, if_false,
+                  DSShadowSt.seed_slope, hi, Option.map_some,
                   DSEntry.eval, dsTouch, bind_assoc, pure_bind,
                   DSShadowSt.seed_audit,
                   OracleQuery.cont_query]
                 refine probEvent_kTape_core_swap_le m
-                  (lazyROX sigma.ideal.roX msg) _ dsSeededBad _ ?_
+                  (lazyROX sigma.ideal.roX msg)
+                  (fun k vs xc =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1,
+                        rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
+                        ⟨{ sigma.ideal with
+                            idx := sigma.ideal.idx + 1
+                            closed := false
+                            roX := xc.2
+                            honestNf := nc.2 },
+                          (sigma.seed k vs).slope,
+                          ⟨sigma.secretProbes, sigma.slopeProbes,
+                            sigma.shadow.map (DSEntry.eval k vs)⟩⟩ >>= fun z =>
+                          pure (k, z))
+                  dsSeededBad
+                  ((dsBudget sigma nA nE nId nNf nSig : ENNReal) *
+                    (Fintype.card F : ENNReal)⁻¹) ?_
                 intro xc hxc
                 have hx := lazyROX_support_nonzero hInv.hroX msg xc hxc
                 have hhole : DSEntry.hole j ∈ sigma.shadow :=
@@ -1742,8 +1780,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
                       (simulateQ (dsFrameImpl k mclose)
                         (cont (some ⟨xc.1, y, nc.1⟩))).run
-                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                            .setIdeal
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                               { sigma.ideal with
                                 idx := sigma.ideal.idx + 1
                                 roX := xc.2
@@ -1755,8 +1792,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
                       (simulateQ (dsFrameImpl k mclose)
                         (cont (some ⟨xc.1, y, nc.1⟩))).run
-                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                            .setIdeal
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                               { sigma.ideal with
                                 idx := sigma.ideal.idx + 1
                                 roX := xc.2
@@ -1773,8 +1809,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       (fun k vs nc =>
                         (simulateQ (dsFrameImpl k mclose)
                           (cont (some ⟨xc.1, y, nc.1⟩))).run
-                            (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                              .setIdeal
+                            (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                                 { sigma.ideal with
                                   idx := sigma.ideal.idx + 1
                                   roX := xc.2
@@ -1820,14 +1855,14 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                 refine le_trans (le_of_eq ?_) hcanon
                 refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
                   (fun k => ?_)
+                refine probEvent_congr' (fun _ _ => Iff.rfl) ?_
                 let G : F → List F →
                     ProbComp (F × (alpha × DSFrameSt F M)) :=
                   fun y vs =>
                     lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
                     (simulateQ (dsFrameImpl k mclose)
                       (cont (some ⟨xc.1, y, nc.1⟩))).run
-                        (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                          .setIdeal
+                        (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                             { sigma.ideal with
                               idx := sigma.ideal.idx + 1
                               roX := xc.2
@@ -1841,10 +1876,13 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                           ⟨xc.1, rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
                           ⟨{ sigma.ideal with
                               idx := sigma.ideal.idx + 1
+                              closed := false
                               roX := xc.2
                               honestNf := nc.2 },
                             (sigma.seed k vs).slope,
-                            (sigma.seed k vs).audit⟩ >>= fun z => pure (k, z)] =
+                            ⟨sigma.secretProbes, sigma.slopeProbes,
+                              sigma.shadow.map (DSEntry.eval k vs)⟩⟩ >>= fun z =>
+                            pure (k, z)] =
                       𝒟[drawList ($ᵗ F) m >>= fun vs =>
                         ($ᵗ F) >>= fun w =>
                           G (rlnY k (vs.getD j 0) xc.1) (vs.set j w)] := by
@@ -1859,10 +1897,12 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                                 rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
                               ⟨{ sigma.ideal with
                                   idx := sigma.ideal.idx + 1
+                                  closed := false
                                   roX := xc.2
                                   honestNf := nc.2 },
                                 (sigma.seed k vs).slope,
-                                (sigma.seed k vs).audit⟩ >>= fun z =>
+                                ⟨sigma.secretProbes, sigma.slopeProbes,
+                                  sigma.shadow.map (DSEntry.eval k vs)⟩⟩ >>= fun z =>
                                   pure (k, z)) := by
                       intro w
                       dsimp [G]
@@ -1870,6 +1910,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       rw [DSShadowSt.seed_setIdeal,
                         seed_consumeHoleLine_set_dummy sigma m
                           sigma.ideal.idx j k xc.1 w vs hInv hi hx.1]
+                      simp [hclosed, DSShadowSt.seed_audit]
                     simp_rw [hconst]
                     exact
                       (OracleComp.DeferredSampling.evalDist_bind_const_neverFails
@@ -1902,13 +1943,32 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
             simpa [Nat.sub_add_cancel hposSig] using
               (dsBudget_signal_same_le sigma nA nE nId nNf (nSig - 1))
           · simp only [hc, if_neg]
+            have hclosed : sigma.ideal.closed = false :=
+              Bool.eq_false_of_not_eq_true hc
             cases hi : sigma.pat sigma.ideal.idx with
             | none =>
-                rw [DSShadowSt.seed_slope, hi]
-                simp only [Option.map_none, dsTouch, bind_assoc, pure_bind,
+                simp only [hclosed, Bool.false_eq_true, if_false, dsTouch,
+                  DSShadowSt.seed_slope, hi, Option.map_none, bind_assoc, pure_bind,
                   DSShadowSt.seed_audit, OracleQuery.cont_query]
                 refine probEvent_kTape_core_swap_le m
-                  (lazyROX sigma.ideal.roX mclose) _ dsSeededBad _ ?_
+                  (lazyROX sigma.ideal.roX mclose)
+                  (fun k vs xc =>
+                    ($ᵗ F) >>= fun a =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1, rlnY k a xc.1, nc.1⟩))).run
+                        ⟨{ sigma.ideal with
+                            idx := sigma.ideal.idx + 1
+                            closed := true
+                            roX := xc.2
+                            honestNf := nc.2 },
+                          Function.update (sigma.seed k vs).slope
+                            sigma.ideal.idx (some a),
+                          ⟨sigma.secretProbes, sigma.slopeProbes,
+                            a :: sigma.shadow.map (DSEntry.eval k vs)⟩⟩ >>= fun z =>
+                        pure (k, z)) dsSeededBad
+                  ((dsBudget sigma nA nE nId nNf nSig : ENNReal) *
+                    (Fintype.card F : ENNReal)⁻¹) ?_
                 intro xc hxc
                 have hx := lazyROX_support_nonzero hInv.hroX mclose xc hxc
                 let cF : ENNReal := (Fintype.card F : ENNReal)⁻¹
@@ -1998,7 +2058,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                     have hsum := dsBudget_insertLine_add_dupTargets sigma
                       sigma.ideal.idx xc.1 0 nA nE nId nNf (nSig - 1)
                     rw [Nat.sub_add_cancel hposSig] at hsum
-                    rw [← Nat.cast_add, hsum]
+                    rw [← add_mul, ← Nat.cast_add, hsum]
                 refine le_trans (le_of_eq ?_) hcanon
                 refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
                   (fun k => ?_)
@@ -2030,9 +2090,8 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                               honestNf := nc.2 },
                             Function.update (sigma.seed k vs).slope
                               sigma.ideal.idx (some a),
-                            { (sigma.seed k vs).audit with
-                              honestSlopes := a ::
-                                (sigma.seed k vs).audit.honestSlopes }⟩
+                            ⟨sigma.secretProbes, sigma.slopeProbes,
+                              a :: sigma.shadow.map (DSEntry.eval k vs)⟩⟩
                             >>= fun z => pure (k, z)] =
                       𝒟[($ᵗ F) >>= fun a => G (rlnY k a xc.1)] := by
                         refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
@@ -2043,18 +2102,35 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                         rw [DSShadowSt.seed_setIdeal,
                           seed_insertLine sigma sigma.ideal.idx k xc.1
                             (rlnY k a xc.1) vs hi]
-                        simp [rlnY, hx.1]
+                        simp [rlnY, hx.1, DSShadowSt.seed_audit]
                     _ = 𝒟[($ᵗ F) >>= G] :=
                       evalDist_rlnY_uniform k xc.1 hx.1 G
             | some e =>
                 have hehole := hInv.hfresh sigma.ideal.idx le_rfl e hi
                 rcases hehole with ⟨j, rfl⟩
-                simp only [DSShadowSt.seed_slope, hi, Option.map_some,
+                simp only [hclosed, Bool.false_eq_true, if_false,
+                  DSShadowSt.seed_slope, hi, Option.map_some,
                   DSEntry.eval, dsTouch, bind_assoc, pure_bind,
                   DSShadowSt.seed_audit,
                   OracleQuery.cont_query]
                 refine probEvent_kTape_core_swap_le m
-                  (lazyROX sigma.ideal.roX mclose) _ dsSeededBad _ ?_
+                  (lazyROX sigma.ideal.roX mclose)
+                  (fun k vs xc =>
+                    lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
+                    (simulateQ (dsFrameImpl k mclose)
+                      (cont (some ⟨xc.1,
+                        rlnY k (vs.getD j 0) xc.1, nc.1⟩))).run
+                        ⟨{ sigma.ideal with
+                            idx := sigma.ideal.idx + 1
+                            closed := true
+                            roX := xc.2
+                            honestNf := nc.2 },
+                          (sigma.seed k vs).slope,
+                          ⟨sigma.secretProbes, sigma.slopeProbes,
+                            sigma.shadow.map (DSEntry.eval k vs)⟩⟩ >>= fun z =>
+                          pure (k, z)) dsSeededBad
+                  ((dsBudget sigma nA nE nId nNf nSig : ENNReal) *
+                    (Fintype.card F : ENNReal)⁻¹) ?_
                 intro xc hxc
                 have hx := lazyROX_support_nonzero hInv.hroX mclose xc hxc
                 have hhole : DSEntry.hole j ∈ sigma.shadow :=
@@ -2074,8 +2150,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
                       (simulateQ (dsFrameImpl k mclose)
                         (cont (some ⟨xc.1, y, nc.1⟩))).run
-                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                            .setIdeal
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                               { sigma.ideal with
                                 idx := sigma.ideal.idx + 1
                                 closed := true
@@ -2088,8 +2163,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
                       (simulateQ (dsFrameImpl k mclose)
                         (cont (some ⟨xc.1, y, nc.1⟩))).run
-                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                            .setIdeal
+                          (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                               { sigma.ideal with
                                 idx := sigma.ideal.idx + 1
                                 closed := true
@@ -2107,8 +2181,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       (fun k vs nc =>
                         (simulateQ (dsFrameImpl k mclose)
                           (cont (some ⟨xc.1, y, nc.1⟩))).run
-                            (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                              .setIdeal
+                            (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                                 { sigma.ideal with
                                   idx := sigma.ideal.idx + 1
                                   closed := true
@@ -2156,14 +2229,14 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                 refine le_trans (le_of_eq ?_) hcanon
                 refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
                   (fun k => ?_)
+                refine probEvent_congr' (fun _ _ => Iff.rfl) ?_
                 let G : F → List F →
                     ProbComp (F × (alpha × DSFrameSt F M)) :=
                   fun y vs =>
                     lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
                     (simulateQ (dsFrameImpl k mclose)
                       (cont (some ⟨xc.1, y, nc.1⟩))).run
-                        (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y)
-                          .setIdeal
+                        (((sigma.consumeHoleLine sigma.ideal.idx j xc.1 y).setIdeal
                             { sigma.ideal with
                               idx := sigma.ideal.idx + 1
                               closed := true
@@ -2182,7 +2255,9 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                               roX := xc.2
                               honestNf := nc.2 },
                             (sigma.seed k vs).slope,
-                            (sigma.seed k vs).audit⟩ >>= fun z => pure (k, z)] =
+                            ⟨sigma.secretProbes, sigma.slopeProbes,
+                              sigma.shadow.map (DSEntry.eval k vs)⟩⟩ >>= fun z =>
+                            pure (k, z)] =
                       𝒟[drawList ($ᵗ F) m >>= fun vs =>
                         ($ᵗ F) >>= fun w =>
                           G (rlnY k (vs.getD j 0) xc.1) (vs.set j w)] := by
@@ -2209,6 +2284,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                       rw [DSShadowSt.seed_setIdeal,
                         seed_consumeHoleLine_set_dummy sigma m
                           sigma.ideal.idx j k xc.1 w vs hInv hi hx.1]
+                      simp [DSShadowSt.seed_audit]
                     simp_rw [hconst]
                     exact
                       (OracleComp.DeferredSampling.evalDist_bind_const_neverFails
@@ -2232,8 +2308,8 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
             OracleQuery.cont_query]
           cases hi : sigma.pat i with
           | none =>
-              rw [DSShadowSt.seed_slope, hi]
-              simp only [Option.map_none, dsTouch, bind_assoc, pure_bind]
+              simp only [DSShadowSt.seed_slope, hi, Option.map_none,
+                dsTouch, bind_assoc, pure_bind]
               refine probEvent_kTape_core_swap_le m
                 (lazyRO sigma.ideal.honestNf i) _ dsSeededBad _ ?_
               intro c hc
@@ -2270,11 +2346,13 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
               intro vs hvs
               have hlen := drawList_support_length m vs hvs
               refine bind_congr fun v => ?_
-              rw [seed_insertHole sigma m i k v vs hInv hlen hi]
+              dsimp [sigma']
+              rw [DSShadowSt.seed_setIdeal,
+                seed_insertHole sigma m i k v vs hInv hlen hi]
               rfl
           | some e =>
-              rw [DSShadowSt.seed_slope, hi]
-              simp only [Option.map_some, dsTouch, bind_assoc, pure_bind]
+              simp only [DSShadowSt.seed_slope, hi, Option.map_some,
+                dsTouch, bind_assoc, pure_bind]
               refine probEvent_kTape_core_swap_le m
                 (lazyRO sigma.ideal.honestNf i) _ dsSeededBad _ ?_
               intro c hc
