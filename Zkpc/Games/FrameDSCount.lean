@@ -1229,6 +1229,50 @@ theorem dupTargets_length_le (x : F) (shadow : List (DSEntry F)) :
   unfold dupTargets
   exact List.length_filterMap_le _ _
 
+/-! ## Evaluation stability of shadow entries -/
+
+omit [SampleableType F] [Fintype F] in
+/-- Appending one value at the back of the tape does not change the
+evaluation of an entry whose coordinate lies inside the tape. -/
+theorem DSEntry.eval_append_lt (k v : F) (vs : List F) (e : DSEntry F)
+    (he : ∀ j, e.coord = some j → j < vs.length) :
+    DSEntry.eval k (vs ++ [v]) e = DSEntry.eval k vs e := by
+  have hget : ∀ j, j < vs.length → (vs ++ [v])[j]? = vs[j]? := by
+    intro j hj
+    exact List.getElem?_append_left hj
+  cases e with
+  | line x y => rfl
+  | hole j =>
+      have hj := he j rfl
+      simp [DSEntry.eval, List.getD, hget j hj]
+  | tline j x =>
+      have hj := he j rfl
+      simp [DSEntry.eval, List.getD, hget j hj]
+
+omit [SampleableType F] [Fintype F] in
+/-- Setting a foreign coordinate does not change the evaluation of an
+entry. -/
+theorem DSEntry.eval_set_ne (k w : F) (vs : List F) (j : ℕ) (e : DSEntry F)
+    (he : ∀ i, e.coord = some i → i ≠ j) :
+    DSEntry.eval k (vs.set j w) e = DSEntry.eval k vs e := by
+  cases e with
+  | line x y => rfl
+  | hole i =>
+      have hij := he i rfl
+      simp [DSEntry.eval, List.getD, List.getElem?_set_ne (Ne.symm hij)]
+  | tline i x =>
+      have hij := he i rfl
+      simp [DSEntry.eval, List.getD, List.getElem?_set_ne (Ne.symm hij)]
+
+omit [Field F] [DecidableEq F] [SampleableType F] [Fintype F] in
+/-- Inner probability congruence through a sampling prefix. -/
+theorem probEvent_bind_congr_inner {α β : Type} (oa : ProbComp α)
+    (f g : α → ProbComp β) (P : β → Prop)
+    (h : ∀ a, Pr[P | f a] = Pr[P | g a]) :
+    Pr[P | oa >>= f] = Pr[P | oa >>= g] := by
+  rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+  exact tsum_congr fun a => by rw [h a]
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
