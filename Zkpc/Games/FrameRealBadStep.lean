@@ -378,6 +378,85 @@ theorem realDSStep_roId (k : F) (mclose : M) (kq : F)
       apply IdealFrameSt.ext <;> try rfl
       exact maskKey_update_of_ne r.base.roId k kq v hk
 
+/-- **Step coupling, `roNf`.** A nullifier-preimage probe at a recorded
+honest slope raises the slope-hit branch of the leakage event on both sides
+in this step (this is where the real handler's hidden `H_nf` entries at
+honest slopes diverge from the deferred handler — inside the absorbed
+branch); away from the recorded slopes the caches agree, the step is
+identical, and audit completeness confines the update away from every
+hidden composition. -/
+theorem realDSStep_roNf (k : F) (mclose : M) (aq : F)
+    (r : AuditedFrameSt F M) (d : DSFrameSt F M) (hg : RealDSGood k r d) :
+    RelTriple (((auditedFrameImpl k mclose) (.roNf aq)).run r)
+      (((dsFrameImpl k mclose) (.roNf aq)).run d)
+      (StepPost k ((frameSpec F M).Range (.roNf aq))) := by
+  obtain ⟨hc, hcov, hnfcov, hinj, hbad⟩ := hg
+  have hL : ((auditedFrameImpl k mclose) (.roNf aq)).run r
+      = lazyRO r.base.roNf aq >>= fun p =>
+          pure (p.1, (⟨{ r.base with roNf := p.2 },
+            { r.audit with slopeProbes := aq :: r.audit.slopeProbes }⟩ :
+            AuditedFrameSt F M)) := by
+    simp [auditedFrameImpl, frameImpl, StateT.run_mk, auditAfter]
+  have hR : ((dsFrameImpl k mclose) (.roNf aq)).run d
+      = lazyRO d.ideal.roNf aq >>= fun p =>
+          pure (p.1, (⟨{ d.ideal with roNf := p.2 }, d.slope,
+            { d.audit with slopeProbes := aq :: d.audit.slopeProbes }⟩ :
+            DSFrameSt F M)) := by
+    simp [dsFrameImpl, StateT.run_mk]
+  rw [hL, hR]
+  by_cases haq : aq ∈ r.audit.honestSlopes
+  · refine relTriple_bothBad ?_ ?_
+    · intro z hz
+      obtain ⟨p, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      exact FrameLeakBad.slope_hit k aq r.audit haq
+    · intro z hz
+      obtain ⟨p, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      exact FrameLeakBad.slope_hit k aq d.audit (hc.audit ▸ haq)
+  · have hkey : r.base.roNf aq = d.ideal.roNf aq := (hc.roNf_pub haq).symm
+    have haudit : ¬ FrameLeakBad k
+        { r.audit with slopeProbes := aq :: r.audit.slopeProbes } := by
+      intro h
+      rcases h with h | ⟨s, hs, hs2⟩ | h
+      · exact hbad (Or.inl h)
+      · rcases List.mem_cons.1 hs with hs | hs
+        · subst hs
+          exact haq hs2
+        · exact hbad (Or.inr (Or.inl ⟨s, hs, hs2⟩))
+      · exact hbad (Or.inr (Or.inr h))
+    have hcomplete : FrameAuditComplete k r := hc.frameAuditComplete hcov
+    refine relTriple_lazyRO_bind _ _ aq hkey _ _ _ ?_ ?_
+    · intro v hv
+      refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, hc.hiddenSlope,
+        by rw [hc.audit]⟩, hcov, ?_, hinj, haudit⟩⟩)
+      · rw [← hc.ideal]
+        apply IdealFrameSt.ext <;> rfl
+      · intro q w hq
+        rcases hnfcov q w hq with h | h
+        · exact Or.inl (List.mem_cons_of_mem aq h)
+        · exact Or.inr h
+    · intro hnone v
+      refine relTriple_pure_pure (Or.inl ⟨rfl, ⟨⟨?_, hc.hiddenSlope,
+        by rw [hc.audit]⟩, hcov, ?_, hinj, haudit⟩⟩)
+      · rw [← hc.ideal]
+        apply IdealFrameSt.ext <;> try rfl
+        · exact maskSlopes_update_of_not_mem r.base.roNf
+            r.audit.honestSlopes aq v haq
+        · funext j
+          exact update_roNf_at_honest_of_complete k aq v r hcomplete haq j
+      · intro q w hq
+        have hq' : Function.update r.base.roNf aq (some v) q = some w := hq
+        by_cases hqa : q = aq
+        · subst hqa
+          exact Or.inl (List.mem_cons_self)
+        · rw [Function.update_of_ne hqa] at hq'
+          rcases hnfcov q w hq' with h | h
+          · exact Or.inl (List.mem_cons_of_mem aq h)
+          · exact Or.inr h
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
@@ -385,3 +464,4 @@ end Zkpc.Games
 #print axioms Zkpc.Games.realDSStep_roE
 #print axioms Zkpc.Games.realDSStep_roA
 #print axioms Zkpc.Games.realDSStep_roId
+#print axioms Zkpc.Games.realDSStep_roNf
