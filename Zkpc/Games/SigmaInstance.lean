@@ -106,6 +106,57 @@ lemma evalDist_spendBatch_sigmaFlat (budget e : ℕ) :
       show st.idx + 1 + ms.length ≤ budget
       simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hst
 
+private lemma sigmaFlat_capable_of_challengeCapable (budget : ℕ)
+    (g : GSt (sigmaFlatInstance (F := F) budget)) (q : ℕ)
+    (h : challengeCapable (sigmaFlatInstance (F := F) budget) g q = true) :
+    (g.cand false).idx + q ≤ budget ∧ (g.cand true).idx + q ≤ budget := by
+  simp only [challengeCapable, sigmaFlatInstance, Bool.and_eq_true,
+    decide_eq_true_eq] at h
+  exact ⟨h.1.2, h.2.2⟩
+
+/-- The verified-Sigma challenge distribution is hidden-bit independent: both
+candidate sessions produce exactly the witness-free simulator batch. -/
+theorem challengeResp_sigmaFlat_bitfree (budget : ℕ)
+    (g : GSt (sigmaFlatInstance (F := F) budget)) (ms : List F) (b b' : Bool) :
+    𝒟[challengeResp (sigmaFlatInstance (F := F) budget) g b ms] =
+      𝒟[challengeResp (sigmaFlatInstance (F := F) budget) g b' ms] := by
+  unfold challengeResp
+  split_ifs with hcond
+  · have hcap : challengeCapable (sigmaFlatInstance (F := F) budget) g
+        ms.length = true := by
+      simp only [Bool.and_eq_true] at hcond
+      exact hcond.2
+    obtain ⟨hf, ht⟩ := sigmaFlat_capable_of_challengeCapable budget g ms.length hcap
+    rw [evalDist_spendBatch_sigmaFlat budget g.epoch ms (g.cand b)
+        (by cases b <;> assumption),
+      evalDist_spendBatch_sigmaFlat budget g.epoch ms (g.cand b')
+        (by cases b' <;> assumption)]
+  · rfl
+
+/-- **T4 for the verified interactive Sigma wire protocol** (Spec.md T4): the
+spend view carrying a real accepting RLN-line transcript is perfectly
+unlinkable — every adversary has advantage exactly `0`. -/
+theorem T4_sigmaFlat_unlinkability (budget : ℕ)
+    (A : UnlinkAdversary (sigmaFlatInstance (F := F) budget)) :
+    unlinkAdvantage (sigmaFlatInstance (F := F) budget) A = 0 :=
+  unlinkAdvantage_eq_zero_of_challenge_bitfree _ A
+    (challengeResp_sigmaFlat_bitfree budget)
+
+/-- **O1 discharge for the interactive Sigma wire** (Spec.md assumption 2):
+witness-dependent Sigma transcripts are exactly simulatable, so every
+real-wire adversary is bounded by the proof-free game with zero ZK loss. -/
+theorem sigmaFlat_zkBridge [Inhabited F] (budget : ℕ) :
+    zkBridgeObligation (sigmaFlatInstance (F := F) budget)
+      (flatInstance (F := F) budget) 0 := by
+  intro A
+  refine ⟨flatDummyAdversary budget, ?_⟩
+  rw [T4_sigmaFlat_unlinkability budget A]
+  exact add_nonneg (abs_nonneg _) (le_refl 0)
+
 end Interactive
 
 end Zkpc.Games
+
+#print axioms Zkpc.Games.evalDist_spendBatch_sigmaFlat
+#print axioms Zkpc.Games.T4_sigmaFlat_unlinkability
+#print axioms Zkpc.Games.sigmaFlat_zkBridge
