@@ -140,6 +140,36 @@ theorem frameRealRootCandidates_length (direct probes : List F)
   simp [frameRealRootCandidates, slopeHitRoots_length,
     slopeCollisionRoots_length, Nat.add_assoc]
 
+/-- Query-budget substitution for the complete fixed-transcript root list. -/
+theorem frameRealRootCandidates_length_le (direct probes : List F)
+    (lines : List (DeferredLine F)) (qDirect qNf qSig : ℕ)
+    (hdirect : direct.length ≤ qDirect) (hprobes : probes.length ≤ qNf)
+    (hlines : lines.length ≤ qSig) :
+    (frameRealRootCandidates direct probes lines).length ≤
+      qDirect + qNf * qSig + qSig * qSig := by
+  rw [frameRealRootCandidates_length]
+  have hhit : lines.length * probes.length ≤ qNf * qSig := by
+    simpa [Nat.mul_comm] using Nat.mul_le_mul hlines hprobes
+  have hcollision : lines.length * lines.length ≤ qSig * qSig :=
+    Nat.mul_le_mul hlines hlines
+  omega
+
+/-- A deferred uniform secret lands in the fixed real root list with exactly
+the target first-order budget. -/
+theorem probEvent_uniform_mem_frameRealRootCandidates_le
+    (direct probes : List F) (lines : List (DeferredLine F))
+    (qDirect qNf qSig : ℕ)
+    (hdirect : direct.length ≤ qDirect) (hprobes : probes.length ≤ qNf)
+    (hlines : lines.length ≤ qSig) :
+    Pr[(fun k : F => k ∈ frameRealRootCandidates direct probes lines) | ($ᵗ F)]
+      ≤ ((qDirect + qNf * qSig + qSig * qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  refine (probEvent_uniform_mem_list_le
+    (frameRealRootCandidates direct probes lines)).trans ?_
+  refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+  exact frameRealRootCandidates_length_le direct probes lines
+    qDirect qNf qSig hdirect hprobes hlines
+
 /-- Two predicate-targeted query bounds combine into a bound for their union.
 The predicates may overlap; an overlapping query spends both source budgets,
 which is conservatively dominated by spending one unit from their sum. -/
@@ -407,3 +437,5 @@ end Zkpc.Games
 #print axioms Zkpc.Games.auditedFrameJoint_audit_bounds
 #print axioms Zkpc.Games.reconstructedSlope_eq_iff_secret_eq_root
 #print axioms Zkpc.Games.reconstructedSlopes_eq_iff_secret_eq_collisionRoot
+#print axioms Zkpc.Games.frameRealRootCandidates_length_le
+#print axioms Zkpc.Games.probEvent_uniform_mem_frameRealRootCandidates_le
