@@ -44,7 +44,7 @@ theorem futureDSFrameImpl_run_evidence_eq_pending (k : F) (mclose : M) :
   | query_bind op cont ih =>
       intro p hp hx0
       simp only [simulateQ_query_bind, OracleQuery.input_query,
-        monadLift_self, StateT.run_bind, map_bind]
+        OracleQuery.cont_query, monadLift_self, StateT.run_bind, map_bind]
       cases op with
       | spend m =>
           simp only [futureDSFrameImpl, pendingFrameImpl, StateT.run_mk]
@@ -295,6 +295,64 @@ theorem dsFrameImpl_init_evidence_eq_ideal (k : F) (mclose : M)
           (IdealFrameSt.init F M)] :=
       pendingFrameImpl_run_evidence_eq_ideal mclose oa
         (PendingFrameSt.init F M)
+
+/-- The full deferred-slope run has the same evidence distribution as the
+secret-free ideal evidence generator. -/
+theorem dsFrameRun_evidence_eq_ideal (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) :
+    𝒟[Prod.fst <$> dsFrameRun k mclose A] =
+      𝒟[idealFrameEvidence mclose A] := by
+  unfold dsFrameRun idealFrameEvidence QueryImpl.Stateful.run
+  rw [map_bind]
+  exact evalDist_bind_congr' ($ᵗ F) fun cm =>
+    dsFrameImpl_init_evidence_eq_ideal k mclose (A cm)
+
+/-- Consequently, every fixed-secret slash predicate has identical mass in
+the deferred run and the ideal evidence generator. -/
+theorem dsFrameRun_slashes_eq_ideal (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) :
+    Pr[fun z : Evidence F × DSFrameSt F M => Slashes k z.1 |
+      dsFrameRun k mclose A] =
+      Pr[fun ev : Evidence F => Slashes k ev | idealFrameEvidence mclose A] := by
+  have h := probEvent_congr' (p := fun ev : Evidence F => Slashes k ev)
+    (fun _ _ => Iff.rfl) (dsFrameRun_evidence_eq_ideal k mclose A)
+  simpa [probEvent_map] using h
+
+/-- **General pointwise good-slice transfer.** The real audited run embeds
+in the deferred run until leakage; the deferred pending-slope tape erases to
+the ideal evidence generator; and the ghost evidence erases to that same
+ideal generator.  Thus the formerly pinned-`nfAt` case is handled at run
+level rather than by an invalid pointwise state coupling. -/
+theorem framePointwiseGoodSlice_of_tape (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) (k : F) :
+    FramePointwiseGoodSlice mclose A k := by
+  unfold FramePointwiseGoodSlice
+  rw [probOutput_bind_decide_eq_probEvent,
+    probOutput_bind_decide_eq_probEvent]
+  have hghostDist : 𝒟[Prod.fst <$> ghostFrameRun mclose A] =
+      𝒟[idealFrameEvidence mclose A] := by
+    rw [fst_map_ghostFrameRun, ghostFrameEvidence_evalDist_eq]
+  have hghost := probEvent_congr' (p := fun ev : Evidence F => Slashes k ev)
+    (fun _ _ => Iff.rfl) hghostDist
+  calc
+    Pr[fun z : Evidence F × AuditedFrameSt F M =>
+        Slashes k z.1 ∧ ¬ FrameLeakBad k z.2.audit |
+      auditedFrameRun mclose A k]
+        ≤ Pr[fun z : Evidence F × DSFrameSt F M => Slashes k z.1 |
+            dsFrameRun k mclose A] :=
+      auditedFrameRun_goodSlice_le_dsFrameRun k mclose A
+    _ = Pr[fun ev : Evidence F => Slashes k ev | idealFrameEvidence mclose A] :=
+      dsFrameRun_slashes_eq_ideal k mclose A
+    _ = Pr[fun z : Evidence F × GhostFrameSt F M => Slashes k z.1 |
+          ghostFrameRun mclose A] := by
+      simpa [probEvent_map] using hghost.symm
+
+/-- The k-averaged good-slice transfer for arbitrary adaptive adversaries. -/
+theorem frameGoodSliceTransfer_of_tape (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) :
+    FrameGoodSliceTransfer mclose A :=
+  frameGoodSliceTransfer_of_pointwise mclose A fun k =>
+    framePointwiseGoodSlice_of_tape mclose A k
 
 end TapeInduction
 
