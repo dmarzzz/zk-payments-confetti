@@ -78,6 +78,10 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 - One-trace channel and wire composition endpoints bundling settlement,
   payer floor, no-overspend, exact payee settlement, exculpability, FS-wire
   unlinkability, and its proof-free ZK bridge.
+- A nullifier-chain channel instantiation with deposit-capped monotone
+  balances, stale-close collision detection, honest-close exculpability,
+  conservation/refund liveness, a two-payment anonymity game, and a guarded
+  executable ledger proved sound and complete for the relational machine.
 
 ## Remaining before the complete roadmap is proved
 
@@ -130,7 +134,15 @@ open.
    `spend`/`close`/`nfAt` bad-or-good relation and final VCV-io quantitative
    simulation application. In particular, `nfAt` can sample a slope before a
    later adaptive message choice, so this needs continuation-level deferred
-   sampling rather than only a pointwise state relation.
+   sampling rather than only a pointwise state relation. `Games.FrameGhost`
+   now provides a secret-independent ghost handler, exact erasure to the ideal
+   handler, transcript monotonicity/completeness, and support-wise structural
+   query bounds. `Games.FrameGhostBounds` proves the deferred-uniform
+   direct-secret contribution `(qA+qE+qId)/|F|` and assembles the full
+   `qb.total/|F|` leakage bound from the precise remaining
+   `GhostSlopeBadBounds` interface. Thus only the adaptive slope-hit and
+   honest-slope collision fields, followed by real/ghost off-bad coupling,
+   remain in this lane.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
