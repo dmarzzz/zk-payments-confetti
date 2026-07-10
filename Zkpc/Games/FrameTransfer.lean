@@ -286,3 +286,6 @@ end Zkpc.Games
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Games.T7_frame_query_bound_of_goodSlice_and_realBad
 #print axioms Zkpc.Games.frameRealBadMassLe_of_components
+#print axioms Zkpc.Games.isQueryBoundP_or
+#print axioms Zkpc.Games.frameQueryBounds_secret_bound
+#print axioms Zkpc.Games.auditedFrameImpl_run_audit_bounds
