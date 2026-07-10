@@ -30,6 +30,14 @@ extractor. This module supplies the *probabilistic* random-oracle layer
   independent uniform challenge collides with the first run's challenge with
   probability exactly `1/|F|`; outside that event `fs_fork_extracts` extracts
   the witness unconditionally.
+
+Scope note: this lazy-ROM model has no shared oracle channel between the
+prover/simulator and an adversary — each lemma samples its own fresh slots.
+Accordingly `fsProgramCollisionBound` and `fsForkChallengeCollisionBound` are
+standalone hidden-target kernels; composing them with the FS oracle semantics
+(a common programmable oracle queried by an adaptive adversary, and the final
+query-dependent knowledge-soundness loss) is the open reduction tracked as
+`ROADMAP-STATUS.md` remaining item 2.
 -/
 
 open OracleSpec OracleComp

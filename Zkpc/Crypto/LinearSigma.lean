@@ -8,13 +8,17 @@ For public `(x,y)`, the witness `(k,a)` satisfies `y = k + a*x`.  The
 protocol commits with fresh `(tK,tA)`, receives challenge `c`, and responds
 `(tK+c*k, tA+c*a)`.  Verification is the corresponding linear equation.
 
-The module proves the algebraic properties needed by a Fiat--Shamir or
-interactive instantiation: completeness, a pointwise honest-verifier
-simulation relation with an explicit bijection between prover randomness and
-simulated responses, and special soundness by extraction from two accepting
-transcripts with the same commitment and distinct challenges.  The
-distributional honest-verifier-ZK and random-oracle programming arguments are
-separate obligations; this file intentionally does not claim them.
+The module proves the properties needed by a Fiat--Shamir or interactive
+instantiation: completeness, a pointwise honest-verifier simulation relation
+with an explicit bijection between prover randomness and simulated responses,
+distributional honest-verifier zero knowledge for the sampled transcript and
+for the complete signal/proof pair (`evalDist_real_eq_simulated`,
+`evalDist_realSignalProof_eq_simulated`), and special soundness by extraction
+from two accepting transcripts with the same commitment and distinct
+challenges.  The probabilistic random-oracle programming layer lives in
+`Zkpc/Crypto/FSRom.lean`.  What this file does not claim is the reduction
+from a deployed hash implementation and adversarial oracle-query semantics
+to that ideal lazy-ROM model.
 -/
 
 namespace Zkpc.Crypto.LinearSigma

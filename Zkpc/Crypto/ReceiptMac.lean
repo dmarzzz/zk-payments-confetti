@@ -16,11 +16,20 @@ pairwise-independent one-time MAC `tag(m) = a·m + b` under payer-issuer key
   observed through one tag is distributionally `(a, t)` with `t` fresh-uniform
   and `b = t − a·m` hidden; this is the coupling that makes the forgery bound
   a single-point guess.
-* `mac_forgery_bound` — **one-time unforgeability**: after observing the tag
-  `t` on `m`, any forgery `(m', t')` with `m' ≠ m` verifies with probability
-  at most `1/|F|` over the hidden key. This is the exact per-link chain
-  authenticity loss: a receipt chain of `n` adversarial links is broken with
-  probability at most `n/|F|` by a union bound over links.
+* `mac_forgery_bound` — **fixed-pair forgery bound**: for every observed tag
+  `t` on `m` and every fixed forgery pair `(m', t')` with `m' ≠ m`,
+  verification succeeds with probability at most `1/|F|` over the hidden
+  slope in the reparametrized view. The forgery pair is a parameter of the
+  statement, not adversary output.
+
+What is *not* formalized here, and is the intended unformalized reading
+toward the issue-#5 reduction: the adaptive forgery game in which the
+adversary chooses `(m', t')` as a function of the observed tag (the standard
+argument conditions on `t` via `evalDist_keyTag_eq` and applies the
+fixed-pair bound per branch), and the `n`-link chain claim that a receipt
+chain of `n` adversarial links is broken with probability at most `n/|F|` by
+a union bound over links. Both are prose motivation until stated as games in
+this file.
 -/
 
 open OracleSpec OracleComp

@@ -9,15 +9,26 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   lemma; quantitative real-to-ideal composition; and the corrected
   `(q_A + q_E + q_Id + q_Nf*q_sig + q_sig^2 + 1) / |F|` endpoint from a deferred-sampling
   certificate.
-- Corrected T7 quantitative kernels: an adaptive multi-target slope-preimage
-  bound `q_Nf*q_sig/|F|` and a logged-oracle honest-slope birthday bound.
+- Corrected T7 quantitative kernels: the adaptive multi-target slope-preimage
+  bound `uniformSlopeProbeBound` (`q_Nf*q_sig/|F|`) alongside the per-channel
+  `uniformSecretProbeBound`. An earlier logged-oracle honest-slope birthday
+  draft did not source-build and was removed; that collision term is part of
+  the open handler argument, not a proved kernel.
   `Games.FrameAudit` decorates the actual handler with secret probes, slope
   probes, and slope exposures, proves bad-event monotonicity and per-step
   resource growth, and erases exactly to `frameImpl` for every adaptive run.
   `Games.FrameIdeal` supplies the secret-independent handler, canonical
-  secret-erasing state map, and programmed initial-state relation. Exact
-  public-oracle step coupling was attempted at this checkpoint but is not yet
-  retained as a proved API; the failed obligations are listed below.
+  secret-erasing state map, and programmed initial-state relation, and proves
+  the exact public-oracle step coupling: every good
+  `roX`/`roA`/`roE`/`roId`/`roNf` step commutes with canonical idealization
+  (`idealize_roX_step` through `idealize_roNf_step`).
+- T7 composition-socket correction (`Games.FrameDeferred`, commit `3df0169`):
+  a kernel-checked refutation (`frameDeferredSampling_refuted`) shows the
+  pointwise-in-`k` `FrameDeferredSampling` certificate is unsatisfiable over
+  any field with more than five elements, and the corrected secret-averaged
+  socket `FrameDeferredSamplingAvg` with `T7_frame_query_bound_avg` recovers
+  the same `(qb.total + 1)/|F|` endpoint
+  (`research_knowledge/gates.md`, Round 4 of 2026-07-09).
 - Proof-free, masked-proof, interactive-Sigma, and Fiat--Shamir T4 instances.
   The Sigma and lazy-ROM FS wires have session-level simulator equalities,
   perfect unlinkability, and zero-loss bridges to the proof-free game; the FS
@@ -42,13 +53,20 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
   Its end-to-end theorem composes verification, executable redemption,
   executable settlement, reachability, and shared-deposit no-overspend.
 - A concrete finite-field Sigma algebraic core for knowledge of an RLN line:
-  verifier completeness, a simulator construction, response equivalence, and
-  two-transcript special-soundness extraction. Distributional
-  honest-verifier-ZK and the proof-bearing T4 instance are deliberately not
-  claimed until their sampling argument is formalized.
+  verifier completeness, a simulator construction, response equivalence,
+  two-transcript special-soundness extraction, and distributional
+  honest-verifier ZK for both the transcript and the complete signal/proof
+  pair (`evalDist_real_eq_simulated`,
+  `evalDist_realSignalProof_eq_simulated` in `Crypto.LinearSigma`).
+  `Games.SigmaInstance` lands the proof-bearing T4 instances and their
+  zero-loss ZK bridges for both the interactive and FS wires.
 - A Fiat--Shamir-shaped proof object, deterministic verifier, programmed
-  simulator interface, and algebraic fork extractor. Its probabilistic ROM
-  programming/forking reduction and T4 wire-level bridge remain open.
+  simulator interface, and algebraic fork extractor, with lazy-ROM
+  distributional simulation and explicit programming/fork collision bounds
+  (`Crypto.FSRom`) and the T4 wire-level bridge (`Games.SigmaInstance`).
+  What remains open is the reduction from a deployed hash implementation and
+  adversarial oracle-query semantics to this ideal lazy-ROM model
+  (remaining item 2 below).
 - A concrete additive masked refund ciphertext with executable encryption,
   opening, homomorphic addition, rerandomization, receipt updates, and
   correctness, together with exact distributional rerandomization privacy.
@@ -67,12 +85,18 @@ Checkpoint for the implementation PR based on upstream commit `0d13b42`.
 
 This PR is an **in-progress research checkpoint**, not a completed
 formalization. The focused `FrameAudit`, `FrameIdeal`, and `T7` targets
-source-build without `sorryAx`; experimental logged-slope and exact
-public-oracle coupling claims that did not source-build were removed. The
-unconditional T7 theorem remains open.
+source-build without `sorryAx`; an experimental logged-slope draft that did
+not source-build was removed, while the exact public-oracle step coupling was
+subsequently reproved and retained in `Games.FrameIdeal`. The root module
+`Zkpc.lean` now imports the previously orphaned `Core.Composition`,
+`Crypto.ReceiptMac`, and `Network.Issuance` modules, so the default build
+kernel-checks them (commit `3e0e18c`). The unconditional T7 theorem remains
+open.
 
 1. **Unconditional T7 handler coupling.** Construct
-   `FrameDeferredSampling` from the actual stateful `frameImpl`. The proof must
+   `FrameDeferredSamplingAvg` — the secret-averaged socket; the pointwise
+   `FrameDeferredSampling` is refuted by `frameDeferredSampling_refuted` —
+   from the actual stateful `frameImpl`. The proof must
    relate the real shared caches to a secret-independent ideal handler up to
    the first direct-secret hit, slope-preimage hit, or honest-slope collision.
    It must account for public `cm`, honest `spend`, legacy

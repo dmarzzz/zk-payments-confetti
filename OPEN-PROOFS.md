@@ -195,8 +195,11 @@ this ideal lazy-ROM reference layer.
 For the refund instantiation, `bRerand_spendBatch_none_zero` discharges O2,
 `bIdeal_openCh_adversary_genesis`, `bIdeal_serve_issuer_receipt`, and
 `bIdeal_serve_capable_mono` discharge the adversary-issued-genesis/receipt
-semantics (M2/O3), and `bIdeal_closeViewSimulatable` discharges O4 for both
-B-static and B-rerand.
+semantics (M2/O3) — noting that O3's discharge rests on the rev-9 model
+redefinition, under which the issuer abstraction leaves no malformed-handle
+case to rule out (`Zkpc/Games/README-games.md`, rev-9 obligation register) —
+and `bIdeal_closeViewSimulatable` discharges O4 for both B-static and
+B-rerand.
 
 ### 4. The challenge-fires lemma (Class B, small, good first task)
 
