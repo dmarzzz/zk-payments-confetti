@@ -836,10 +836,23 @@ theorem realDSStep_spend_open (k : F) (mclose m : M)
         rw [← hc.roX_eq]
         simp [dsFrameImpl, StateT.run_mk, dsTouch_of_some hpin', hdop]
       rw [hL, hR]
-      refine relTriple_lazyROX_bind _ _ m rfl _ _ _ ?_ ?_ <;>
-        [skip; intro hxnone] <;> intro x hx <;>
-        [exact ?_; exact ?_]
-      all_goals {
+      have hcont : ∀ (x : F) (cX : M → Option F),
+          RelTriple
+            (lazyRO r.base.roNf a >>= fun pn =>
+              pure ((some ⟨x, rlnY k a x, pn.1⟩ : Option (Signal F)),
+                (⟨{ r.base with
+                      idx := r.base.idx + 1
+                      roX := cX
+                      roNf := pn.2 }, r.audit⟩ : AuditedFrameSt F M)))
+            (lazyRO d.ideal.honestNf d.ideal.idx >>= fun pn =>
+              pure ((some ⟨x, rlnY k a x, pn.1⟩ : Option (Signal F)),
+                (⟨{ d.ideal with
+                      idx := d.ideal.idx + 1
+                      roX := cX
+                      honestNf := pn.2 }, d.slope, d.audit⟩ :
+                  DSFrameSt F M)))
+            (StepPost k ((frameSpec F M).Range (.spend m))) := by
+        intro x cX
         cases hnf : r.base.roNf a with
         | some nf =>
             rw [lazyRO_of_some hnf, lazyRO_of_some (hnfd.trans hnf)]
@@ -892,7 +905,12 @@ theorem realDSStep_spend_open (k : F) (mclose m : M)
                 exact Or.inr hahs
               · rw [Function.update_of_ne hqa] at hq'
                 exact hnfcov q w hq'
-      }
+      refine relTriple_lazyROX_bind _ _ m rfl _ _ _ ?_ ?_
+      · intro x hx
+        exact hcont x r.base.roX
+      · intro hxnone raw
+        exact hcont (nonzeroDigest raw)
+          (Function.update r.base.roX m (some (nonzeroDigest raw)))
   | none =>
       have hpin' : d.slope d.ideal.idx = none := by
         rw [hidx, ← hc.hiddenSlope r.base.idx]; exact hpin
@@ -935,10 +953,34 @@ theorem realDSStep_spend_open (k : F) (mclose m : M)
         simp [dsFrameImpl, StateT.run_mk, dsTouch_of_none hpin',
           lazyRO_of_none hnfd, hdop]
       rw [hL, hR]
-      refine relTriple_lazyROX_bind _ _ m rfl _ _ _ ?_ ?_ <;>
-        [skip; intro hxnone] <;> intro x hx <;>
-        [exact ?_; exact ?_]
-      all_goals {
+      have hcont : ∀ (x : F) (cX : M → Option F),
+          RelTriple
+            (($ᵗ F) >>= fun a =>
+              lazyRO r.base.roNf a >>= fun pn =>
+                pure ((some ⟨x, rlnY k a x, pn.1⟩ : Option (Signal F)),
+                  (⟨{ r.base with
+                        idx := r.base.idx + 1
+                        roA := Function.update r.base.roA
+                          (k, r.base.idx) (some a)
+                        roX := cX
+                        roNf := pn.2 },
+                    { r.audit with
+                      honestSlopes := a :: r.audit.honestSlopes }⟩ :
+                    AuditedFrameSt F M)))
+            (($ᵗ F) >>= fun v =>
+              ($ᵗ F) >>= fun nf =>
+                pure ((some ⟨x, rlnY k v x, nf⟩ : Option (Signal F)),
+                  (⟨{ d.ideal with
+                        idx := d.ideal.idx + 1
+                        roX := cX
+                        honestNf := Function.update d.ideal.honestNf
+                          d.ideal.idx (some nf) },
+                    Function.update d.slope d.ideal.idx (some v),
+                    { d.audit with
+                      honestSlopes := v :: d.audit.honestSlopes }⟩ :
+                    DSFrameSt F M)))
+            (StepPost k ((frameSpec F M).Range (.spend m))) := by
+        intro x cX
         refine relTriple_bind relTriple_uniformSample_refl
           fun a v hav => ?_
         cases hav
@@ -1081,7 +1123,12 @@ theorem realDSStep_spend_open (k : F) (mclose m : M)
               rw [Function.update_of_ne hne₁] at h₁'
               rw [Function.update_of_ne hne₂] at h₂'
               exact hinj j₁ j₂ b h₁' h₂'
-      }
+      refine relTriple_lazyROX_bind _ _ m rfl _ _ _ ?_ ?_
+      · intro x hx
+        exact hcont x r.base.roX
+      · intro hxnone raw
+        exact hcont (nonzeroDigest raw)
+          (Function.update r.base.roX m (some (nonzeroDigest raw)))
 
 end Zkpc.Games
 
