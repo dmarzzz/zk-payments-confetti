@@ -16,6 +16,7 @@ import Zkpc.Crypto.ElGamal
 import Zkpc.Crypto.ElGamalDDH
 import Zkpc.Crypto.ReceiptMac
 import Zkpc.Crypto.SchnorrReceipt
+import Zkpc.Crypto.SchnorrSigma
 import Zkpc.Crypto.ThresholdSchnorr
 import Zkpc.Crypto.Serialization
 import Zkpc.Core.Flat
