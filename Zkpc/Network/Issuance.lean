@@ -2,7 +2,7 @@ import Zkpc.Network.Credential
 import Zkpc.Crypto.FSRom
 
 /-!
-# Threshold issuance, blindness, unforgeability, and recipient-view
+# Threshold issuance, blindness, fork extraction, and recipient-view
 # unlinkability (issue #6)
 
 Issuer-independent authorization in the repository's information-theoretic
@@ -17,17 +17,23 @@ reference style:
   mask; `evalDist_blindRequest_uniform` proves the issuer view is exactly
   uniform, independent of the message (perfect blindness), and
   `issuerView_message_independent` states the two-message form.
-* **Unforgeability** — `ticket_fork_extracts` reduces ticket creation to
-  knowledge of the RLN line witness: two well-formed tickets for the same
-  commitment under forked challenge oracles with distinct challenges extract
-  the witness (`fs_fork_extracts`); the probabilistic forking loss is
-  `LinearSigma.fsForkChallengeCollisionBound` (`1/|F|`).
-* **Recipient-view network unlinkability** — `recipientView_unlinkable`:
-  the complete presentation view (statement plus FS proof) of any two payer
-  keys is identically distributed, because both equal the witness-free
-  simulator (`evalDist_fsRealSignalProofLazy_eq_simulated`). Across multiple
-  presentations the views are independent fresh samples of the same
-  distribution, so no recipient strategy links presentations to keys.
+* **Special-soundness extraction for tickets** — `ticket_fork_extracts` is a
+  deterministic two-transcript statement: two well-formed tickets for the
+  same commitment under forked challenge oracles with distinct challenges
+  extract the RLN line witness (`fs_fork_extracts`), and
+  `LinearSigma.fsForkChallengeCollisionBound` bounds a single challenge
+  collision by `1/|F|`. No probabilistic unforgeability game and no forking
+  lemma (rewinding a query-bounded adversary to produce the two transcripts)
+  are formalized here; a production threshold-signature unforgeability
+  reduction remains open (`ROADMAP-STATUS.md`, remaining item 4).
+* **Recipient-view unlinkability (single presentation)** —
+  `recipientView_unlinkable`: the complete presentation view (statement plus
+  FS proof) of any two payer keys is identically distributed, because both
+  equal the witness-free simulator
+  (`evalDist_fsRealSignalProofLazy_eq_simulated`). The adaptive
+  multi-session game connecting these per-presentation distributions to the
+  executable admission and settlement trace is not formalized here (same
+  remaining item).
 -/
 
 open OracleSpec OracleComp
