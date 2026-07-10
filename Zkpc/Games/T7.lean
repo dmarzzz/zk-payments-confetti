@@ -29,20 +29,18 @@ the independent `k`-draw past the evidence generation (`evalDist_bind_comm`)
 and bounds the resulting `k`-sum by the single-point mass `1/|F|`
 (`frame_inner_bound`).
 
-GATE-NOTE (PPT scoping of Spec T7, the deferred hard half). Spec T7 states
-`Pr[slash] ≤ negl(λ)` for every **PPT** adversary. The earlier advertised
-numerator `q_A + q_Id + q_E + 1` omitted two concrete ROM events:
-`H_nf` probes can hit any exposed honest slope, and two honest slopes can
-collide. The corrected conservative numerator used below is
-`q_A + q_Id + q_E + q_Nf*q_sig + q_sig^2 + 1`. Formalising those query terms is the lazy
-random-oracle *identical-until-bad* accounting over an unbounded interactive
-adversary — the estimated-hard 20% flagged in the E1 survey
-(`research_knowledge/vcvio-gap.md §3`). We ship the blind-guess term rigorously
-and scope the query terms behind the `hobliv` hypothesis (the "no query hit
-`k`" good event), which IS the PPT scoping the deliverable permits: a
-query-bounded adversary that does not correlate its evidence with `k`.
-Discharging `hobliv` unconditionally for a query-bounded adversary, with the
-corrected bad-event mass, is the follow-up.
+The concrete theorem is query-bounded rather than asymptotic.  A
+`FrameQueryBounds A` certificate records separate bounds for direct `H_a`,
+`H_e`, `H_id`, and `H_nf` probes and for slope-producing operations.  The
+corrected numerator is
+`q_A + q_E + q_Id + q_Nf*q_sig + q_sig^2 + 1`: `H_nf` probes can hit any
+exposed honest slope, and honest slopes can collide.  The adaptive
+deferred-sampling proof is completed in `FrameComplete.lean`; its theorem
+`T7_frame_query_bound_unconditional` bounds the secret-averaged FRAME win
+probability by `(qb.total + 1)/|F|` with no additional coupling or counting
+hypothesis.  This finite-query theorem does not itself formalize an
+asymptotic PPT/negligibility wrapper or a reduction from deployed hash and
+signature implementations.
 
 ## The rev-11 must-win calibration battery (anti-vacuity)
 
@@ -361,12 +359,11 @@ theorem T7_frame_bound_of_pointwise (mclose : M)
           · exact tsum_probOutput_le_one
     _ = (Fintype.card F : ENNReal)⁻¹ + ε := by rw [one_mul]
 
-/-- A deferred-sampling certificate for a query-bounded FRAME adversary.
-It is deliberately tied to `FrameQueryBounds`: the real handler is compared
-with one secret-independent evidence generator, and the permitted loss is
-the corrected direct-probe, slope-preimage, and collision mass. Constructing
-this certificate is the stateful handler-coupling obligation; once supplied,
-no further probabilistic or arithmetic hypothesis is needed. -/
+/-- The original pointwise deferred-sampling certificate for a query-bounded
+FRAME adversary.  It compares every fixed secret with one secret-independent
+evidence generator.  `FrameDeferred.lean` proves that this pointwise shape is
+too strong for the public-commitment game; the completed proof uses the
+secret-averaged replacement `FrameDeferredSamplingAvg` instead. -/
 structure FrameDeferredSampling (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (qb : FrameQueryBounds A) where
@@ -394,11 +391,12 @@ theorem frameQueryCharge_eq
       = (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
   simp only [FrameQueryBounds.total, Nat.cast_add, Nat.cast_mul, add_mul]
 
-/-- **Query-bounded T7 composition theorem.** A stateful deferred-sampling
-certificate turns the structural query budgets into the complete corrected
-FRAME bound `(qb.total + 1)/|F|`. In particular, the public commitment,
-honest signals, close reveal, and shared caches are all accounted for inside
-the certificate rather than hidden in an informal independence claim. -/
+/-- **Legacy pointwise query-bounded composition theorem.** If a
+`FrameDeferredSampling` certificate is supplied, it turns the structural
+query budgets into `(qb.total + 1)/|F|`.  The implication remains valid, but
+the certificate shape is too strong in general (`frameDeferredSampling_refuted`).
+The final public theorem uses `FrameDeferredSamplingAvg` and is
+`T7_frame_query_bound_unconditional` in `FrameComplete.lean`. -/
 theorem T7_frame_query_bound (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (qb : FrameQueryBounds A) (hds : FrameDeferredSampling mclose A qb) :
@@ -411,12 +409,12 @@ theorem T7_frame_query_bound (mclose : M)
   rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul]
   exact le_of_eq (add_comm _ _)
 
-/-- **T7 FRAME bound (Spec.md §7 T7, instantiation A).** For every honest
-member and every adversary whose evidence is independent of the secret `k`
-(the RO-oblivious / query-scoped good event, `hobliv`), the probability that
-`Dispute` slashes the honest member is at most `1/|F|` — the blind guess. See
-the module GATE-NOTE for the corrected concrete PPT bound and the
-deferred identical-until-bad query accounting for the `q_·/|F|` terms. -/
+/-- **Conditional blind-guess FRAME bound.** For every honest member and every
+adversary whose evidence is independent of the secret `k` (hypothesis
+`hobliv`), the probability that `Dispute` slashes the honest member is at most
+`1/|F|`.  The hypothesis-free, finite-query result is
+`T7_frame_query_bound_unconditional` in `FrameComplete.lean`; it uses the
+secret-averaged certificate rather than this exact-independence interface. -/
 theorem T7_frame_bound (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (gen : ProbComp (Evidence F))

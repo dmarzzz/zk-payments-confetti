@@ -1345,8 +1345,8 @@ theorem rlnY_bijective (k x : F) (hx : x ≠ 0) :
     Function.Bijective (fun a : F => rlnY k a x) := by
   constructor
   · intro a b hab
-    simp only [rlnY, add_left_inj] at hab
-    exact mul_right_cancel₀ hx hab
+    simp only [rlnY] at hab
+    exact mul_right_cancel₀ hx (add_left_cancel hab)
   · intro y
     refine ⟨(y - k) / x, ?_⟩
     simp only [rlnY]
@@ -1510,7 +1510,6 @@ theorem DSShadowInvStrong.hpat_mem_consumeHoleLine
     refine List.mem_map.2 ⟨e, h.hpat_mem q e he, ?_⟩
     simp [replaceHoleLine, hne]
 
-omit [SampleableType F] [Fintype F] in
 /-- After extracting the public ordinate, the replacement tape coordinate
 is a dummy: seeding the concrete-line successor still gives the original
 concrete state. -/
@@ -1527,6 +1526,7 @@ theorem seed_consumeHoleLine_set_dummy (sigma : DSShadowSt F M)
     k w vs]
   exact seed_consumeHoleLine sigma i j k x vs hi hx
 
+set_option maxHeartbeats 0 in
 /-- Seeded-shadow master bound for an arbitrary query-bounded FRAME
 computation. -/
 theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
@@ -1577,8 +1577,8 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
           · simp only [hc, if_neg]
             cases hi : sigma.pat sigma.ideal.idx with
             | none =>
-                rw [DSShadowSt.seed_slope, hi]
-                simp only [Option.map_none, dsTouch, bind_assoc, pure_bind,
+                simp only [dsTouch, DSShadowSt.seed_slope, hi,
+                  Option.map_none, bind_assoc, pure_bind,
                   DSShadowSt.seed_audit, OracleQuery.cont_query]
                 refine probEvent_kTape_core_swap_le m
                   (lazyROX sigma.ideal.roX msg) _ dsSeededBad _ ?_
