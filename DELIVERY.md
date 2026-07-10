@@ -103,9 +103,9 @@ captured theorem used only a subset of `propext`, `Classical.choice`, and
 `Quot.sound`.
 
 This is exact evidence for the source checkpoint, not a self-referential SHA
-claim about these later documentation edits. The exact final documentation
-and regenerated-PDF head will be recorded in the PR and issue closeout after
-that head receives its own validation.
+claim about these later documentation edits. The regenerated 12-page PDF was
+rendered and checked page by page; the exact final release head is recorded
+in the PR and issue closeout after that commit exists.
 
 ## Operator to-do (not automated)
 
@@ -115,8 +115,8 @@ that head receives its own validation.
   B3, and K1, and obtain a real outside K4 definition review. Agent and
   simulated-external exercises do not close those gates.
 - Leave acceptance and merge of the final candidate to a repository
-  maintainer after the human and artifact gates; no merge authority is
-  claimed by this package.
+  maintainer after the human gates; no merge authority is claimed by this
+  package.
 - The synchronized PDF has been regenerated and every one of its 12 pages
   visually checked. Record the exact artifact commit in the PR/issues when
   publishing or merging.

@@ -102,8 +102,8 @@ The branch contains source for the following components:
 
 This implementation inventory is backed by the `abb878f` clean build and
 trust audit described above. It does not upgrade the reference constructions
-into production cryptographic reductions, and it does not claim that the
-still-pending final PDF artifact has been rebuilt or visually checked.
+into production cryptographic reductions. The synchronized paper was rebuilt
+as a 12-page PDF and visually checked page by page.
 
 ## Exact non-claims
 

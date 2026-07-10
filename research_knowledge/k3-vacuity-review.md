@@ -323,6 +323,8 @@ concrete bound for a certified finite query count does not itself quantify
 over PPT adversary families or prove asymptotic negligibility, and the lazy
 random-oracle handlers are not a deployed hash instantiation.
 
-**Kernel-status note:** this follow-up audits the final statement shape.
-Successful final compilation and axiom output are pending the release audit
-and are not inferred from the presence of the declarations in source.
+**Post-review kernel status (2026-07-10):** the release audit later completed
+at source checkpoint `abb878f`: the fresh Lean 4.30.0 root build completed
+3,595 jobs and the final T7/composition/scaling axiom capture used only
+Lean's standard axioms. This evidence is recorded independently of the
+statement-shape audit rather than inferred from declaration presence.

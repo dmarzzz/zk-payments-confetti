@@ -289,7 +289,9 @@ not, by itself, a formal PPT/asymptotic-negligibility theorem and it is not a
 reduction for a deployed hash function. Any prose saying simply
 “unconditional PPT T7” must be read or rewritten with that limitation.
 
-**Verification hand-off:** statement inspection is complete; final source
-compilation, clean-build SHA, and `#print axioms` evidence remain pending in
-the release audit. This follow-up makes no claim about outputs not yet
-recorded there.
+**Post-handoff status (2026-07-10):** statement inspection was complete at
+this handoff, and the release audit subsequently closed the technical
+evidence at source checkpoint `abb878f`: the fresh Lean 4.30.0 root build
+completed 3,595 jobs and the final endpoint `#print axioms` capture used only
+Lean's standard axioms. Required non-author human K1 acceptance remains
+pending; this technical addendum does not substitute for it.
