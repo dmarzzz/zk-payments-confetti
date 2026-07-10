@@ -276,6 +276,16 @@ enumerated above and each is chargeable. The same stage 1 + the
 `mulRight` bijection give `FrameGoodSliceTransfer`, so the two open Props
 share all substrate except the final counting step.
 
+**Lane claim (2026-07-10, orchestrator):** `FrameGoodSliceTransfer` —
+the good-slice consumption of the shared substrate, in
+`Zkpc/Games/FrameGoodSlice.lean`: the `mulRight`-bijection win-functional
+transport through the stage-1 deferred-slope equivalence and the stage-2
+ghost coupling as they land (consumed by their committed names, never
+redefined), the good-slice mass-drop bookkeeping at bad-firing steps, and
+the final instantiation into `T7_frame_query_bound_of_goodSlice_and_realBad`.
+Stage 1 itself belongs to the route-B lane above; if its shape shifts,
+only the transport re-targets.
+
 ### 2. The ZK bridge, O1 (Class D, high value)
 
 `Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
