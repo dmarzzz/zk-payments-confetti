@@ -25,7 +25,7 @@ recorded, so the original success condition is not yet fully met.
 
 ## What happened, against each shape
 
-### Success condition: FINITE SOURCE TARGETS IMPLEMENTED; HUMAN AND RELEASE GATES PENDING
+### Success condition: FINITE SOURCE TARGETS TECHNICALLY VALIDATED; HUMAN GATES PENDING
 
 - **`T4_flat_unlinkability`: spend-unlinkability advantage exactly 0**,
   kernel-checked, dependent only on the three standard Lean axioms (K2).
@@ -42,13 +42,13 @@ recorded, so the original success condition is not yet fully met.
   statement audit (K1) and a simulated external cryptographer (K4). The full
   counterexample record is `gates.md`. This is useful pre-review evidence,
   not a substitute for the required human sign-off.
-- **The rest of the suite is present in source:** T1 (no-overspend), T2/T3
+- **The rest of the suite is present and technically validated:** T1
+  (no-overspend), T2/T3
   (balance security both sides), T5 (closure liveness), T6 (priced
   divergence, fleet), the finite-query T7 endpoint, the refund variant
-  (T1-B/T3-B/conservation), and the calibration pair. Earlier audited
-  endpoints have recorded kernel/axiom evidence. The repaired final T7 and
-  composition endpoints still need the exact-candidate build and axiom
-  capture listed in the amendment below.
+  (T1-B/T3-B/conservation), and the calibration pair. The repaired final T7,
+  composition, and scaling endpoints passed the fresh-clone build and axiom
+  audit at source checkpoint `abb878f`, as recorded in the amendment below.
 - **The T7 boundary, logged:** the source endpoint now states the
   secret-averaged finite inequality
   `frameWinProb ≤ (qb.total + 1)/|F|` directly from `FrameQueryBounds`; the
@@ -132,8 +132,10 @@ hallucinating agreement with itself.
 
 ## Honest ledger of what is NOT done
 
-- Final exact-commit build, forbidden-token scan, and axiom output for the
-  repaired T7/composition/scaling endpoints are pending.
+- Technical validation of the proof-bearing source completed at checkpoint
+  `abb878f`. The exact final PR head will be recorded externally after the
+  documentation/PDF-only release commit; that SHA handoff is not pending
+  proof evidence.
 - A PPT/runtime model, a theorem deriving polynomial query certificates from
   PPT, and a deployed-hash reduction are not formalized. The asymptotic
   wrapper assumes the required query and field-growth/negligibility facts.
@@ -159,10 +161,11 @@ The agent-run evidence supports the evaluation-asymmetry bet: review effort
 concentrated on the substantial definition/game surface, where every
 blocking finding arose, while recorded kernel checks handled the audited
 proof endpoints. The definitions became stronger under attack rather than
-softer. But the experiment's full success verdict is deliberately withheld
-until a non-author human accepts the statements and the final merge candidate
-passes the recorded release audit. Agent simulation cannot report those
-events on the human's behalf.
+softer, and the proof-bearing source passed the recorded technical release
+audit at `abb878f`. But the experiment's full success verdict is deliberately
+withheld until a non-author human accepts the statements. Agent simulation
+cannot report that event on the human's behalf; the real K4 outside review is
+also still pending.
 
 ## T7 outcome amendment — 2026-07-10
 
@@ -192,8 +195,20 @@ The project does **not** classify adversaries as PPT, derive those
 certificates from PPT, prove the scaling premises automatically, or reduce a
 deployed hash function to the ideal random-oracle handlers used here.
 
-**Final-validation status at the time of this amendment:** pending. The
-source contains the two no-residual endpoint statements above, but this note
-does not invent a successful build SHA, fresh-build transcript, or axiom
-output. Those are release evidence and must be filled from the final audit
-before the result is described as kernel-checked.
+**Technical-validation completion.** Proof-bearing source checkpoint
+`abb878f` was validated in a fresh clone. The pinned cache restore fetched
+8,283 files, and the full root build succeeded on Lean 4.30.0 after 3,595
+jobs. Explicit `#print axioms` output covered the full T7 route, both
+`T7Certificate` constructors, both flat/refund end-to-end wrappers, both
+`FrameAsymptotic` theorems, five `ElGamal.lean` endpoints, six
+`ReceiptMac.lean` endpoints, and one `AuthenticatedFleet.lean` endpoint.
+Every captured result used only a subset of `propext`, `Classical.choice`,
+and `Quot.sound`. Project `rg` scans found no `sorry`, `admit`, or
+`native_decide`, and no `axiom` outside `Zkpc/Assumptions.lean`;
+`git diff --check` was clean.
+
+The exact final PR head will be recorded externally after the
+documentation/PDF-only release commit. That later SHA record is release
+bookkeeping, not pending proof, build, scan, or axiom evidence. The remaining
+acceptance blockers are the non-author human B1/B3/K1 sign-offs and a real,
+not simulated, K4 outside-cryptographer review.

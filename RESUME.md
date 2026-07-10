@@ -1,7 +1,9 @@
 # RESUME
 
-The pause this file was written for is over. This file is now a redirect,
-but delivery verification for the current PR is still in progress.
+The pause this file was written for is over. This file is now a redirect.
+Lean source validation for the current PR is complete at checkpoint
+`abb878f`; final PDF regeneration/visual QA and the required human review
+remain in progress.
 
 - **What got built and proved:** `DELIVERY.md` (two-paragraph summary,
   package manifest, and current clean-room-rebuild status).
@@ -17,14 +19,22 @@ The T7 source endpoint is `T7_frame_query_bound_unconditional`: for an
 adversary carrying `FrameQueryBounds`, it states the secret-averaged bound
 `(qb.total + 1)/|F|` without residual coupling or counting hypotheses. It
 is the finite counterpart to, not a proof of, the literal PPT/negligibility
-clause in `Spec.md`. The scaling wrapper still assumes per-parameter query
-and field-growth/negligibility premises. Do not treat earlier
-clean-room output as evidence for the current PR head; follow the pending K5
-instructions in `DELIVERY.md`, then record the exact verified commit. The
-repository is already public; invitations, posting, and other outbound
-delivery remain operator-gated (`DELIVERY.md`, K6).
+clause in `Spec.md`. The two scaling theorems are conditional: one assumes
+negligibility of the explicit query/field-size ratio, and its corollary uses
+an explicit polynomial numerator bound plus negligible inverse field size.
+Neither defines PPT or derives those premises from PPT.
+
+For the source checkpoint, a fresh checkout restored 8,283 cached files and
+completed all 3,595 root build jobs on Lean 4.30.0. The exact T7,
+composition, scaling, and refund-reference axiom capture used only Lean's
+standard axioms; the source scans and diff hygiene checks were clean. This is
+evidence for `abb878f`, not for the later documentation/PDF head. The latter
+will be recorded in the PR and issues after the PDF is rebuilt and visually
+checked. The repository is already public; invitations, posting, and other
+outbound delivery remain operator-gated (`DELIVERY.md`, K6).
 
 The eleven B1 rounds, five B3 rounds, K1, and K4 recorded in
 `research_knowledge/gates.md` were independent-agent or simulated-external
 reviews. They do not satisfy the non-author human acceptance required by
-`BRIEF.md`; human B1/B3/K1 sign-off remains pending.
+`BRIEF.md`; human B1/B3/K1 sign-off and a real outside K4 review remain
+pending.

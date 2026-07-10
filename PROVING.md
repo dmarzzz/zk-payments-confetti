@@ -12,7 +12,16 @@ We formalize the **protocol layer** of a zk payment channel over an **idealized 
 
 ## The trust surface
 
-The statements, not the proofs. If `lake build` is green with zero `sorry`, the kernel has checked the proofs; the only thing left for human judgment is whether the **definitions** (in `Zkpc/Spec/`) and **theorem docstrings** say what we meant. That is why:
+The statements, not the proofs. If `lake build` is green with zero proof
+escape hatches and the axiom audit shows only the intended foundations, the
+kernel has checked the proofs; the remaining judgment is whether the
+**definitions** (in `Zkpc/Spec/`) and **theorem docstrings** say what we
+meant. Source checkpoint `abb878f` has that technical evidence: fresh cache
+restore (8,283 files), all 3,595 root jobs on Lean 4.30.0, exact endpoint
+axiom capture using only standard Lean axioms, and clean source/diff scans.
+That does not replace the pending human gates. The later synchronized
+12-page PDF has separately completed its clean rebuild and page-by-page
+visual QA. That is why:
 
 - Every theorem carries a docstring restating it in English. Keep them faithful; the human gates review docstrings + `Spec.md`, nothing else.
 - Changes to `Zkpc/Spec/` (algorithm signatures, security games) re-open the corresponding human gate. Do not "adjust the definition slightly" to make a proof go through without flagging it — definition drift toward provability is this experiment's named failure mode.
@@ -52,12 +61,22 @@ structural query certificates. `dsBadMassLe_of_queryBounds` and
 `frameWinProb mclose A ≤ (qb.total + 1)/|F|` with no additional coupling or
 counting premise. The pointwise `FrameDeferredSampling` socket is
 kernel-refuted and must not be revived. `FrameAsymptotic.lean` supplies
-conditional negligibility lifts from explicit query/field-size scaling
-premises; it does not supply a PPT/runtime classifier, derive query bounds or
-field growth from PPT, or reduce deployed primitives.
+two conditional negligibility lifts: the first assumes negligibility of the
+explicit query/field-size ratio; the second uses an explicit polynomial
+numerator bound and negligible inverse field size to establish that premise.
+Both assume per-parameter query certificates. Neither supplies a PPT/runtime
+classifier, derives query bounds or field growth from PPT, or reduces
+deployed primitives.
 
 ## What the human gates check
 
 - **Gate B1**: `Spec.md` theorem statements — do they say what the protocol needs?
 - **Gate B3**: the security-game definitions in Lean — is the adversary strong enough (abort/evict oracle present), is winning defined right? This is where A2L failed; it gets line-by-line review.
 - **Gate K1**: independent re-read of statements only, by a reviewer who wrote none of it.
+- **Gate K4**: a real outside cryptographer attacks the definitions. The
+  recorded simulated-external agent exercise is useful evidence, but it is
+  not this gate.
+
+B1, B3, and K1 still require non-author human sign-off. The exact final
+documentation/PDF SHA is recorded in the PR and issues rather than being
+conflated with source checkpoint `abb878f`.

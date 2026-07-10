@@ -32,9 +32,10 @@ ledger refining every relational transition, a multi-recipient
 portable-deposit accounting layer with a threshold-issuance reference, one-trace
 end-to-end composition theorems, and a built-in calibration pair that
 separates the broken and fixed refund designs have Lean declarations with
-zero `sorry`, and the source declares no project-specific axioms. Existing
-K2 captures report only Lean's standard axioms; final release capture for
-the new T7 endpoint remains pending. Along the way, eleven agent rounds of
+zero `sorry`, and the source declares no project-specific axioms. The final
+release K2 capture covers T7, composition, scaling, and the scoped refund
+reference endpoints and reports only Lean's standard axioms; a fresh pinned
+checkout completed the 3,595-job root build. Along the way, eleven agent rounds of
 adversarial review broke ten successive revisions of our own
 definition with concrete counterexamples — and the repairs are, we think,
 design requirements for anyone building in this space. Repo:
@@ -182,8 +183,8 @@ ones against the *game* definitions — is in
 workflow. Fresh agents simulated definition and theorem-statement reviewers;
 no independent human sign-off has been recorded yet. The definition went
 through eleven such agent rounds (gate B1) plus five on the Lean games
-(gate B3), an agent statement audit (K1), an axiom audit whose final-T7
-addendum is still pending (K2), an agent adversarial-vacuity audit (K3), and
+(gate B3), an agent statement audit (K1), a completed release axiom audit
+(K2), an agent adversarial-vacuity audit (K3), and
 a simulated external cryptographer (K4). The premise: machine-checked proofs
 invert the review economics (if the kernel accepts, the proofs are right),
 so all scrutiny concentrates on whether the definitions say what we mean —
@@ -313,16 +314,17 @@ The originally frozen pointwise-in-secret T7 certificate was
 kernel-*refuted*: a two-probe adversary makes it unsatisfiable. The completed
 proof uses the corrected secret-averaged socket, exactly matching the FRAME
 experiment, and retains the same finite query bound. The conditional scaling
-module derives negligibility from polynomial certified-query growth and
-negligible inverse field size; it does not classify runtime as PPT or reduce
+module supplies two lifts: one assumes the explicit query/field-size ratio
+is negligible, and its corollary assumes a polynomial numerator bound plus
+negligible inverse field size. Neither classifies runtime as PPT or reduces
 a deployed hash. What remains beyond
 the model is deployment-grade cryptography (concrete hash/signature
 reductions behind the ideal reference layers); circuits are out of scope.
 
-Existing captured and in-file `#print axioms` checks report only Lean's
-`propext`/`Quot.sound`/`Classical.choice`. The final K2 capture for the new
-T7 and composition endpoints is pending, so no completed release-wide audit
-is claimed here.
+The completed release `#print axioms` capture covers the final T7 route,
+both composition wrappers, both scaling theorems, and the scoped refund
+reference endpoints. Every result uses only Lean's
+`propext`/`Quot.sound`/`Classical.choice`.
 
 ## Placement, compressed
 

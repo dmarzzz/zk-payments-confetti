@@ -500,6 +500,27 @@ Gate status remains **pending**, not sign-off, until a final clean build and
 axiom audit are attached. No SHA, command result, or axiom output is
 asserted by this entry.
 
+#### Technical-validation addendum — source checkpoint `abb878f`
+
+The pending release-evidence status in Round 5 is preserved above as the
+status when that agent review concluded. It was subsequently closed for the
+proof-bearing source at checkpoint `abb878f`: in a fresh clone, the pinned
+cache restore fetched 8,283 files and the full root build succeeded on Lean
+4.30.0 after 3,595 jobs. Explicit `#print axioms` output covered the full T7
+route, both `T7Certificate` constructors, both flat/refund end-to-end
+wrappers, both `FrameAsymptotic` theorems, five `ElGamal.lean` endpoints, six
+`ReceiptMac.lean` endpoints, and one `AuthenticatedFleet.lean` endpoint.
+Every captured declaration used only a subset of `propext`,
+`Classical.choice`, and `Quot.sound`.
+
+Project `rg` scans found no `sorry`, `admit`, or `native_decide`, and no
+`axiom` outside `Zkpc/Assumptions.lean`; `git diff --check` was clean. The
+exact final PR head will be recorded externally after the
+documentation/PDF-only release commit. That SHA handoff is release
+bookkeeping, not pending
+proof evidence. This technical completion does **not** satisfy or replace any
+human-review gate.
+
 ## Current acceptance status
 
 - **B1 human gate:** pending; eleven independent-agent rounds are recorded,
@@ -509,5 +530,7 @@ asserted by this entry.
 - **K1 human component:** pending; the recorded K1 report is agent-run.
 - **K4 outside-cryptographer task:** pending if the full task ledger is to be
   closed; the recorded K4 exercise is explicitly simulated.
-- **T7 release evidence:** pending exact-candidate build, scans, axiom output,
-  and commit SHA as listed above.
+- **T7 technical release evidence:** complete for proof-bearing source
+  checkpoint `abb878f`; the exact final PR head after the
+  documentation/PDF-only release commit is an external release record, not
+  pending proof evidence.

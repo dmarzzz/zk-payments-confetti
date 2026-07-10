@@ -24,8 +24,9 @@ for adversaries carrying the five structural query certificates), and the
 refund variant's safety and conservation theorems — now including the full
 failed-upgrade cascade and finite-fleet aggregation — are machine-checked
 with zero `sorry`, and the source declares no project-specific axioms. The
-previous K2 capture reports only Lean's standard axioms; release capture for
-the final T7 endpoint remains pending. The
+release K2 capture for the final T7, composition, scaling, and refund
+reference endpoints reports only Lean's standard axioms; a fresh pinned
+checkout completed the 3,595-job root build. The
 model-to-real bridges are no longer stated obligations: proof-bearing wire
 instances (a masked-proof encoding, an interactive Sigma protocol, and a
 lazy-random-oracle Fiat–Shamir compilation with explicit programming and
@@ -607,10 +608,11 @@ used by T1-B, T2-B, and T3-B. Zero knowledge is realized by proved exact
 transcript simulations for the masked, interactive-Sigma, and lazy-ROM
 Fiat–Shamir wires. The ROM surface includes the domain-separated
 $H_a,H_e,H_{nf},H_x,H_{id}$ interfaces, and the reference layers prove
-re-randomization privacy and `single_signal_hiding`. Existing captured K2
-outputs list only Lean's `propext`/`Quot.sound`/`Classical.choice`; the
-release addendum has not yet captured the final T7 endpoint, so this paper
-does not present that broader audit as complete. The trust surface is the
+re-randomization privacy and `single_signal_hiding`. The completed release
+K2 capture covers the final T7 route, both composition wrappers, both
+conditional scaling theorems, and the scoped refund reference endpoints;
+every result uses only Lean's `propext`/`Quot.sound`/`Classical.choice`.
+The trust surface is the
 idealized definitions and the statements, which is where review belongs.
 
 The model boundary bears repeating before the list: idealized ledger,
@@ -854,8 +856,8 @@ scheme-level games, not consequences of the symbolic trace. The T7 field is
 the secret-averaged finite-query bound for an adversary carrying
 `FrameQueryBounds`; these composition theorems do not derive that bound from
 a PPT/runtime classifier or add a deployed-hash claim. Their source contains
-no project-specific axiom;
-the final release-wide K2 capture remains pending.
+no project-specific axiom, and the final release-wide K2 capture includes
+both wrappers.
 
 **Machine-checked nullifier-chain channel (instantiation C).** The §4
 design is formalized in `Zkpc/Chain/` with the signature scheme idealized
@@ -909,9 +911,8 @@ remains kernel-refuted. `FrameAsymptotic.lean` supplies two conditional lifts:
 one assumes the explicit query/field-size ratio is negligible; its corollary
 assumes a polynomial numerator bound and negligible inverse field
 cardinality. Neither derives query certificates from PPT, supplies the
-missing runtime bridge, or derives field growth.
-The release K2 addendum for the final endpoint is tracked separately and is
-not claimed complete here.
+missing runtime bridge, or derives field growth. The release K2 addendum
+captures both lifts and the complete finite endpoint.
 Remaining formal work includes a PPT-to-query/runtime bridge, the adaptive
 multi-session network composition named in §6, and deployment-grade
 hash/signature reductions behind the ideal reference layers. Circuits remain
@@ -1115,7 +1116,8 @@ definition is traceable to it. The agent adversarial-review record — eleven
 rounds against the specification, five against the Lean games, plus agent
 K1/K3/K4 exercises and every counterexample — is
 `research_knowledge/gates.md`. It is not independent human sign-off. The K2
-record contains an earlier capture and a pending final-T7 addendum. TLA+
+record contains the completed final T7/composition/scaling/refund capture,
+tied to the source-validation checkpoint. TLA+
 models of the flat and fleet state machines, including ablation
 configurations that replay the gateway-binding and merge-evidence
 counterexamples (`tla/ZkpcFleetNoBind.cfg`, `tla/ZkpcFleetNoMergeEv.cfg`),
