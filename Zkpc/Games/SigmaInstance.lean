@@ -287,6 +287,41 @@ theorem fsFlat_zkBridge [Inhabited F] (budget : ℕ) :
   rw [T4_fsFlat_unlinkability budget A]
   exact add_nonneg (abs_nonneg _) (le_refl 0)
 
+/-- Concrete real-valued ROM programming loss paid by a `q`-query
+Fiat--Shamir simulator over challenge field `F`. -/
+noncomputable def fsProgrammingLoss (q : ℕ) : ℝ :=
+  ((q : ENNReal) * (Fintype.card F : ENNReal)⁻¹).toReal
+
+/-- Proof-bearing certificate joining the session-level T4 bridge to the
+adaptive hidden-programming-slot experiment.  The strategy receives the full
+hit/miss history, hence may choose all `q` probes adaptively. -/
+structure FSQueryBridgeCertificate [Inhabited F] (budget q : ℕ)
+    (σ : List Bool → F) : Prop where
+  zkBridge :
+    zkBridgeObligation (fsFlatInstance (F := F) budget)
+      (flatInstance (F := F) budget) (fsProgrammingLoss (F := F) q)
+  programmingBadBound :
+    Pr[(fun b : Bool => b = true) |
+        OracleComp.hiddenReadMany ($ᵗ F) q σ]
+      ≤ (q : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+
+/-- **Query-bounded proof-bearing T4/FS bridge.** The verified FS wire session
+is related to the proof-free T4 game while explicitly carrying the adaptive
+ROM programming loss `q/|F|`.  In the fresh-slot reference semantics the
+session bridge itself is exact; weakening it by the concrete loss and pairing
+it with `fsProgramCollisionBound` produces the reduction certificate consumed
+by a shared-oracle implementation refinement. -/
+theorem fsFlat_queryBridge [Inhabited F] (budget q : ℕ)
+    (σ : List Bool → F) : FSQueryBridgeCertificate budget q σ := by
+  constructor
+  · intro A
+    obtain ⟨A', hA⟩ := fsFlat_zkBridge (F := F) budget A
+    refine ⟨A', hA.trans ?_⟩
+    have hloss : 0 ≤ fsProgrammingLoss (F := F) q := ENNReal.toReal_nonneg
+    simpa [add_comm] using
+      add_le_add_left hloss (unlinkAdvantage (flatInstance (F := F) budget) A')
+  · exact fsProgramCollisionBound q σ
+
 end NonInteractive
 
 end Zkpc.Games
@@ -297,3 +332,4 @@ end Zkpc.Games
 #print axioms Zkpc.Games.evalDist_spendBatch_fsFlat
 #print axioms Zkpc.Games.T4_fsFlat_unlinkability
 #print axioms Zkpc.Games.fsFlat_zkBridge
+#print axioms Zkpc.Games.fsFlat_queryBridge
