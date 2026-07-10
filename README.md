@@ -48,8 +48,10 @@ shapes:
   calibration battery and the exculpability breaks. Template:
   `Zkpc/Games/Calibration.lean`.
 - **Reductions and game hopping** (bound advantage by a chain of hops with
-  a named bad event). This is the hardest shape and where the largest open
-  work sits. Partial template: `Zkpc/Games/T7.lean`.
+  a named bad event). This is the hardest shape and where the remaining
+  open work sits. Template: `Zkpc/Games/T7.lean`, with the FRAME campaign
+  files (`Zkpc/Games/Frame{Factor,Assembly,Transfer}.lean`) as the worked
+  large-scale example.
 - **Field and algebra lemmas** (the RLN line arithmetic). Template:
   `Zkpc/Games/RLN.lean`.
 
@@ -57,17 +59,37 @@ shapes:
 
 `OPEN-PROOFS.md` is the worklist. It lists every proved theorem with its
 Lean name and file, the five classes with their templates, and the open
-obligations ranked by value. The short version of what is open:
+obligations ranked by value. Most of the original worklist has since been
+discharged and kernel-checked: the challenge-fires lemma
+(`Zkpc/Games/T4Fires.lean`), the per-instance obligations for the refund
+variant, the refund fleet extension and upgrade cascade
+(`Zkpc/Refund/{Fleet,Cascade}.lean`, `Zkpc/Fleet/Recovery.lean`), and the
+zero-knowledge bridge that carries the perfect unlinkability result to
+proof-bearing wire protocols — landed with zero loss for the masked,
+Sigma-protocol, and lazy-ROM Fiat-Shamir encodings
+(`Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Crypto/FSRom.lean`,
+`Zkpc/Games/SigmaInstance.lean`). The short version of what is still open:
 
-- the unconditional form of the exculpability bound (T7), currently proved
-  under a stated good-event hypothesis; discharging it is the hardest and
-  highest-value open proof;
-- the zero-knowledge bridge that carries the perfect unlinkability result
-  from the idealized view to the real wire protocol;
-- the remaining per-instance obligations for the refund variant;
-- extending the refund safety layer from a single channel to the fleet;
-- a small challenge-fires lemma that hardens the headline's non-vacuity by
-  construction (a good first task).
+- the unconditional form of the exculpability bound (T7). The original
+  pointwise deferred-sampling scaffold turned out to be unsatisfiable —
+  refuted inside the tree (`frameDeferredSampling_refuted`,
+  `Zkpc/Games/FrameDeferred.lean`), a definitional finding recorded in
+  `research_knowledge/gates.md` (Round 4) that touched only the unconsumed
+  certificate shape, not the game or the `Spec.md` statement. The corrected
+  k-averaged socket and its endpoint arithmetic (`FrameDeferredSamplingAvg`,
+  `T7_frame_query_bound_avg`), the ghost model with exact erasure and budget
+  bounds (`Zkpc/Games/FrameGhost.lean`), the master real-to-ghost
+  factorization (`frame_real_le_ghost_plus_bad`,
+  `Zkpc/Games/FrameFactor.lean`), and the ghost bad-mass bound
+  (`ghostSlopeBadBounds_holds`, `Zkpc/Games/FrameBadMass.lean`) are all
+  kernel-checked. Exactly two named run-level Props remain between them and
+  the unconditional endpoint: `FrameGoodSliceTransfer` and
+  `FrameRealBadMassLe`, both under active lane claims in `OPEN-PROOFS.md`
+  §1;
+- the production hash-function reduction behind the Fiat-Shamir bridge
+  (the landed bridge is exact in the ideal lazy-ROM reference layer), and
+  on the network layer, the adaptive multi-session issuance game and a
+  production threshold-signature unforgeability reduction.
 
 If you are pointing a swarm at this, start from `OPEN-PROOFS.md`, read the
 template file for the class you are taking, and read the relevant `Spec.md`
@@ -103,12 +125,21 @@ on the same defect and the same fix.
 ## Status
 
 The definition is frozen (`Spec.md`, revision 11, gate-signed). The core
-theorems, the unlinkability headline, the fleet and exculpability bounds,
-the calibration pair, and the refund safety layer are proved and
-kernel-checked; the axiom audit shows only the three standard Lean axioms
-(`research_knowledge/k2-axiom-audit.md`). The open obligations in
-`OPEN-PROOFS.md` are the remaining work. Nothing in this repo is verified
-until the kernel says so, and this README does not claim otherwise.
+theorems, the unlinkability headline with its challenge-fires non-vacuity
+lemma, the fleet bound, the exculpability bound in its conditional and
+averaged-endpoint forms, the calibration pair, the
+refund safety layer with its fleet extension and upgrade cascade, the
+zero-loss ZK bridges (masked, Sigma-protocol, lazy-ROM Fiat-Shamir), the
+masked-encryption and receipt-MAC components, the executable ledger
+refinements, the network issuance suite, and the nullifier-chain channel
+instantiation (`Zkpc/Chain/`) are proved and kernel-checked; the axiom
+audit shows only the three standard Lean axioms
+(`research_knowledge/k2-axiom-audit.md`). On T7, the pointwise certificate
+scaffold was refuted and replaced by the k-averaged one, and the campaign
+is reduced to exactly two named run-level Props (`FrameGoodSliceTransfer`,
+`FrameRealBadMassLe`), tracked with the rest of the remaining work in
+`OPEN-PROOFS.md`. Nothing in this repo is verified until the kernel says
+so, and this README does not claim otherwise.
 
 ## Layout
 
@@ -117,6 +148,7 @@ until the kernel says so, and this README does not claim otherwise.
 | `Spec.md` | The definition and the seven theorem statements. The trust surface. |
 | `OPEN-PROOFS.md` | The proof worklist: proved theorems, the five classes with templates, open obligations. |
 | `Zkpc/` | The Lean formalization (`lake build` kernel-checks it). |
+| `Zkpc/Chain/` | Instantiation C: the nullifier-chain channel (state machine, collision bound, anonymity, executable refinement). |
 | `paper/` | The systematization, the placement table, the theorem-to-file map, the ethresear.ch post form. |
 | `RESEARCH.md` | The verified field report: six literature angles, ten open problems. |
 | `BRIEF.md` | The executor contract: model boundary, theorem targets, milestones, gates. |

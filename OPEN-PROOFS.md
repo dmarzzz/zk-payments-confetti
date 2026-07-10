@@ -47,6 +47,29 @@ All kernel-checked, axiom-clean (`research_knowledge/k2-axiom-audit.md`).
 | RLN algebra | `Games.rln_recover_k`, `rln_single_point_hiding`, `rln_evidence_sound` | `Zkpc/Games/RLN.lean` |
 | Refund safety (T1-B, T3-B, conservation) | `Refund.T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed` | `Zkpc/Refund/Safety.lean` |
 | T4 non-vacuity (challenge fires) | `Games.challengeResp_flat_fires` | `Zkpc/Games/T4Fires.lean` |
+| Sigma-protocol core (perfect HVZK, special soundness, FS fork extraction) | `Crypto.LinearSigma.evalDist_real_eq_simulated`, `special_soundness`, `fs_fork_extracts` | `Zkpc/Crypto/LinearSigma.lean` |
+| Lazy-ROM FS simulation + programming/fork collision bounds | `Crypto.LinearSigma.evalDist_fsProveLazy_eq_simulated`, `fsProgramCollisionBound`, `fsForkChallengeCollisionBound` | `Zkpc/Crypto/FSRom.lean` |
+| Masked-encryption privacy (uniform ciphertexts; rerandomized and refund-updated ciphertexts exactly indistinguishable) | `Crypto.MaskedEncryption.evalDist_encrypt_uniform`, `evalDist_rerandomize_cipher_eq`, `evalDist_refundUpdate_cipher_eq` | `Zkpc/Crypto/MaskedEncryption.lean` |
+| One-time receipt MAC (forgery probability `1/\|F\|`, tag hides key) | `Crypto.ReceiptMac.mac_forgery_bound`, `evalDist_keyTag_eq` | `Zkpc/Crypto/ReceiptMac.lean` |
+| Sigma / FS wire instances of T4 + their zero-loss ZK bridges | `Games.T4_sigmaFlat_unlinkability`, `sigmaFlat_zkBridge`, `fsFlat_zkBridge` | `Zkpc/Games/SigmaInstance.lean` |
+| Full-ticket instance (O1 discharged with zero loss for the masked-proof encoding) | `Games.T4_maskedProof_unlinkability`, `maskedProof_zkBridge`, `fullFlat_zkBridge` | `Zkpc/Games/FullTicketInstance.lean` |
+| One-trace end-to-end composition (channel-level and wire-level endpoints) | `Core.channel_endToEnd_composition`, `Games.wire_endToEnd_composition` | `Zkpc/Core/Composition.lean` |
+| Executable core-ledger refinement (each executable step and list sweep returns a `Step` trace) | `Core.Flat.refined_steps_reachable`, `sweep_refines_trace` | `Zkpc/Core/Refinement.lean` |
+| Executable refund / fleet operations refine their machines | `Refund.exec_step_reachable`, `Fleet.exec_step_reachable` | `Zkpc/{Refund,Fleet}/Refinement.lean` |
+| Finite-fleet refund safety (aggregated no-overspend, conservation, payer floor) | `Refund.fleet_no_overspend`, `fleet_conservation`, `fleet_payer_floor` | `Zkpc/Refund/Fleet.lean` |
+| Receipt-upgrade cascade (claims never overshoot, terminal cascades settle, exact final payouts) | `Refund.cascade_upgrades_le_understatement`, `cascade_terminal_settled`, `cascade_final_payouts` | `Zkpc/Refund/Cascade.lean` |
+| Fleet-side T2 aggregate recovery (seniority, caps, conservation, fund-slash forfeit path) | `Fleet.identityRecovery_conservation`, `identityRecovery_all_full`, `fundSlashRecovery_full` | `Zkpc/Fleet/Recovery.lean` |
+| Portable-deposit network accounting (global dedup, no-overspend, view isolation, executable refinement) | `Network.no_overspend`, `Network.global_dedup`, `Network.execSettle_refines` | `Zkpc/Network/State.lean` |
+| Credential adapter (honest issuance verifies, fresh redemption refines admission, global replay rejected) | `Network.Credential.redeem_refines`, `redeem_rejects_global_replay`, `credential_payment_end_to_end` | `Zkpc/Network/Credential.lean` |
+| Threshold issuance reference suite (share aggregation, blind-request hiding, fork extraction, recipient unlinkability) | `Network.Issuance.thresholdIssue_wellFormed`, `ticket_fork_extracts`, `recipientView_unlinkable` | `Zkpc/Network/Issuance.lean` |
+| FRAME audit/ideal substrate (exact ghost ornament of the real handler; secret-independent handler with per-operation commutation steps) | `Games.auditedFrameImpl_run_project`, `frameCoupled_initial`, `idealize_roNf_step` | `Zkpc/Games/{FrameAudit,FrameIdeal}.lean` |
+| Pointwise deferred-sampling certificate refuted; k-averaged socket derives `(qb.total+1)/\|F\|` from any `FrameDeferredSamplingAvg` instance | `Games.frameDeferredSampling_refuted`, `T7_frame_query_bound_avg` | `Zkpc/Games/FrameDeferred.lean` |
+| Ghost model (exact secret erasure of the ghost run, structural budget bounds) | `Games.ghostFrameRun_erase`, `ghostFrameRun_audit_bounds` | `Zkpc/Games/FrameGhost.lean` |
+| Ghost bad mass closed unconditionally (`qb.total/\|F\|`) | `Games.ghostSlopeBadBounds_holds`, `ghostFrameRun_leakBad_prob_le` | `Zkpc/Games/FrameBadMass.lean` |
+| Master factorization real ≤ ghost-win + ghost-bad, from the two named transfers; deferred-secret atomic couplings incl. the nfAt-then-spend crux | `Games.frame_real_le_ghost_plus_bad`, `initial_nfAt_spend_deferredSecret_ghost_eq` | `Zkpc/Games/FrameFactor.lean` |
+| T7 assembly routes A and B: the `(qb.total+1)/\|F\|` endpoint from `FrameGoodSliceTransfer` plus either `FrameBadMassTransfer` (route A; ghost slope socket already unconditional) or `FrameRealBadMassLe` (route B) | `Games.T7_frame_query_bound_of_realGhostTransfers`, `T7_frame_query_bound_of_goodSlice_and_realBad`, `ghostFrameRun_win_eq_certificate_form` | `Zkpc/Games/{FrameAssembly,FrameTransfer}.lean` |
+| Chain instantiation C: settlement safety + collision algebra (no-overspend, Bob's floor, refund liveness; stale-close detection exact, honest close never slashed) | `Chain.chain_no_overspend`, `bob_never_loses`, `collision_iff_stale` | `Zkpc/Chain/{State,Collision}.lean` |
+| Chain instantiation C: two-payment anonymity (advantage exactly 0) + executable refinement both ways | `Chain.chain_two_payment_anonymity`, `execStep_sound`, `execStep_complete` | `Zkpc/Chain/{Anonymity,Refinement}.lean` |
 
 ## The five proof classes (with a template each)
 
