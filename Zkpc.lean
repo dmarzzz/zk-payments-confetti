@@ -40,6 +40,7 @@ import Zkpc.Games.T7
 import Zkpc.Games.FrameDeferred
 import Zkpc.Games.FrameCoupling
 import Zkpc.Games.FrameAssembly
+import Zkpc.Games.FrameTransfer
 import Zkpc.Games.FrameGhost
 import Zkpc.Games.FrameGhostBounds
 import Zkpc.Games.FrameGhostCoverage
