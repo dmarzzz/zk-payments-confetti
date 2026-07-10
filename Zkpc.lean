@@ -17,6 +17,7 @@ import Zkpc.Crypto.ElGamalDDH
 import Zkpc.Crypto.ReceiptMac
 import Zkpc.Crypto.SchnorrReceipt
 import Zkpc.Crypto.ThresholdSchnorr
+import Zkpc.Crypto.Serialization
 import Zkpc.Core.Flat
 import Zkpc.Core.Refinement
 import Zkpc.Core.Composition
@@ -71,5 +72,6 @@ import Zkpc.Refund.AuthenticatedFleet
 import Zkpc.Refund.Refinement
 import Zkpc.Refund.ElGamalRefinement
 import Zkpc.Refund.CryptoRefinement
+import Zkpc.Refund.SerializationRefinement
 import Zkpc.Refund.Cascade
 import Zkpc.Composition.EndToEnd
