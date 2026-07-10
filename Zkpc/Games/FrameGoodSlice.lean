@@ -220,6 +220,7 @@ support-wise bad vanishes; a run from an already-bad audited state has zero
 good-slice mass; and an exact idealization equality of one step upgrades to
 the guarded step dominance. -/
 
+omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- A guarded expectation vanishes when every supported outcome trips the
 leakage event: the guard zeroes every term with positive probability. -/
 theorem tsum_goodGuard_zero_of_support_bad {α : Type} (k : F)
@@ -353,7 +354,7 @@ theorem not_frameLeakBad_honest_cons (k a : F) (audit : FrameAudit F)
       exact hgood (Or.inr (Or.inr hnd))
     exact hdup (List.nodup_cons.mpr ⟨hh, hnd⟩)
 
-omit [Field F] [SampleableType F] in
+omit [Field F] [DecidableEq F] [SampleableType F] [DecidableEq M] in
 /-- On a covered state, an unprobed and unexposed slope has no public
 nullifier-cache entry — the contrapositive of `RoNfCovered` that turns the
 fresh-slope collision branch into a detected bad event. -/
@@ -369,6 +370,7 @@ theorem roNf_none_of_unrecorded (r : AuditedFrameSt F M) (hcov : RoNfCovered r)
 
 /-! ## The line-value uniformization -/
 
+omit [DecidableEq F] in
 /-- **The slope-to-line-value reindexing** (Spec.md §3, the RLN line). For a
 nonzero abscissa `x`, the map `a ↦ k + a·x` is a bijection of `F`, so summing
 any payoff of the emitted line value against the uniform hidden slope equals
@@ -398,7 +400,7 @@ theorem tsum_uniform_rlnY_reindex [Fintype F] (k x : F) (hx : x ≠ 0)
 
 /-! ## Secret erasure of a fresh-slope successor state -/
 
-omit [SampleableType F] in
+omit [Field F] [SampleableType F] [DecidableEq M] in
 /-- **Fresh-slope idealization algebra.** Materializing a fresh hidden slope
 `a` (unexposed, unprobed, no public nullifier entry) with its fresh nullifier
 `nf` at index `i`, and recording it in the audit, idealizes to a single
@@ -440,7 +442,7 @@ theorem idealize_freshSlope_state (k a nf : F) (i n : ℕ) (cl : Bool)
     · by_cases hqa : q = a
       · subst hqa
         simp [idealizeFrame, hqm, hnfa]
-      · simp [idealizeFrame, hqm, hqa, Function.update_of_ne hqa]
+      · simp [idealizeFrame, hqm, hqa]
   · funext q
     simp [idealizeFrame]
   · funext q
@@ -550,7 +552,6 @@ theorem goodSlice_step_le_nfAt_fresh (k : F) (mclose : M) (i : ℕ)
       rw [if_neg hgood',
         idealize_freshSlope_state k a nf i r.base.idx r.base.closed r.base.roX
           r hc hhon hnfa]
-      rfl
       simp [idealizeFrame]
   refine le_trans (ENNReal.tsum_le_tsum fun a =>
     mul_le_mul_right (hstep a) _) ?_
@@ -596,6 +597,7 @@ theorem goodSlice_step_le_spend_fresh (k : F) (mclose m : M)
     unfold auditedFrameImpl frameImpl emitSignal
     simp only [StateT.run_mk, hopen, Bool.false_eq_true, ↓reduceIte]
     rw [lazyRO_eq_of_none ha]
+    simp only [bind_assoc, pure_bind]
     refine bind_congr fun p => ?_
     obtain ⟨x, cX⟩ := p
     refine bind_congr fun a => ?_
@@ -671,7 +673,6 @@ theorem goodSlice_step_le_spend_fresh (k : F) (mclose m : M)
         rw [if_neg hgood',
           idealize_freshSlope_state k a nf r.base.idx (r.base.idx + 1)
             r.base.closed p.2 r hc hhon hnfa]
-        rfl
         simp [idealizeFrame]
     refine le_trans (ENNReal.tsum_le_tsum fun a =>
       mul_le_mul_right (hstep a) _) ?_
@@ -720,6 +721,7 @@ theorem goodSlice_step_le_close_fresh (k : F) (mclose : M)
     unfold auditedFrameImpl frameImpl emitSignal
     simp only [StateT.run_mk, hopen, Bool.false_eq_true, ↓reduceIte]
     rw [lazyRO_eq_of_none ha]
+    simp only [bind_assoc, pure_bind]
     refine bind_congr fun p => ?_
     obtain ⟨x, cX⟩ := p
     refine bind_congr fun a => ?_
@@ -798,7 +800,6 @@ theorem goodSlice_step_le_close_fresh (k : F) (mclose : M)
         rw [if_neg hgood',
           idealize_freshSlope_state k a nf r.base.idx (r.base.idx + 1)
             true p.2 r hc hhon hnfa]
-        rfl
     refine le_trans (ENNReal.tsum_le_tsum fun a =>
       mul_le_mul_right (hstep a) _) ?_
     exact le_of_eq (tsum_uniform_rlnY_reindex k p.1 hx
