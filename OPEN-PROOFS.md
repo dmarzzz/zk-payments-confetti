@@ -276,6 +276,17 @@ enumerated above and each is chargeable. The same stage 1 + the
 `mulRight` bijection give `FrameGoodSliceTransfer`, so the two open Props
 share all substrate except the final counting step.
 
+**Fixed-transcript root kernel landed (2026-07-10,
+`Zkpc/Games/FrameTransfer.lean`):** `DeferredLine`,
+`frameRealRootCandidates`, and
+`probEvent_uniform_mem_frameRealRootCandidates_le` now machine-check the
+stage-2 arithmetic: the direct candidates, one root for every
+slope-probe/line pair, and padded ordered collision roots have length at
+most `qA + qE + qId + qNf*qSig + qSig²`; a deferred uniform secret hits
+that list with at most the corresponding `1/|F|` mass. The two singleton
+root equivalences are also proved. What remains is only transporting the
+actual adaptive handler into this fixed transcript form.
+
 **Lane claim (2026-07-10, orchestrator):** `FrameGoodSliceTransfer` —
 the good-slice consumption of the shared substrate, in
 `Zkpc/Games/FrameGoodSlice.lean`: the `mulRight`-bijection win-functional
