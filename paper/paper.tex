@@ -344,7 +344,8 @@ session pseudonym $nf_{e^*}$), the adversary receives the batch,
 plus the challenge response. Advantage is $|\Pr[b' = b] - \tfrac12|$, with
 $b$ sampled at game start so $\bot$-paths contribute exactly $\tfrac12$.
 The session form --- an adversary-chosen vector rather than a single
-spend --- is itself a repair the external review forced: the single-spend
+spend --- is itself a repair forced by the simulated K4 external-review
+exercise: the single-spend
 game certifies only unlinkability of a member's \emph{first} spend of an
 epoch, and a scheme leaking a persistent cross-epoch tag on second-and-
 later spends would pass it while being lifetime-linkable for any member
@@ -827,11 +828,11 @@ the abort/evict wrapper \decl{withEvict}), and both are proved.
   the uniform-secret FRAME experiment and preserves the same finite query
   bound; the completed proof constructs it from \decl{frameImpl} with no
   residual coupling or counting hypothesis. This is a concrete finite-query
-  theorem. \file{Zkpc/Games/FrameAsymptotic.lean} lifts it to a negligible
-  family when the certified query numerator is polynomially bounded and
-  inverse field cardinality is negligible; that scaling bridge does not
-  classify adversary runtime as PPT or reduce deployed hash or signature
-  implementations. Three
+  theorem. \file{Zkpc/Games/FrameAsymptotic.lean} supplies two conditional
+  lifts: one assumes the explicit query/field-size ratio is negligible; its
+  corollary assumes a polynomial numerator bound and negligible inverse field
+  cardinality. Neither derives query certificates from PPT, classifies
+  runtime, or reduces deployed hash or signature implementations. Three
   \emph{must-win} calibration adversaries confirm the
   game has teeth: \decl{frameWinProb_YK_eq_one} (degenerate $y = k$),
   \decl{frameWinProb_aReuse_eq_one} ($a$ reused across indices), and
@@ -983,8 +984,9 @@ operational guarantees with the re-randomized-refund T4 theorem and the
 same T7 certificate. The operational fields are trace-derived; T4 and T7
 remain scheme-level games, not consequences of the symbolic trace. The T7
 field is the secret-averaged finite-query bound for an adversary carrying
-\decl{FrameQueryBounds}; these composition theorems do not add an
-asymptotic PPT or deployed-hash claim. Their source contains no
+\decl{FrameQueryBounds}; these composition theorems do not derive that bound
+from a PPT/runtime classifier or add a deployed-hash claim. Their source
+contains no
 project-specific axiom; the final release-wide K2 capture remains pending.
 
 \paragraph{Machine-checked nullifier-chain channel (instantiation C).}
@@ -1040,7 +1042,11 @@ confirms the games are not vacuous; and the channel and wire guarantees
 compose on one trace. T7's
 secret-averaged handler coupling and adaptive count are discharged at the
 concrete finite-field query bound, while the stronger pointwise certificate
-remains kernel-refuted. The result is not a formal asymptotic PPT theorem.
+remains kernel-refuted. \file{FrameAsymptotic.lean} supplies two conditional
+lifts: one assumes the explicit query/field-size ratio is negligible; its
+corollary assumes a polynomial numerator bound and negligible inverse field
+cardinality. Neither derives query certificates from PPT, supplies the
+missing runtime bridge, or derives field growth.
 The release K2 addendum for the final endpoint is tracked separately and is
 not claimed complete here.
 Remaining formal work includes a PPT-to-query/runtime bridge, the adaptive
@@ -1241,7 +1247,7 @@ RLN algebra & \file{Zkpc/Games/RLN.lean} & \decl{rln_recover_a}, \decl{rln_recov
 Game framework & \file{Zkpc/Games/Framework.lean} & \decl{guessGap}, \decl{guessGap_eq}, \decl{hiddenBitAdvantage_eq_half_boolDistAdvantage}, \decl{hiddenBitAdvantage_const}, \decl{hiddenBitAdvantage_eq_zero_of_distEquiv}, \decl{ChalAdversary}, \decl{withEvict} \\
 T4 (unlinkability) & \file{Zkpc/Games/T4.lean}, \file{Zkpc/Games/Unlink.lean} & \decl{T4_flat_unlinkability} ($=0$), \decl{unlinkGame}, \decl{unlinkAdvantage}, \decl{UnlinkScheme}, \decl{flat_closeViewSimulatable} \\
 T7 (framing) & \file{Zkpc/Games/T7.lean}, \file{Zkpc/Games/Frame.lean} & \decl{T7_frame_bound} ($\le 1/|F|$ under \decl{hobliv}), \decl{frameWinProb_YK_eq_one}, \decl{frameWinProb_aReuse_eq_one}, \decl{frameWinProb_slopeReveal_eq_one}, \decl{frameGame}, \decl{frameWinProb}, \decl{Slashes} \\
-T7 query-budget composition and scaling & \file{Zkpc/Games/T7.lean}, \file{Zkpc/Games/FrameDeferred.lean}, \file{Zkpc/Games/FrameRealBadStep.lean}, \file{Zkpc/Games/FrameDSCountInduction.lean}, \file{Zkpc/Games/FrameGoodSliceTapeInduction.lean}, \file{Zkpc/Games/FrameComplete.lean}, \file{Zkpc/Games/FrameAsymptotic.lean}, \file{Zkpc/Composition/EndToEnd.lean} & \decl{FrameQueryBounds}, \decl{frameDeferredSampling_refuted}, \decl{FrameDeferredSamplingAvg}, \decl{frameGoodSliceTransfer_of_tape}, \decl{dsBadMassLe_of_queryBounds}, \decl{frameDeferredSamplingAvg_holds}, \decl{T7_frame_query_bound_unconditional}, \decl{T7Certificate.ofQueryBounds}, \decl{frameWinProb_negligible_of_query_bound}, \decl{frameWinProb_negligible_of_polynomial_query_bound} \\
+T7 query-budget composition and scaling & \file{Zkpc/Games/T7.lean}, \file{Zkpc/Games/FrameDeferred.lean}, \file{Zkpc/Games/FrameTransfer.lean}, \file{Zkpc/Games/FrameRealBadStep.lean}, \file{Zkpc/Games/FrameDSCountInduction.lean}, \file{Zkpc/Games/FrameGoodSliceTapeInduction.lean}, \file{Zkpc/Games/FrameComplete.lean}, \file{Zkpc/Games/FrameAsymptotic.lean}, \file{Zkpc/Composition/EndToEnd.lean} & \decl{FrameQueryBounds}, \decl{frameDeferredSampling_refuted}, \decl{FrameDeferredSamplingAvg}, \decl{T7_frame_query_bound_avg}, \decl{frameGoodSliceTransfer_of_tape}, \decl{dsBadMassLe_of_queryBounds}, \decl{frameRealBadMassLe_of_dsCount}, \decl{frameDeferredSamplingAvg_of_goodSlice_and_realBad}, \decl{frameDeferredSamplingAvg_holds}, \decl{T7_frame_query_bound_unconditional}, \decl{T7Certificate.ofAveraged}, \decl{T7Certificate.ofQueryBounds}, \decl{frameWinProb_negligible_of_query_bound}, \decl{frameWinProb_negligible_of_polynomial_query_bound} \\
 Wire ZK bridges (O1) & \file{Zkpc/Games/FullTicketInstance.lean}, \file{Zkpc/Games/SigmaInstance.lean} & \decl{T4_maskedProof_unlinkability}, \decl{maskedProof_zkBridge}, \decl{T4_sigmaFlat_unlinkability}, \decl{sigmaFlat_zkBridge}, \decl{T4_fsFlat_unlinkability}, \decl{fsFlat_zkBridge}, \decl{fullFlat_zkBridge} \\
 Sigma / Fiat--Shamir cores & \file{Zkpc/Crypto/LinearSigma.lean}, \file{Zkpc/Crypto/FSRom.lean} & \decl{completeness}, \decl{evalDist_real_eq_simulated}, \decl{special_soundness}, \decl{evalDist_fsProveLazy_eq_simulated}, \decl{fsProgramCollisionBound}, \decl{fsForkChallengeCollisionBound} \\
 B-instance obligations (O2--O4) & \file{Zkpc/Games/BInstances.lean} & \decl{bRerand_spendBatch_none_zero}, \decl{bIdeal_openCh_adversary_genesis}, \decl{bIdeal_serve_issuer_receipt}, \decl{bIdeal_serve_capable_mono}, \decl{bIdeal_closeViewSimulatable} \\
@@ -1252,7 +1258,7 @@ Fleet recovery (MC19) & \file{Zkpc/Fleet/Recovery.lean} & \decl{identityRecovery
 Executable refinement & \file{Zkpc/Core/Refinement.lean}, \file{Zkpc/Refund/Refinement.lean}, \file{Zkpc/Fleet/Refinement.lean} & \decl{sweep_refines_trace}, \decl{refined_steps_reachable}, \decl{exec*_refines_step}, \decl{exec_step_reachable} \\
 Multi-recipient network & \file{Zkpc/Network/State.lean}, \file{Zkpc/Network/Credential.lean}, \file{Zkpc/Network/Issuance.lean} & \decl{no_overspend}, \decl{global_dedup}, \decl{redeem_rejects_global_replay}, \decl{credential_payment_end_to_end}, \decl{evalDist_blindRequest_uniform}, \decl{ticket_fork_extracts}, \decl{recipientView_unlinkable} \\
 One-trace composition & \file{Zkpc/Core/Composition.lean}, \file{Zkpc/Composition/EndToEnd.lean} & \decl{channel_endToEnd_composition}, \decl{wire_endToEnd_composition}, \decl{flat_endToEnd_unconditional}, \decl{refund_endToEnd_unconditional} \\
-Nullifier-chain channel (C) & \file{Zkpc/Chain/State.lean}, \file{Zkpc/Chain/Collision.lean}, \file{Zkpc/Chain/Anonymity.lean}, \file{Zkpc/Chain/Refinement.lean} & \decl{chain_no_overspend}, \decl{bob_never_loses}, \decl{honest_close_exact}, \decl{alice_refund_liveness}, \decl{conservation}, \decl{no_overpay_recovery}, \decl{stale_close_detectable}, \decl{honest_close_unchallengeable}, \decl{collision_iff_stale}, \decl{chain_two_payment_anonymity} \\
+Nullifier-chain channel (C) & \file{Zkpc/Chain/State.lean}, \file{Zkpc/Chain/Collision.lean}, \file{Zkpc/Chain/Anonymity.lean}, \file{Zkpc/Chain/Refinement.lean} & \decl{chain_no_overspend}, \decl{bob_never_loses}, \decl{honest_close_exact}, \decl{alice_refund_liveness}, \decl{conservation}, \decl{no_overpay_recovery}, \decl{stale_close_detectable}, \decl{honest_close_unchallengeable}, \decl{collision_iff_stale}, \decl{honest_close_never_slashed}, \decl{chain_two_payment_anonymity} \\
 Calibration & \file{Zkpc/Games/Calibration.lean} & \decl{unlinkAdvantage_staticDistinguisher_eq_half}, \decl{unlinkAdvantage_bRerand_eq_zero}, \decl{unlinkAdvantage_aIndexLeak}, \decl{unlinkAdvantage_nfeReuse}, \decl{unlinkAdvantage_multTagDistinguisher_eq_half} \\
 Refund variant (B, $N{=}1$) & \file{Zkpc/Refund/Safety.lean}, \file{Zkpc/Refund/State.lean} & \decl{T1_B_no_overspend}, \decl{T3_B_floor}, \decl{conservation}, \decl{self_slash_race_closed} \\
 Assumption registry & \file{Zkpc/Assumptions.lean} & \decl{Named}, \decl{dischargedBy} (no trusted declarations) \\

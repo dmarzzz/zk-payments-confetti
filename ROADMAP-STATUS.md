@@ -104,8 +104,9 @@ The current formal result is deliberately narrower than a deployed security
 claim:
 
 - no pointwise-in-secret deferred-sampling certificate is claimed;
-- no formal security-parameter family, PPT adversary class, or asymptotic
-  negligibility theorem is present;
+- a security-parameter-indexed conditional negligibility lift is present,
+  but no PPT/runtime classifier, PPT-to-query-bound theorem, automatic
+  field-growth derivation, or deployed-primitive reduction is provided;
 - no reduction from a deployed hash function to the ideal lazy-ROM model is
   claimed;
 - no production public-key refund-encryption or multi-query authentication
@@ -147,7 +148,8 @@ completed T7 route:
 2. deployed rerandomizable refund encryption and multi-query authentication;
 3. adaptive multi-session threshold issuance/network unlinkability and
    production threshold-signature unforgeability;
-4. an explicit security-parameter/PPT/negligibility framework; and
+4. complete the conditional scaling wrapper with an explicit PPT/runtime
+   model and PPT-to-query/field-growth derivations; and
 5. refinement from deployed contracts, cryptographic implementations, and
    schedulers to the synchronized reference traces.
 

@@ -2346,7 +2346,6 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
               intro vs hvs
               have hlen := drawList_support_length m vs hvs
               refine bind_congr fun v => ?_
-              dsimp [sigma']
               rw [DSShadowSt.seed_setIdeal,
                 seed_insertHole sigma m i k v vs hInv hlen hi]
               rfl

@@ -51,8 +51,10 @@ structural query certificates. `dsBadMassLe_of_queryBounds` and
 `T7_frame_query_bound_unconditional` proves
 `frameWinProb mclose A ≤ (qb.total + 1)/|F|` with no additional coupling or
 counting premise. The pointwise `FrameDeferredSampling` socket is
-kernel-refuted and must not be revived. This is a finite-query theorem, not a
-formal asymptotic PPT/negligibility wrapper or deployed-primitive reduction.
+kernel-refuted and must not be revived. `FrameAsymptotic.lean` supplies
+conditional negligibility lifts from explicit query/field-size scaling
+premises; it does not supply a PPT/runtime classifier, derive query bounds or
+field growth from PPT, or reduce deployed primitives.
 
 ## What the human gates check
 

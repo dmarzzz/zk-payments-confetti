@@ -101,8 +101,9 @@ a candidate insolvent. A candidate evicted into insolvency makes the
 challenge return ⊥ — the game charges eviction to the anonymity set, not
 the scheme, which is exactly what the abort attack does in reality. The
 challenge is a **session**: the adversary submits a message vector, and the
-hidden candidate emits a whole *q*-spend epoch session (this is a repair the
-external review forced — a single-spend challenge certifies only
+hidden candidate emits a whole *q*-spend epoch session (this is a repair
+forced by the simulated K4 external-review exercise — a single-spend
+challenge certifies only
 first-spend-of-epoch unlinkability, and would pass a scheme leaking a
 persistent tag on second-and-later spends). The game is
 challenge-terminated: our first version answered oracles after the
@@ -285,10 +286,11 @@ Kernel-checked today, by declaration name:
   adaptive good-slice, seeded-shadow count, and real/deferred coupling with
   no residual coupling or counting premise. The two must-win degenerate
   adversaries still frame at probability 1, so the game has teeth.
-  `Zkpc/Games/FrameAsymptotic.lean` gives the conditional scaling bridge:
-  polynomial certified query growth plus negligible inverse field size
-  implies negligible FRAME win probability, without claiming a runtime/PPT
-  classifier or deployed-primitive reduction.
+  `Zkpc/Games/FrameAsymptotic.lean` gives two conditional scaling bridges:
+  one assumes the explicit query/field-size ratio is negligible; its
+  corollary assumes polynomial certified query growth and negligible inverse
+  field size. Neither derives query certificates from PPT or claims a
+  runtime classifier or deployed-primitive reduction.
 - **Synchronized composition** `flat_endToEnd_unconditional` and
   `refund_endToEnd_unconditional` (`Zkpc/Composition/EndToEnd.lean`) combine
   their trace-derived operational guarantees with separate scheme-level T4
