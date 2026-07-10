@@ -462,3 +462,34 @@ composes it to the full corrected bound `(qb.total + 1)/|F|`, and
 pointwise one, so the composition endpoint loses nothing. The remaining
 open T7 work is constructing `FrameDeferredSamplingAvg` from `frameImpl`
 for query-bounded adversaries.
+
+### Round 5 — 2026-07-10: **RESOLUTION SHAPE ACCEPTED; KERNEL SIGN-OFF PENDING**
+
+The Round-4 finding is preserved: the pointwise certificate remains
+refuted and must not return as the advertised endpoint. The repair closes
+the statement in the probability space the game actually uses. For every
+`A` with `qb : FrameQueryBounds A`,
+`T7_frame_query_bound_unconditional` concludes the secret-averaged bound
+`frameWinProb mclose A ≤ (qb.total + 1)/|F|`, and
+`T7Certificate.ofQueryBounds` exposes the same result at the composition
+boundary. Neither statement accepts a residual good-slice, coupling,
+bad-mass, counting, `hobliv`, or deferred-sampling premise.
+
+The accepted architecture is:
+
+1. `frameGoodSliceTransfer_of_tape` discharges the general good slice;
+2. `dsBadMassLe_of_queryBounds` discharges the adaptive deferred-slope
+   count, which `frameRealBadMassLe_of_dsCount` transports to the real bad
+   mass;
+3. `frameDeferredSamplingAvg_holds` assembles the corrected averaged
+   certificate; and
+4. `T7_frame_query_bound_avg` yields the public endpoint.
+
+Scope condition: this is a concrete finite-query/finite-field inequality in
+the ideal random-oracle model. It is not a formal theorem about PPT
+families and asymptotic negligibility, and it does not instantiate a
+deployed hash.
+
+Gate status remains **pending**, not sign-off, until a final clean build and
+axiom audit are attached. No SHA, command result, or axiom output is
+asserted by this entry.

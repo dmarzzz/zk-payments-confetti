@@ -4,6 +4,11 @@ The full implementation tree for the research line, from repo scaffold to a pape
 
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` blocked/needs decision.
 
+This is the original execution plan, not a complete current-state audit of
+every checkbox. The T7 and clean-room entries below are updated for the
+current PR; final delivery still requires K5 against the exact merge
+candidate.
+
 ---
 
 ## A. Scaffold and infrastructure
@@ -55,8 +60,8 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` blocked/ne
 
 - [ ] **G1** Distributed spent-set model: N gateways, per-gateway nullifier views, a reconciliation relation with lag L. DoD: compiles; matches the TLA+ C4 model.
 - [ ] **G2** **T6 Priced divergence**: extractable double-spend value before detection ≤ f(L, r) < D. DoD: proved; the bound is explicit and matches C4.
-- [ ] **G3** **T7 Exculpability under collusion**: N−1 colluding gateways cannot forge a double-spend proof against an honest member, from RLN line algebra. DoD: proved.
-- [ ] **G4** RLN algebra lemmas: two signals on the same (secret, index) reveal the secret; one signal reveals nothing. DoD: proved, reused by T7 and the slash logic.
+- [x] **G3** **T7 Exculpability under collusion**: concrete finite-query result proved. For every `A` carrying `FrameQueryBounds`, `T7_frame_query_bound_unconditional` bounds the secret-averaged FRAME win probability by `(qb.total + 1)/|F|` with no residual coupling or counting hypothesis. This does not by itself formalize asymptotic PPT negligibility or deployed hashes/signatures.
+- [x] **G4** RLN algebra lemmas: two signals on the same (secret, index) reveal the secret; one signal reveals nothing. Proved and reused by T7 and the slash logic; the stronger pointwise T7 certificate is separately kernel-refuted, so the final theorem correctly uses the uniform-secret average.
 
 ## H. Refund-bearing variant (M5 — answers Vitalik's actual use case)
 
@@ -87,7 +92,7 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` blocked/ne
 - [ ] **K2** Axiom audit: enumerate every axiom actually used, confirm each is a standard assumption, no accidental `admit`/`native_decide` escape hatches. DoD: audit note in repo.
 - [ ] **K3** Adversarial proof review: a skeptic agent tries to find a vacuous theorem (true because a hypothesis is unsatisfiable) or a definition that trivializes T4. DoD: report; anything found becomes a task.
 - [ ] **K4** External review of the *definitions* (the A2L lesson): solicit one outside cryptographer to attack the games, not the proofs. DoD: feedback incorporated or rebutted in writing.
-- [ ] **K5** Full clean-room rebuild from a fresh checkout on a clean machine. DoD: green.
+- [~] **K5** Full clean-room rebuild from a fresh checkout on a clean machine. Earlier output predates the current T7 closure and is not final evidence; rerun on the exact merge candidate and record its commit plus build/audit output. DoD: green.
 - [ ] **K6** Delivery package for the thread: repo made shareable (visibility decision 🚦), the post, the PDF, and a two-paragraph "what got proved" note for Ken/Vitalik. DoD: sent.
 - [ ] **K7** Log the experiment's outcome against README's success/failure shapes (did definitions drift? trivial theorems? did Lean hold or fall back to SSProve?). DoD: `research_knowledge/experiment-outcome.md` written — this is the autoresearch result.
 

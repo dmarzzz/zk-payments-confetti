@@ -1142,7 +1142,7 @@ $Dispute(pp, ev^*, \mathcal{L})$ slashes the honest member's $cm$ is
 $\le negl(\lambda)$, under `single_signal_hiding` and collision resistance.
 The algebraic core: a valid slash requires two distinct points on the line
 $Y = k + H_a(k, i) X$ for some index $i$; $\mathcal{A}$ holds at most one
-honest point per index (spends and the close signal alike); one point
+honest point per index (from a spend; MC20 close emits no line point); one point
 $(x, k + a x)$ with pseudorandom $a$ determines nothing about $k$
 (`single_signal_hiding`); producing a second point is equivalent to
 computing $k$ (or $a$), which breaks the assumption. This is what makes the

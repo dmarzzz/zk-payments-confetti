@@ -259,3 +259,37 @@ maximal-power transcriptions with their deferrals honestly registered as obligat
 rather than hidden; and the repo nowhere claims T4/T7/refund results it does not have.
 
 — K1 auditor, 2026-07-07
+
+## Follow-up statement reconciliation — 2026-07-10
+
+This follow-up does not rewrite the 2026-07-07 audit; it records the final
+T7 statement after the later pointwise-certificate refutation and averaged
+repair.
+
+The live theorem interface is faithful to the finite query-bounded FRAME
+experiment: for arbitrary `A` and `qb : FrameQueryBounds A`,
+`T7_frame_query_bound_unconditional` concludes the secret-averaged bound
+`frameWinProb mclose A ≤ (qb.total + 1)/|F|`. The composition theorem
+`T7Certificate.ofQueryBounds` packages exactly that conclusion. Their
+statements have no residual `hobliv`, transfer, coupling, counting,
+good-slice, bad-mass, or deferred-sampling premise. Ambient finite-field
+and decidability instances are model parameters, not adversary-specific
+security assumptions.
+
+This is the right statement direction. `frameGame` samples `k` uniformly,
+so an averaged certificate compares the same experiment the public theorem
+bounds. The stronger pointwise `FrameDeferredSampling` socket is not part
+of the final promise chain and remains refuted by
+`frameDeferredSampling_refuted`; keeping that result visible prevents the
+repair from being misreported as a proof of the false pointwise claim.
+
+The reconciliation also narrows the English promise: the exact theorem is
+a finite query-budget inequality in the ideal random-oracle model. It is
+not, by itself, a formal PPT/asymptotic-negligibility theorem and it is not a
+reduction for a deployed hash function. Any prose saying simply
+“unconditional PPT T7” must be read or rewritten with that limitation.
+
+**Verification hand-off:** statement inspection is complete; final source
+compilation, clean-build SHA, and `#print axioms` evidence remain pending in
+the release audit. This follow-up makes no claim about outputs not yet
+recorded there.

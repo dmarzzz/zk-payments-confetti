@@ -19,7 +19,8 @@ instance. This repo builds both halves of what is missing:
    `paper/` (the systematization at paper altitude).
 
 2. **The verification.** A Lean 4 formalization of that definition over an
-   idealized ledger, with cryptography axiomatized in one file. The
+   idealized ledger, with cryptography represented by explicit ideal
+   reference constructions. The
    headline is spend unlinkability proved with advantage exactly zero, to
    our knowledge the first machine-checked spend-unlinkability result for
    any payment-channel or credit construction. Alongside it: no-overspend,
@@ -55,49 +56,45 @@ shapes:
 - **Field and algebra lemmas** (the RLN line arithmetic). Template:
   `Zkpc/Games/RLN.lean`.
 
-## Proofs that still need writing
+## Proof status and remaining scope
 
-`OPEN-PROOFS.md` is the worklist. It lists every proved theorem with its
-Lean name and file, the five classes with their templates, and the open
-obligations ranked by value. Most of the original worklist has since been
-discharged and kernel-checked: the challenge-fires lemma
-(`Zkpc/Games/T4Fires.lean`), the per-instance obligations for the refund
-variant, the refund fleet extension and upgrade cascade
-(`Zkpc/Refund/{Fleet,Cascade}.lean`, `Zkpc/Fleet/Recovery.lean`), and the
-zero-knowledge bridge that carries the perfect unlinkability result to
-proof-bearing wire protocols — landed with zero loss for the masked,
-Sigma-protocol, and lazy-ROM Fiat-Shamir encodings
-(`Zkpc/Games/FullTicketInstance.lean`, `Zkpc/Crypto/FSRom.lean`,
-`Zkpc/Games/SigmaInstance.lean`). The short version of what is still open:
+`OPEN-PROOFS.md` is now a proof inventory and extension worklist. The main
+change in this release is the completed, corrected T7 route. For every
+adversary `A` carrying `qb : FrameQueryBounds A`, the public theorem
+`T7_frame_query_bound_unconditional` bounds the secret-averaged FRAME win
+probability by
 
-- **the last lemma of the unconditional T7 route.** The originally frozen
-  pointwise deferred-sampling certificate turned out to be unsatisfiable —
-  refuted inside the tree (`frameDeferredSampling_refuted`,
-  `Zkpc/Games/FrameDeferred.lean`), a definitional finding recorded in
-  `research_knowledge/gates.md` (Round 4) that touched only the unconsumed
-  certificate shape, not the game or the `Spec.md` statement. Everything
-  else on the corrected k-averaged route is kernel-checked: the socket and
-  its endpoint arithmetic (`FrameDeferredSamplingAvg`,
-  `T7_frame_query_bound_avg`), the ghost model with exact erasure and
-  budget bounds, the master factorization, the ghost bad-mass bound
-  (`ghostSlopeBadBounds_holds`), the eight-operation real/deferred step
-  coupling (`realDSStepCoupling_holds`), the general good-slice transfer
-  (`frameGoodSliceTransfer_of_tape`), and the assembly
-  (`T7_frame_query_bound_of_goodSlice_and_dsCount`). What remains is
-  exactly one lemma, `DSBadMassLe` — the k-averaged root-counting bound on
-  the deferred run; a candidate proof (`dsBadMassLe_of_queryBounds`) is
-  written and under repair, and until it compiles the unconditional bound
-  is not claimed (see
-  `research_knowledge/t7-stack-audit-2026-07-10.md`);
-- the production hash-function reduction behind the Fiat-Shamir bridge
-  (the landed bridge is exact in the ideal lazy-ROM reference layer), and
-  on the network layer, the adaptive multi-session issuance game and a
-  production threshold-signature unforgeability reduction.
+```text
+(qb.total + 1) / |F|,
+where qb.total = q_A + q_E + q_Id + q_Nf·q_sig + q_sig².
+```
 
-If you are pointing a swarm at this, start from `OPEN-PROOFS.md`, read the
-template file for the class you are taking, and read the relevant `Spec.md`
-clause and `research_knowledge/gates.md` entry so you are proving against
-the intended definition rather than around it.
+This endpoint has no residual coupling or counting hypotheses. The proof
+chain is split across the adaptive good-slice induction
+(`frameGoodSliceTransfer_of_tape` in
+`Zkpc/Games/FrameGoodSliceTapeInduction.lean`), the deferred bad-mass count
+(`dsBadMassLe_of_queryBounds` in
+`Zkpc/Games/FrameDSCountInduction.lean`), their assembly in
+`Zkpc/Games/FrameComplete.lean`, and the scheme-facing constructor
+`T7Certificate.ofQueryBounds` in `Zkpc/Composition/EndToEnd.lean`.
+
+The older pointwise-in-secret deferred-sampling certificate is not part of
+this claim. It is formally refuted by `frameDeferredSampling_refuted` in
+`Zkpc/Games/FrameDeferred.lean`; the security game itself samples the secret,
+so the corrected theorem works at exactly that secret-averaged level.
+
+The source-level release claim above is **subject to final release
+validation**: a cold dependency fetch, clean full build, forbidden-token
+scan, endpoint axiom printout, and diff check. The formalization also does
+not claim an asymptotic PPT/negligibility theorem or a reduction for a
+deployed hash function. The Fiat--Shamir results are for the stated ideal
+lazy-ROM reference model; concrete-hash, production refund cryptography, and
+adaptive multi-session threshold/network reductions remain separate research
+extensions.
+
+If you are extending the project, start from `OPEN-PROOFS.md`, the template
+for the relevant proof class, the corresponding `Spec.md` clause, and the
+gate record in `research_knowledge/gates.md`.
 
 ## Why the definitions can be trusted before the proofs are read
 
@@ -127,29 +124,28 @@ on the same defect and the same fix.
 
 ## Status
 
-The definition is frozen (`Spec.md`, revision 11, gate-signed). The core
-theorems, the unlinkability headline with its challenge-fires non-vacuity
-lemma, the fleet bound, the exculpability bound in its conditional and
-averaged-endpoint forms, the calibration pair, the
-refund safety layer with its fleet extension and upgrade cascade, the
-zero-loss ZK bridges (masked, Sigma-protocol, lazy-ROM Fiat-Shamir), the
-masked-encryption and receipt-MAC components, the executable ledger
-refinements, the network issuance suite, and the nullifier-chain channel
-instantiation (`Zkpc/Chain/`) are proved and kernel-checked; the axiom
-audit shows only the three standard Lean axioms
-(`research_knowledge/k2-axiom-audit.md`). On T7, the pointwise certificate
-scaffold was refuted and replaced by the k-averaged one; the bound is
-kernel-checked in its conditional and query-budget-assembled forms, with
-one counting lemma (`DSBadMassLe`) still to compile before the
-unconditional endpoint is claimed. Nothing in this repo is verified until
-the kernel says so, and this README does not claim otherwise.
+The definition is frozen (`Spec.md`, revision 11, gate-signed). The source
+tree contains the core safety theorems, perfect unlinkability and its
+challenge-fires witness, fleet and refund results, ideal-model ZK bridges,
+executable refinements, network reference constructions, the nullifier-chain
+instantiation, and the completed secret-averaged T7 endpoint described above.
+`Zkpc/Composition/EndToEnd.lean` consumes T7 through
+`T7Certificate.ofQueryBounds` and exposes premise-free flat and refund
+end-to-end constructors.
+
+The precise T7 claim is finite and query-bounded: for every `A` with
+`qb : FrameQueryBounds A`, `frameWinProb` is at most
+`(qb.total + 1) / |F|`. It is not a pointwise-in-secret statement, an
+asymptotic PPT theorem, or a deployed-cryptography claim. Release-wide build
+and axiom status remain subject to final release validation; nothing should
+be described as release-verified until that validation completes.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
 | `Spec.md` | The definition and the seven theorem statements. The trust surface. |
-| `OPEN-PROOFS.md` | The proof worklist: proved theorems, the five classes with templates, open obligations. |
+| `OPEN-PROOFS.md` | Proof inventory, completed theorem chains, reusable templates, research extensions, and release gates. |
 | `Zkpc/` | The Lean formalization (`lake build` kernel-checks it). |
 | `Zkpc/Chain/` | Instantiation C: the nullifier-chain channel (state machine, collision bound, anonymity, executable refinement). |
 | `paper/` | The systematization, the placement table, the theorem-to-file map, the ethresear.ch post form. |

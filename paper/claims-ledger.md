@@ -63,7 +63,7 @@ the end.
 | 2.22 | T4 calibration requirement: the game must be winnable against B-static (equal-totals ciphertext bit-matching distinguisher, verified end-to-end) and must yield negligible advantage on B-rerand | S §7 T4 calibration; G rounds 1–2; BRIEF.md T4; R deep dive 1 (omarespejel finding). Primary: https://gist.github.com/omarespejel/c3f4f2aa12b1de10467601d77d0e6232 |
 | 2.23 | T4's abort/evict oracle is required because of BOLT §1.4's abort attacks (evict to shrink the set; abort mid-sequence to link) | BRIEF.md T4; R deep dive 2 (§1.4 quoted). Primary: https://acmccs.github.io/papers/p473-greenA.pdf §1.4 |
 | 2.24 | T6 statement: accepted value ≤ ⌊D/C⌋·C + f(L), f(L) = N·b·(⌈L/T_e⌉+1)·C; slash within L of the second conflicting acceptance; f(L) < D as deployment condition; claims neither attacker unprofitability nor universal recovery | S §7 T6; L `Zkpc/Fleet/T6.lean` `T6_priced_divergence`, `T6_slash_within_L` |
-| 2.25 | T7 FRAME: N−1 colluding gateways cannot slash an honest member; algebraic core is one-point-per-line | S §7 T7; R open problem 5; L `rln_single_point_hiding`, `rln_evidence_sound` |
+| 2.25 | T7 FRAME target: N−1 colluding gateways cannot slash an honest member; algebraic core is one-point-per-line. The machine-checked finite-query statement and its exact scope are recorded separately in row 5.10. | S §7 T7; R open problem 5; L `rln_single_point_hiding`, `rln_evidence_sound` |
 | 2.26 | Adversary conventions: PPT, adaptive, rushing; static corruption; oracles are the only interface to honest parties | S §6, §8 MC10 |
 
 ## §3 Placement
@@ -122,7 +122,7 @@ the corresponding deep dive; primary URL per row. No row is invented.
 | 5.7 | RLN algebra machine-checked: `rln_recover_a`, `rln_recover_k`, `rln_single_point_hiding`, `rln_x_zero_degenerate`, `rln_evidence_complete`, `rln_evidence_sound` in `Zkpc/Games/RLN.lean` | L |
 | 5.8 | Game framework machine-checked: `guessGap`, `guessGap_eq`, `boolBiasAdvantage_hiddenBitExp`, `hiddenBitAdvantage_eq_half_boolDistAdvantage`, smoke theorems `hiddenBitAdvantage_const`, `hiddenBitAdvantage_eq_zero_of_distEquiv`, evict wrapper `withEvict`, challenge-terminated adversary `ChalAdversary` in `Zkpc/Games/Framework.lean`, over VCV-io | L; `research_knowledge/vcvio-gap.md` (framework choice + what VCV-io provides) |
 | 5.9 | T4 spend-unlinkability PROVED: `T4_flat_unlinkability` in `Zkpc/Games/T4.lean` shows advantage exactly 0 for every UNLINK adversary at every budget, over the session-form game (`unlinkGame`/`unlinkAdvantage`/`UnlinkScheme`, `Zkpc/Games/Unlink.lean`); challenge termination structural; close view simulatable from `(cm, count)` (`flat_closeViewSimulatable`, pinning the MC15 residue) | L; G gate B3 rounds 1–3 (SIGN-OFF); K2 (axiom-clean) |
-| 5.10 | T7 framing bound PROVED conditionally: `T7_frame_bound` in `Zkpc/Games/T7.lean` shows FRAME slash probability ≤ 1/\|F\| under the RO-oblivious good-event hypothesis `hobliv`; must-win calibration adversaries `frameWinProb_YK_eq_one`, `frameWinProb_aReuse_eq_one`, `frameWinProb_slopeReveal_eq_one` (probability 1); the query-budget composition endpoint is itself kernel-checked (`FrameQueryBounds`, `uniformSecretProbeBound`, `uniformSlopeProbeBound`, `T7_frame_bound_of_pointwise`, `frameQueryCharge_eq`, `T7_frame_query_bound` giving (q_A+q_E+q_Id+q_Nf·q_sig+q_sig²+1)/\|F\| from a `FrameDeferredSampling` certificate), with `FrameAudit`/`FrameIdeal` substrate proved; the pointwise certificate REFUTED as frozen (`frameDeferredSampling_refuted`, two-probe adversary, gate round 4) and replaced by the secret-averaged socket `FrameDeferredSamplingAvg` composing to the same bound (`T7_frame_query_bound_avg`); constructing the averaged certificate from `frameImpl` remains open, not axiomatized | L; G gate B3 rounds 1–3; K2 |
+| 5.10 | T7 framing bound PROVED at the concrete secret-averaged query bound: `T7_frame_bound` retains the ≤1/\|F\| good-event lemma; for every `A` carrying `FrameQueryBounds`, `T7_frame_query_bound_unconditional` / `T7Certificate.ofQueryBounds` give `(q_A+q_E+q_Id+q_Nf·q_sig+q_sig²+1)/\|F\|` with no residual coupling or counting hypothesis. The route is `frameGoodSliceTransfer_of_tape` + `dsBadMassLe_of_queryBounds` + `frameRealBadMassLe_of_dsCount` → `frameDeferredSamplingAvg_holds`. The stronger pointwise certificate remains REFUTED (`frameDeferredSampling_refuted`, two-probe adversary, gate round 4); the proved statement is the uniform-secret average used by `frameGame`, not a pointwise-in-secret claim. | L; G gate B3 rounds 1–4; K2 |
 | 5.11 | Calibration pair + battery PROVED in `Zkpc/Games/Calibration.lean`: `unlinkAdvantage_staticDistinguisher_eq_half` (B-static loses at ½), `unlinkAdvantage_bRerand_eq_zero` (B-rerand passes at 0); battery `unlinkAdvantage_aIndexLeak`, `unlinkAdvantage_nfeReuse`, `unlinkAdvantage_multTagDistinguisher_eq_half` each at ½ | L; K2 |
 | 5.12 | Refund-bearing variant (B) safety PROVED in `Zkpc/Refund/`: `T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed` (`Safety.lean`); full failed-upgrade cascade PROVED (`Cascade.lean`: `cascade_upgrades_le_understatement`, `cascade_settled_upgrades_eq`, `cascade_terminal_settled`, `cascade_final_payouts`, `execCascade_progress`); finite-fleet aggregation PROVED (`Fleet.lean`: `fleet_no_overspend`, `fleet_conservation`, `fleet_payer_floor`) | S §4, §7; L; K2 |
 | 5.16 | Wire ZK bridges (O1) DISCHARGED zero-loss for three proof-bearing encodings: masked-proof (`T4_maskedProof_unlinkability`, `maskedProof_zkBridge`), interactive Sigma (`T4_sigmaFlat_unlinkability`, `sigmaFlat_zkBridge` over `Zkpc/Crypto/LinearSigma.lean`: completeness, exact simulator, `special_soundness`), lazy-ROM Fiat–Shamir (`T4_fsFlat_unlinkability`, `fsFlat_zkBridge` over `Zkpc/Crypto/FSRom.lean`: `evalDist_fsProveLazy_eq_simulated`, `fsProgramCollisionBound`, `fsForkChallengeCollisionBound`) | L; K2 |
@@ -170,13 +170,11 @@ the corresponding deep dive; primary URL per row. No row is invented.
 
 ## Claims deliberately NOT made
 
-- The unconditional (query-term) T7 bound: `T7_frame_bound` proves ≤ 1/|F|
-  only *under* the `hobliv` good-event hypothesis, and
-  `T7_frame_query_bound_avg` gives the corrected concrete bound only
-  *given* a secret-averaged `FrameDeferredSamplingAvg` certificate
-  (the pointwise variant is kernel-refuted); constructing that certificate
-  from the real handler (the stateful coupling) is open and not claimed
-  (§5; Spec §7 T7 GATE-NOTE; gates round 4).
+- A pointwise-in-secret T7 certificate, or a formal asymptotic/PPT theorem.
+  The pointwise socket is kernel-refuted. The proved result is the concrete
+  uniform-secret average `(qb.total+1)/|F|` for adversaries carrying
+  `FrameQueryBounds`; interpreting it as negligible additionally requires an
+  external scaling premise on `qb.total` and `|F|`.
 - Deployment-grade cryptography behind the ideal reference layers: a
   concrete hash-implementation reduction for the lazy-ROM Fiat–Shamir
   layer, multi-query EUF-CMA signature/MAC reductions, a production

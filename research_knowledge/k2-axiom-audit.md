@@ -159,3 +159,33 @@ model definitions plus the three standard axioms. The open T7 residuals
 consumed as hypotheses by the assembly theorems — they appear in theorem
 *statements*, never as axioms, so nothing in this extension weakens the
 verdict above.
+
+## T7 closure extension — final evidence pending (2026-07-10)
+
+The paragraph immediately above is preserved as the status of the audited
+commits. Later source introduces the no-residual chain
+`dsBadMassLe_of_queryBounds` → `frameDeferredSamplingAvg_holds` →
+`T7_frame_query_bound_unconditional`, with
+`T7Certificate.ofQueryBounds` as the composition wrapper. At the statement
+level, both public endpoints require only `qb : FrameQueryBounds A` plus the
+ambient finite-field/typeclass data and conclude the secret-averaged bound
+`(qb.total + 1)/|F|`; the former residual Props are no longer endpoint
+hypotheses.
+
+This addendum intentionally does **not** extend the axiom-output table from
+source text alone. Required release evidence is still:
+
+- [pending] a successful source check/build containing the final four
+  theorems;
+- [pending] captured `#print axioms` output for
+  `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`,
+  `T7_frame_query_bound_unconditional`, and
+  `T7Certificate.ofQueryBounds`;
+- [pending] the final audited commit SHA and the repository escape-hatch
+  greps.
+
+Until those observations are recorded, the 2026-07-08 and earlier
+2026-07-10 axiom claims remain the last evidence-backed table. The intended
+trust boundary is unchanged: an exact finite query bound in ideal random
+oracles, not a formal PPT-asymptotic theorem and not a concrete/deployed-hash
+reduction.
