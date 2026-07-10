@@ -243,6 +243,20 @@ assembly: the unconditional endpoint now follows from
 (`FrameBadMassTransfer` + `GhostSlopeBadBounds`) *or* route B
 (`FrameRealBadMassLe`). Recommended: discharge route B.
 
+**Lane claim (2026-07-10):** `FrameRealBadMassLe` — in progress (route-B
+real-side induction), claimed by the assembly/route-B agent. Working
+architecture (shared substrate also usable for `FrameGoodSliceTransfer`):
+stage 1, an identical-until-bad handler equivalence between the audited
+real handler and a *deferred-slope* real handler whose `nfAt` draws the
+indexed nullifier directly and whose `spend` draws the hidden slope at
+consumption time (their divergence events are contained in `FrameLeakBad`
+via `RoNfCovered`); stage 2, an exact per-`k` pointwise-state step
+coupling between the deferred-slope handler and the ghost handler (the
+consumption-time slope makes `y = k + a·x` fresh-uniform by the
+`mulRight` bijection, eliminating the eager-read obstruction), after
+which both the good-slice and the real-bad-mass claims transport to the
+landed ghost-side theorems.
+
 ### 2. The ZK bridge, O1 (Class D, high value)
 
 `Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
