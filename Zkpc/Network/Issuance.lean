@@ -26,14 +26,16 @@ reference style:
   lemma (rewinding a query-bounded adversary to produce the two transcripts)
   are formalized here; a production threshold-signature unforgeability
   reduction remains open (`ROADMAP-STATUS.md`, remaining item 4).
-* **Recipient-view unlinkability (single presentation)** —
+* **Recipient-view unlinkability (adaptive multi-session)** —
   `recipientView_unlinkable`: the complete presentation view (statement plus
   FS proof) of any two payer keys is identically distributed, because both
   equal the witness-free simulator
-  (`evalDist_fsRealSignalProofLazy_eq_simulated`). The adaptive
-  multi-session game connecting these per-presentation distributions to the
-  executable admission and settlement trace is not formalized here (same
-  remaining item).
+  (`evalDist_fsRealSignalProofLazy_eq_simulated`).
+  `adaptiveRecipientViews_unlinkable` lifts this to any finite number of
+  presentations whose next request coordinate is chosen from the entire
+  preceding transcript. Connecting this view game to concrete threshold
+  signature issuance and deployed network scheduling remains outside this
+  reference layer.
 -/
 
 open OracleSpec OracleComp
@@ -198,6 +200,59 @@ theorem recipientView_simulatable (k m : F) :
     𝒟[recipientView k m] = 𝒟[fsSimulatedSignalProofLazy m] :=
   evalDist_fsRealSignalProofLazy_eq_simulated k m
 
+/-! ### Adaptive multi-session recipient views -/
+
+/-- An adaptive recipient chooses the next public request coordinate from the
+complete preceding presentation history.  Each payer key is used for one
+fresh presentation. -/
+def adaptiveRecipientViews :
+    List F → (List (Statement F × FSProof F) → F) →
+      List (Statement F × FSProof F) →
+        ProbComp (List (Statement F × FSProof F))
+  | [], _, history => pure history.reverse
+  | k :: keys, choose, history => do
+      let view ← recipientView k (choose history)
+      adaptiveRecipientViews keys choose (view :: history)
+
+/-- Witness-free execution of the same adaptive recipient strategy. -/
+def adaptiveSimulatedViews :
+    ℕ → (List (Statement F × FSProof F) → F) →
+      List (Statement F × FSProof F) →
+        ProbComp (List (Statement F × FSProof F))
+  | 0, _, history => pure history.reverse
+  | n + 1, choose, history => do
+      let view ← fsSimulatedSignalProofLazy (choose history)
+      adaptiveSimulatedViews n choose (view :: history)
+
+/-- Every adaptive multi-session recipient transcript is exactly the
+witness-free simulator transcript, regardless of the payer-key sequence. -/
+theorem evalDist_adaptiveRecipientViews_eq_simulated
+    (keys : List F) (choose : List (Statement F × FSProof F) → F)
+    (history : List (Statement F × FSProof F)) :
+    𝒟[adaptiveRecipientViews keys choose history] =
+      𝒟[adaptiveSimulatedViews keys.length choose history] := by
+  induction keys generalizing history with
+  | nil => rfl
+  | cons k keys ih =>
+      simp only [adaptiveRecipientViews, adaptiveSimulatedViews,
+        List.length_cons]
+      rw [evalDist_bind, recipientView_simulatable k (choose history),
+        ← evalDist_bind]
+      exact evalDist_bind_congr'
+        (fsSimulatedSignalProofLazy (choose history)) fun view =>
+          ih (view :: history)
+
+/-- **Adaptive multi-session recipient unlinkability.** Any two equally long
+payer-key schedules induce identical transcript distributions, even though
+the recipient chooses each next request after observing every earlier proof. -/
+theorem adaptiveRecipientViews_unlinkable
+    (keys₁ keys₂ : List F) (choose : List (Statement F × FSProof F) → F)
+    (hlen : keys₁.length = keys₂.length) :
+    𝒟[adaptiveRecipientViews keys₁ choose []] =
+      𝒟[adaptiveRecipientViews keys₂ choose []] := by
+  rw [evalDist_adaptiveRecipientViews_eq_simulated,
+    evalDist_adaptiveRecipientViews_eq_simulated, hlen]
+
 end RecipientView
 
 end Zkpc.Network.Issuance
@@ -209,3 +264,5 @@ end Zkpc.Network.Issuance
 #print axioms Zkpc.Network.Issuance.ticket_fork_extracts
 #print axioms Zkpc.Network.Issuance.recipientView_unlinkable
 #print axioms Zkpc.Network.Issuance.recipientView_simulatable
+#print axioms Zkpc.Network.Issuance.evalDist_adaptiveRecipientViews_eq_simulated
+#print axioms Zkpc.Network.Issuance.adaptiveRecipientViews_unlinkable
