@@ -642,6 +642,17 @@ theorem dsBudget_insertLine_add_dupTargets (sigma : DSShadowSt F M)
   ring_nf at hc ⊢
   omega
 
+/-- The potential of an inserted concrete line depends on its abscissa but
+not on its ordinate. -/
+theorem dsBudget_insertLine_y_eq (sigma : DSShadowSt F M) (i : Nat)
+    (x y y' : F) (nA nE nId nNf nSig : Nat) :
+    dsBudget (sigma.insertEntry i (.line x y)) nA nE nId nNf nSig =
+      dsBudget (sigma.insertEntry i (.line x y')) nA nE nId nNf nSig := by
+  have h := scCount_line_cons x y sigma.shadow
+  have h' := scCount_line_cons x y' sigma.shadow
+  simp only [dsBudget, DSShadowSt.insertEntry, List.length_cons]
+  omega
+
 /-- Consuming a hole preserves the existing shadow size and pair count, so
 after spending a signal query its potential only decreases. -/
 theorem dsBudget_consumeHole_le (sigma : DSShadowSt F M) (i j : Nat) (x : F)
@@ -759,6 +770,21 @@ theorem dsBudget_base_le (sigma : DSShadowSt F M)
   ring_nf
   omega
 
+/-- A freshly sampled slope can be reparameterized by its public line
+ordinate at any fixed nonzero abscissa. -/
+theorem evalDist_rlnY_uniform {beta : Type} (k x : F) (hx : x ≠ 0)
+    (G : F → ProbComp beta) :
+    𝓓[($ᵗ F) >>= fun a => G (rlnY k a x)] =
+      𝓓[($ᵗ F) >>= G] := by
+  calc
+    𝓓[($ᵗ F) >>= fun a => G (rlnY k a x)] =
+        𝓓[($ᵗ F) >>= fun a => G (a * x + k)] := by
+          refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
+          simp [rlnY, add_comm]
+    _ = 𝓓[($ᵗ F) >>= G] :=
+      evalDist_bind_bijective_add_right_uniform F
+        (fun a : F => a * x) (mulRight_bijective₀ x hx) k G
+
 /-- Seeded-shadow master bound for an arbitrary query-bounded FRAME
 computation. -/
 theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
@@ -789,7 +815,33 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
         OracleQuery.input_query, monadLift_self, StateT.run_bind]
       cases t with
       | spend msg =>
-          simp only [dsFrameImpl, StateT.run_mk]
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal]
+          by_cases hc : sigma.ideal.closed = true
+          · simp only [hc, if_pos, pure_bind, OracleQuery.cont_query]
+            have hih := ih none sigma m nA nE nId nNf (nSig - 1) hInv
+              (by simpa [isDirectRoAQuery] using hA.2 none)
+              (by simpa [isDirectRoEQuery] using hE.2 none)
+              (by simpa [isDirectRoIdQuery] using hId.2 none)
+              (by simpa [isDirectRoNfQuery] using hNf.2 none)
+              (by simpa [isSignalQuery] using hSig.2 none)
+            refine le_trans (by simpa [dsSeededRun] using hih) ?_
+            refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+            simpa [Nat.sub_add_cancel hposSig] using
+              (dsBudget_signal_same_le sigma nA nE nId nNf (nSig - 1))
+          · simp only [hc, if_neg]
+            cases hi : sigma.pat sigma.ideal.idx with
+            | none =>
+                rw [DSShadowSt.seed_slope, hi]
+                simp only [Option.map_none, dsTouch, bind_assoc, pure_bind,
+                  DSShadowSt.seed_audit, OracleQuery.cont_query]
+            | some e =>
+                simp only [DSShadowSt.seed_slope, hi, Option.map_some,
+                  dsTouch, bind_assoc, pure_bind, DSShadowSt.seed_audit,
+                  OracleQuery.cont_query]
       | close =>
           simp only [dsFrameImpl, StateT.run_mk]
       | nfAt i =>
