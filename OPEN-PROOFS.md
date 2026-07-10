@@ -41,7 +41,7 @@ All kernel-checked, axiom-clean (`research_knowledge/k2-axiom-audit.md`).
 | T5 closure liveness | `Core.T5_payer_close_liveness` | `Zkpc/Core/T5.lean` |
 | T6 priced divergence (both clauses) | `Fleet.T6_priced_divergence`, `T6_slash_within_L`, `epochs_in_window` | `Zkpc/Fleet/{T6,Basic}.lean` |
 | T4 spend unlinkability (advantage = 0, session form) | `Games.T4_flat_unlinkability` | `Zkpc/Games/T4.lean` |
-| T7 exculpability bound (conditional base plus averaged endpoint; final coupling open) | `Games.T7_frame_bound`, `T7_frame_query_bound_avg` | `Zkpc/Games/{T7,FrameDeferred,FrameAssembly,FrameTransfer}.lean` |
+| T7 exculpability bound (averaged route discharged) | `Games.T7_frame_query_bound_of_goodSlice_and_dsCount`, `dsBadMassLe_of_queryBounds`, `T7Certificate.ofQueryBounds` | `Zkpc/Games/{T7,FrameDeferred,FrameRealBadStep,FrameDSCountInduction}.lean`, `Zkpc/Composition/EndToEnd.lean` |
 | Calibration pair (B-static loses 1/2, B-rerand passes 0) | `Games.unlinkAdvantage_staticDistinguisher_eq_half`, `unlinkAdvantage_bRerand_eq_zero` | `Zkpc/Games/Calibration.lean` |
 | Battery + FRAME must-win breaks | `Games.unlinkAdvantage_{aIndexLeak,nfeReuse,multTagDistinguisher_eq_half}`, `frameWinProb_{YK,aReuse}_eq_one` | `Zkpc/Games/{Calibration,T7}.lean` |
 | RLN algebra | `Games.rln_recover_k`, `rln_single_point_hiding`, `rln_evidence_sound` | `Zkpc/Games/RLN.lean` |
@@ -524,12 +524,10 @@ VCV-io's relational `simulateQ` layer). Consequences
 `auditedFrameJoint_bad_le_dsFrameJoint` (k-averaged real bad mass ≤
 deferred bad mass, unconditional) and `frameRealBadMassLe_of_dsCount`:
 `FrameRealBadMassLe` — hence the complete corrected T7 via
-`T7_frame_query_bound_of_goodSlice_and_dsCount` — is now reduced to
-exactly two named residuals:
+`T7_frame_query_bound_of_goodSlice_and_dsCount` — is discharged:
 
-1. `DSBadMassLe` (`FrameRealBadTransfer.lean`, stage 2) — **in progress
-   (2026-07-10), claimed by the route-B counting agent, executing the
-   recorded plan below; new work in `Zkpc/Games/FrameDSCount.lean`.**
+1. `DSBadMassLe` (`FrameRealBadTransfer.lean`, stage 2) — discharged by
+   `dsBadMassLe_of_queryBounds` in `FrameDSCountInduction.lean`.
    Statement: the k-averaged
    leakage mass of the k-root-clean deferred run `dsFrameJoint` is at most
    `qb.total/|F|`. Proof plan: per-emission pad bijection `a ↦ k + a·x`
@@ -537,13 +535,13 @@ exactly two named residuals:
    `nfAt` slopes (mirror `FrameBadMass.materializeSlopeTape` /
    `skelFrameImpl_*_prob_le`), then the landed root kernels
    (`frameRealRootCandidates`, `probEvent_uniform_mem_list_le`).
-2. `FramePointwiseGoodSlice` (`FrameGoodSlice.lean`, orchestrator lane).
+2. `FramePointwiseGoodSlice` (`FrameGoodSlice.lean`) — discharged by the
+   pending-slope tape induction in `FrameGoodSliceTapeInduction.lean`.
    Note: the ds coupling gives an alternative consumption path — the
    until-absorbing coupling already yields, pointwise in `k`,
    `Pr[Slashes ∧ ¬bad | real] ≤ Pr[Slashes | dsFrameRun k]` (bad branch
    refutes the left event), so the good-slice lane can equivalently close
    by comparing the deferred-run win mass to the ghost win mass with the
    same pad/tape machinery as `DSBadMassLe`.
-   **Lane claim (2026-07-10):** FrameGoodSliceTransfer alt-route via ds
-   coupling: in progress (second angle, complementary to tape-induction
-   lane); new work in `Zkpc/Games/FrameGoodSliceDS.lean`.
+   The resulting `FrameGoodSliceTransfer` is consumed by the unconditional
+   route-B endpoint.
