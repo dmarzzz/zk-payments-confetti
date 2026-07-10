@@ -409,15 +409,15 @@ theorem dsFrameImpl_slopesCovered_step (k : F) (mclose : M)
       subst hz
       exact hcov
 
-/-- Coverage persists through a complete adaptive deferred-handler run. -/
+/-- Slope coverage is preserved by every complete adaptive deferred-handler
+execution, starting from any covered state. -/
 theorem dsFrameImpl_run_slopesCovered (k : F) (mclose : M)
     {α : Type} (oa : OracleComp (frameSpec F M) α)
     (g : DSFrameSt F M) (hcov : DSSlopesCovered g)
     (z : α × DSFrameSt F M)
     (hz : z ∈ support ((simulateQ (dsFrameImpl k mclose) oa).run g)) :
     DSSlopesCovered z.2 :=
-  simulateQ_run_preserves_inv_of_query (dsFrameImpl k mclose)
-    DSSlopesCovered
+  simulateQ_run_preserves_inv_of_query (dsFrameImpl k mclose) DSSlopesCovered
     (fun op st h st' hs => dsFrameImpl_slopesCovered_step k mclose op st h st' hs)
     oa g hcov z hz
 
@@ -537,5 +537,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.not_frameLeakBad_iff_not_dsFrameLeakBad
 #print axioms Zkpc.Games.dsFrameImpl_public_project_step
 #print axioms Zkpc.Games.dsFrameImpl_slopesCovered_step
+#print axioms Zkpc.Games.dsFrameImpl_run_slopesCovered
 #print axioms Zkpc.Games.dsFrameImpl_bad_monotone
 #print axioms Zkpc.Games.dsFrameImpl_run_bad_monotone
