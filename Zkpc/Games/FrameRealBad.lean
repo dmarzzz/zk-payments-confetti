@@ -357,6 +357,70 @@ theorem dsTouch_slopesCovered (gs : ℕ → Option F)
         simpa [Function.update_of_ne hji] using ha
       exact List.mem_cons_of_mem z.1 (hcov j a hold)
 
+/-- Every deferred-handler step preserves the invariant that each pinned
+hidden slope has been recorded in the honest-slope audit. -/
+theorem dsFrameImpl_slopesCovered_step (k : F) (mclose : M)
+    (op : FrameOp F M) (g : DSFrameSt F M) (hcov : DSSlopesCovered g)
+    (z : (frameSpec F M).Range op × DSFrameSt F M)
+    (hz : z ∈ support (((dsFrameImpl k mclose) op).run g)) :
+    DSSlopesCovered z.2 := by
+  cases op with
+  | spend m =>
+      unfold dsFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      by_cases hc : g.ideal.closed
+      · rw [if_pos hc, support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        exact hcov
+      · rw [if_neg hc] at hz
+        obtain ⟨px, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        obtain ⟨pt, hpt, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        obtain ⟨pn, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        rw [support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        exact dsTouch_slopesCovered _ _ _ hcov _ hpt
+  | close =>
+      unfold dsFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      by_cases hc : g.ideal.closed
+      · rw [if_pos hc, support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        exact hcov
+      · rw [if_neg hc] at hz
+        obtain ⟨px, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        obtain ⟨pt, hpt, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        obtain ⟨pn, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+        rw [support_pure, Set.mem_singleton_iff] at hz
+        subst hz
+        exact dsTouch_slopesCovered _ _ _ hcov _ hpt
+  | nfAt i =>
+      unfold dsFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨pn, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      obtain ⟨pt, hpt, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      exact dsTouch_slopesCovered _ _ _ hcov _ hpt
+  | roA kq i | roX m | roNf kq | roE kq i | roId kq =>
+      unfold dsFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, -, hz⟩ := (mem_support_bind_iff _ _ _).1 hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      exact hcov
+
+/-- Coverage persists through a complete adaptive deferred-handler run. -/
+theorem dsFrameImpl_run_slopesCovered (k : F) (mclose : M)
+    {α : Type} (oa : OracleComp (frameSpec F M) α)
+    (g : DSFrameSt F M) (hcov : DSSlopesCovered g)
+    (z : α × DSFrameSt F M)
+    (hz : z ∈ support ((simulateQ (dsFrameImpl k mclose) oa).run g)) :
+    DSSlopesCovered z.2 :=
+  simulateQ_run_preserves_inv_of_query (dsFrameImpl k mclose)
+    DSSlopesCovered
+    (fun op st h st' hs => dsFrameImpl_slopesCovered_step k mclose op st h st' hs)
+    oa g hcov z hz
+
 /-- Every supported deferred-slope step preserves an already-raised leakage
 event: audit lists only grow. -/
 theorem dsFrameImpl_bad_monotone (k : F) (mclose : M) (op : FrameOp F M)
@@ -472,5 +536,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.frameLeakBad_iff_dsFrameLeakBad
 #print axioms Zkpc.Games.not_frameLeakBad_iff_not_dsFrameLeakBad
 #print axioms Zkpc.Games.dsFrameImpl_public_project_step
+#print axioms Zkpc.Games.dsFrameImpl_slopesCovered_step
 #print axioms Zkpc.Games.dsFrameImpl_bad_monotone
 #print axioms Zkpc.Games.dsFrameImpl_run_bad_monotone
