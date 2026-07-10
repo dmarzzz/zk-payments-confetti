@@ -25,13 +25,13 @@ composition endpoint:
 
 Consequently `frameDeferredSamplingAvg_of_transfers` constructs the corrected
 averaged deferred-sampling certificate for every query-bounded adversary from
-the two transfer residuals and the slope socket, and
-`T7_frame_query_bound_of_transfers` derives the complete corrected FRAME
-bound `(qb.total + 1)/|F|`. The entire unconditional Spec.md §7 T7 obligation
-is thereby reduced to discharging `FrameGoodSliceTransfer`,
-`FrameBadMassTransfer` (the run-level off-bad coupling between the audited
-real handler and the ghost handler) and `GhostSlopeBadBounds` (the ghost-side
-slope-tape masses, whose closing induction lives in the bad-mass lane).
+the two transfer premises and the slope socket, and
+`T7_frame_query_bound_of_transfers` derives the corrected FRAME bound
+`(qb.total + 1)/|F|`.  This module is the intermediate, premise-taking
+assembly boundary.  `FrameComplete.lean` supplies the adaptive good-slice
+and bad-mass inductions, transports the bad count to the real run, and exports
+`T7_frame_query_bound_unconditional` with no residual coupling or counting
+hypothesis.
 -/
 
 open OracleSpec OracleComp

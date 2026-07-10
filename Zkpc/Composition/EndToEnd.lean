@@ -5,9 +5,7 @@ import Zkpc.Refund.Safety
 import Zkpc.Games.T7
 import Zkpc.Games.FrameDeferred
 import Zkpc.Games.Calibration
-import Zkpc.Games.FrameRealBadStep
-import Zkpc.Games.FrameDSCountInduction
-import Zkpc.Games.FrameGoodSliceTapeInduction
+import Zkpc.Games.FrameComplete
 
 /-!
 # Synchronized end-to-end composition
@@ -1144,14 +1142,11 @@ theorem T7Certificate.ofQueryBounds (mclose : GameMessage)
     (A : F → OracleComp (Games.frameSpec F GameMessage) (Games.Evidence F))
     (qb : Games.FrameQueryBounds A) :
     T7Certificate mclose A qb :=
-  ⟨Games.T7_frame_query_bound_of_goodSlice_and_dsCount mclose A qb
-    (Games.frameGoodSliceTransfer_of_tape mclose A)
-    (Games.dsBadMassLe_of_queryBounds mclose A qb)⟩
+  ⟨Games.T7_frame_query_bound_unconditional mclose A qb⟩
 
 /-- Unified end-to-end guarantee record.  `Operational` is instantiated by
 one of the trace-derived records above; T4 and T7 remain scheme-level game
-claims, so the symbolic transition systems cannot silently discharge a
-cryptographic premise. -/
+claims proved separately from the synchronized symbolic trace. -/
 structure EndToEndGuarantee (Operational : Prop) (scheme : Games.UnlinkScheme)
     (mclose : GameMessage)
     (A : F → OracleComp (Games.frameSpec F GameMessage) (Games.Evidence F))
@@ -1195,6 +1190,29 @@ theorem flat_endToEnd
   refine ⟨flatOperational_of_trace htrace hkey hTe hcomplete, ?_, t7⟩
   exact fun adversary => Games.T4_fsFlat_unlinkability (D / C) adversary
 
+/-- T7-premise-free flat theorem: the synchronized operational trace and T4
+theorem are combined with the secret-averaged query-bounded T7 theorem. -/
+theorem flat_endToEnd_unconditional
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : FlatLink N F M P Recipient Nf Payload}
+    {labels : List (FlatLabel N F M P Recipient Nf Payload)}
+    {s : FlatState N F M P Recipient Nf Payload} {key : F}
+    {mclose : M}
+    {A : F → OracleComp (Games.frameSpec F M) (Games.Evidence F)}
+    {qb : Games.FrameQueryBounds A}
+    (htrace : LTrace (FlatStep (C := C) (D := D) (τ := τ) (b := b)
+      (Te := Te) (honest := honest) H encode link)
+      (FlatState.init N F M P Recipient Nf Payload D) labels s)
+    (hkey : honest key) (hTe : 0 < Te)
+    (hcomplete : FlatComplete L key labels s) :
+    EndToEndGuarantee
+      (FlatOperationalGuarantees (C := C) (D := D) (τ := τ) (b := b)
+        (Te := Te) (L := L) (honest := honest) key labels s)
+      (Games.fsFlatInstance (F := F) (D / C)) mclose A qb :=
+  flat_endToEnd htrace hkey hTe hcomplete
+    (T7Certificate.ofQueryBounds mclose A qb)
+
 variable {Rep GameMessage : Type} [SampleableType Rep]
 variable [DecidableEq GameMessage]
 variable {Cmax : ℕ}
@@ -1221,6 +1239,31 @@ theorem refund_endToEnd
   exact fun adversary =>
     Games.unlinkAdvantage_bRerand_eq_zero Rep Cmax D adversary
 
+/-- T7-premise-free refund theorem: the synchronized operational trace and T4
+theorem are combined with the secret-averaged query-bounded T7 theorem. -/
+theorem refund_endToEnd_unconditional
+    {H : Crypto.LinearSigma.ChallengeOracle F}
+    {encode : Network.Credential.Encode F Recipient Nf Payload}
+    {link : RefundLink Rep Recipient Nf Payload}
+    {labels : List (RefundLabel F Rep Recipient Nf Payload)}
+    {s : RefundState Rep Recipient Nf Payload} {r0 : Rep}
+    {mclose : GameMessage}
+    {A : F → OracleComp (Games.frameSpec F GameMessage) (Games.Evidence F)}
+    {qb : Games.FrameQueryBounds A}
+    (htrace : LTrace (RefundStep (Cmax := Cmax) (D := D) H encode link)
+      (RefundState.init Rep Recipient Nf Payload r0 D) labels s)
+    (hcomplete : RefundComplete labels s) :
+    EndToEndGuarantee
+      (RefundOperationalGuarantees (Cmax := Cmax) (D := D) r0 labels s)
+      (Games.bRerand Rep Cmax D) mclose A qb :=
+  refund_endToEnd htrace hcomplete
+    (T7Certificate.ofQueryBounds mclose A qb)
+
 end EndToEndAssembly
 
 end Zkpc.Composition
+
+-- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
+#print axioms Zkpc.Composition.T7Certificate.ofQueryBounds
+#print axioms Zkpc.Composition.flat_endToEnd_unconditional
+#print axioms Zkpc.Composition.refund_endToEnd_unconditional
