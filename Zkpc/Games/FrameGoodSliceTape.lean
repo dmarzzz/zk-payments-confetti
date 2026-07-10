@@ -573,6 +573,24 @@ omit [Field F] [DecidableEq F] [SampleableType F] [DecidableEq M] in
 theorem pendingValid_init : PendingValid (PendingFrameSt.init F M) := by
   constructor <;> simp [PendingFrameSt.init]
 
+omit [Field F] [DecidableEq F] [SampleableType F] [DecidableEq M] in
+/-- Retiring the current index and advancing the honest counter preserves
+the pending-state invariant. -/
+theorem PendingValid.afterSignal {p : PendingFrameSt F M}
+    (hp : PendingValid p) (ideal' : IdealFrameSt F M)
+    (hidx : ideal'.idx = p.ideal.idx + 1) :
+    PendingValid
+      (⟨ideal', p.pending.erase p.ideal.idx⟩ : PendingFrameSt F M) := by
+  constructor
+  · exact hp.1.erase _
+  · intro i hi
+    have himem : i ∈ p.pending := List.mem_of_mem_erase hi
+    have hne : i ≠ p.ideal.idx := by
+      exact ne_of_mem_erase hi
+    rw [hidx]
+    have := hp.2 i himem
+    omega
+
 /-- Slope-free handler.  A live first `nfAt` touch records only its index.
 Signals sample their public ordinate directly and retire the current index.
 All answer and ideal-cache behavior is exactly `idealFrameImpl`. -/
@@ -659,6 +677,11 @@ theorem pendingFrameImpl_run_evidence_eq_ideal (mclose : M)
     (pendingFrameImpl_run_erase mclose oa p)
   simpa only [← evalDist_map, Functor.map_map, Prod.map_apply,
     Function.comp_apply, id_eq] using h
+
+/-
+The in-flight adaptive induction has moved to
+`Zkpc/Games/FrameGoodSliceTapeInduction.lean`.  This nested comment is a
+temporary source archive while that proof is being completed there.
 
 /-! ## Run-level tape/pad induction -/
 
@@ -920,5 +943,6 @@ theorem futureDSFrameImpl_run_evidence_eq_pending (k : F) (mclose : M) :
                   PendingFrameSt F M) hp
 
 end TapeInduction
+-/
 
 end Zkpc.Games
