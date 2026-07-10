@@ -104,7 +104,7 @@ lemma evalDist_spendBatch_sigmaFlat (budget e : ℕ) :
       apply evalDist_map_eq_of_evalDist_eq
       apply ih
       show st.idx + 1 + ms.length ≤ budget
-      omega
+      simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hst
 
 end Interactive
 
