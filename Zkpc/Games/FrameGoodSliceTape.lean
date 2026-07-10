@@ -586,7 +586,7 @@ theorem PendingValid.afterSignal {p : PendingFrameSt F M}
   · intro i hi
     have himem : i ∈ p.pending := List.mem_of_mem_erase hi
     have hne : i ≠ p.ideal.idx := by
-      exact ne_of_mem_erase hi
+      exact (hp.1.mem_erase_iff.mp hi).1
     rw [hidx]
     have := hp.2 i himem
     omega
