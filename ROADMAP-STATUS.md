@@ -177,7 +177,19 @@ open.
    `initial_nfAt_spend_deferredSecret_ghost_eq` covers a slope first pinned by
    `nfAt` and consumed by a later spend. The shared
    `evalDist_uniform_add_pad` lemma formalizes the one-time-pad use of the
-   uniformly deferred secret.
+   uniformly deferred secret. `Games.FrameBadMass` now lands the complementary
+   source-valid bad-mass substrate: fixed-list uniform-tape membership and
+   collision bounds, a commutation rule for inserting a fresh tape draw around
+   an independent core computation, a value-erased ghost handler, exact
+   per-step and adaptive-run erasure, and equality of all audit events between
+   the ghost and erased runs. The theorem intentionally still missing is the
+   continuation-level adaptive tape extraction: turn an arbitrary erased run
+   with at most `qSig` fresh slope materializations into an independent uniform
+   tape while preserving its adaptively generated `slopeProbes`, then apply the
+   landed `qNf*qSig/|F|` membership and `qSig²/|F|` collision kernels. That
+   theorem supplies `GhostSlopeBadBounds`, after which the already-factored
+   `FrameBadMassTransfer` and `FrameGoodSliceTransfer` remain to close the
+   unconditional averaged T7 endpoint.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,
