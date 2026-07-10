@@ -213,6 +213,315 @@ theorem frame_real_le_ghost_plus_bad (mclose : M)
     (fun w => Slashes w.1 w.2.1) (fun w => FrameLeakBad w.1 w.2.2.audit)) ?_
   exact add_le_add hgood hbad
 
+/-! ## Real-side per-step audit and invariant bricks
+
+Support-level facts about the audited real handler that the two transfer
+inductions thread through every step. -/
+
+/-- Every supported audited step's final audit is exactly `auditAfter` of the
+step's base transition — the real-side analogue of the per-operation ghost
+audit-transition lemmas of `FrameGhost`. -/
+theorem auditedFrameImpl_support_audit (k : F) (mclose : M) (op : FrameOp F M)
+    (s : AuditedFrameSt F M)
+    (z : (frameSpec F M).Range op × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) op).run s)) :
+    z.2.audit = auditAfter k op s.base z.2.base s.audit := by
+  unfold auditedFrameImpl at hz
+  simp only [StateT.run_mk] at hz
+  obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst hz
+  rfl
+
+/-- Run-level bad-event monotonicity for the audited real handler: an
+already-raised leakage event survives any full simulated run. Together with
+`ghostFrameImpl_run_bad_monotone` this makes bad-at-end coincide with
+bad-ever-fired on both sides of the coupling. -/
+theorem auditedFrameImpl_run_bad_monotone (k : F) (mclose : M) {α : Type}
+    (oa : OracleComp (frameSpec F M) α) (s : AuditedFrameSt F M)
+    (hbad : FrameLeakBad k s.audit)
+    (z : α × AuditedFrameSt F M)
+    (hz : z ∈ support ((simulateQ (auditedFrameImpl k mclose) oa).run s)) :
+    FrameLeakBad k z.2.audit :=
+  OracleComp.simulateQ_run_preserves_inv_of_query (auditedFrameImpl k mclose)
+    (fun u => FrameLeakBad k u.audit)
+    (fun t u hu y hy => auditedFrameImpl_bad_monotone k mclose t u hu y hy)
+    oa s hbad z hz
+
+/-- **The threadable completeness invariant.** `FrameAuditComplete` alone is
+*not* preserved through a bad-firing `roA(k,·)` step (such a probe can
+materialize a hidden slope that no signal recorded), so the coupling induction
+must carry the disjunction with the leakage event: every supported audited step
+preserves `FrameLeakBad ∨ FrameAuditComplete`. -/
+theorem auditedFrameImpl_badOrComplete_step (k : F) (mclose : M)
+    (op : FrameOp F M) (s : AuditedFrameSt F M)
+    (h : FrameLeakBad k s.audit ∨ FrameAuditComplete k s)
+    (z : (frameSpec F M).Range op × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) op).run s)) :
+    FrameLeakBad k z.2.audit ∨ FrameAuditComplete k z.2 := by
+  rcases h with hbad | hc
+  · exact Or.inl (auditedFrameImpl_bad_monotone k mclose op s hbad z hz)
+  cases op with
+  | nfAt i =>
+      exact Or.inr (auditedFrameImpl_nfAt_complete k mclose i s hc z hz)
+  | spend m =>
+      unfold auditedFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : s.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        refine Or.inr fun j a h' => ?_
+        have haud : auditAfter k (.spend m) s.base s.base s.audit = s.audit := by
+          simp [auditAfter, hcl]
+        rw [haud]
+        exact hc j a h'
+      · rw [if_neg hcl] at hp
+        have hopen : s.base.closed = false := by simpa using hcl
+        obtain ⟨q, hq, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact Or.inr (emitSignal_audit_complete k m (.spend m) s hc
+          (Or.inl rfl) hopen q hq)
+  | close =>
+      unfold auditedFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : s.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        refine Or.inr fun j a h' => ?_
+        have haud : auditAfter k .close s.base s.base s.audit = s.audit := by
+          simp [auditAfter, hcl]
+        rw [haud]
+        exact hc j a h'
+      · rw [if_neg hcl] at hp
+        have hopen : s.base.closed = false := by simpa using hcl
+        obtain ⟨q, hq, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact Or.inr (emitSignal_audit_complete k mclose .close s hc
+          (Or.inr rfl) hopen q hq)
+  | roA kq i =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      by_cases hk : kq = k
+      · subst hk
+        exact Or.inl (auditAfter_direct_secret_bad kq i s.base p.2 s.audit)
+      · obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        refine Or.inr fun j a h' => ?_
+        have hpair : (k, j) ≠ (kq, i) := fun hkj =>
+          hk ((congrArg Prod.fst hkj).symm)
+        have hold : s.base.roA (k, j) = some a := by
+          rw [← lazyRO_support_eq_of_ne s.base.roA (kq, i) c hcm hpair]
+          exact h'
+        exact hc j a hold
+  | roX m =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact Or.inr fun j a h' => hc j a h'
+  | roNf aq =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact Or.inr fun j a h' => hc j a h'
+  | roE kq e =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact Or.inr fun j a h' => hc j a h'
+  | roId kq =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact Or.inr fun j a h' => hc j a h'
+
+/-- Run-level preservation of the threadable completeness invariant: from an
+audit-complete (or already bad) state, every supported outcome of a full
+audited run is bad or audit-complete. -/
+theorem auditedFrameImpl_run_badOrComplete (k : F) (mclose : M) {α : Type}
+    (oa : OracleComp (frameSpec F M) α) (s : AuditedFrameSt F M)
+    (h : FrameLeakBad k s.audit ∨ FrameAuditComplete k s)
+    (z : α × AuditedFrameSt F M)
+    (hz : z ∈ support ((simulateQ (auditedFrameImpl k mclose) oa).run s)) :
+    FrameLeakBad k z.2.audit ∨ FrameAuditComplete k z.2 :=
+  OracleComp.simulateQ_run_preserves_inv_of_query (auditedFrameImpl k mclose)
+    (fun u => FrameLeakBad k u.audit ∨ FrameAuditComplete k u)
+    (fun t u hu y hy => auditedFrameImpl_badOrComplete_step k mclose t u hu y hy)
+    oa s h z hz
+
+omit [DecidableEq F] [SampleableType F] [DecidableEq M] in
+/-- The empty message-digest cache is (vacuously) nonzero-valued. -/
+theorem roXCacheNonzero_init :
+    RoXCacheNonzero ((FrameSt.init F M).roX) := by
+  intro m x h
+  simp [FrameSt.init] at h
+
+/-- **The `H_x` nonzero invariant threads through every audited step.** The
+spend/close coupling consumes `x ≠ 0` at `roX` cache hits (the `y`-uniformity
+bijection divides by `x`), so the coupling induction must carry
+`RoXCacheNonzero` explicitly; this is its per-step preservation. -/
+theorem auditedFrameImpl_roXNonzero_step (k : F) (mclose : M)
+    (op : FrameOp F M) (s : AuditedFrameSt F M)
+    (hx : RoXCacheNonzero s.base.roX)
+    (z : (frameSpec F M).Range op × AuditedFrameSt F M)
+    (hz : z ∈ support (((auditedFrameImpl k mclose) op).run s)) :
+    RoXCacheNonzero z.2.base.roX := by
+  cases op with
+  | spend m =>
+      unfold auditedFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : s.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hx
+      · rw [if_neg hcl] at hp
+        obtain ⟨q, hq, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        unfold emitSignal at hq
+        obtain ⟨xc, hxc, hq⟩ := (mem_support_bind_iff _ _ _).mp hq
+        obtain ⟨ac, hac, hq⟩ := (mem_support_bind_iff _ _ _).mp hq
+        obtain ⟨nc, hnc, hq⟩ := (mem_support_bind_iff _ _ _).mp hq
+        rw [support_pure, Set.mem_singleton_iff] at hq
+        subst hq
+        exact (lazyROX_support_nonzero hx m xc hxc).2
+  | close =>
+      unfold auditedFrameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      unfold frameImpl at hp
+      simp only [StateT.run_mk] at hp
+      by_cases hcl : s.base.closed
+      · rw [if_pos hcl, support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        exact hx
+      · rw [if_neg hcl] at hp
+        obtain ⟨q, hq, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+        rw [support_pure, Set.mem_singleton_iff] at hp
+        subst hp
+        unfold emitSignal at hq
+        obtain ⟨xc, hxc, hq⟩ := (mem_support_bind_iff _ _ _).mp hq
+        obtain ⟨ac, hac, hq⟩ := (mem_support_bind_iff _ _ _).mp hq
+        obtain ⟨nc, hnc, hq⟩ := (mem_support_bind_iff _ _ _).mp hq
+        rw [support_pure, Set.mem_singleton_iff] at hq
+        subst hq
+        exact (lazyROX_support_nonzero hx mclose xc hxc).2
+  | nfAt i =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨ac, hac, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      obtain ⟨nc, hnc, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hx
+  | roA kq i =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hx
+  | roX m =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact (lazyROX_support_nonzero hx m c hcm).2
+  | roNf aq =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hx
+  | roE kq e =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hx
+  | roId kq =>
+      unfold auditedFrameImpl frameImpl at hz
+      simp only [StateT.run_mk] at hz
+      obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+      rw [support_pure, Set.mem_singleton_iff] at hz
+      subst hz
+      obtain ⟨c, hcm, hp⟩ := (mem_support_bind_iff _ _ _).mp hp
+      rw [support_pure, Set.mem_singleton_iff] at hp
+      subst hp
+      exact hx
+
+/-- Run-level preservation of the `H_x` nonzero invariant. -/
+theorem auditedFrameImpl_run_roXNonzero (k : F) (mclose : M) {α : Type}
+    (oa : OracleComp (frameSpec F M) α) (s : AuditedFrameSt F M)
+    (hx : RoXCacheNonzero s.base.roX)
+    (z : α × AuditedFrameSt F M)
+    (hz : z ∈ support ((simulateQ (auditedFrameImpl k mclose) oa).run s)) :
+    RoXCacheNonzero z.2.base.roX :=
+  OracleComp.simulateQ_run_preserves_inv_of_query (auditedFrameImpl k mclose)
+    (fun u => RoXCacheNonzero u.base.roX)
+    (fun t u hu y hy => auditedFrameImpl_roXNonzero_step k mclose t u hu y hy)
+    oa s hx z hz
+
 end Zkpc.Games
 
 -- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
@@ -221,3 +530,10 @@ end Zkpc.Games
 #print axioms Zkpc.Games.probOutput_bind_decide_le_split
 #print axioms Zkpc.Games.probOutput_bind_decide_eq_probEvent
 #print axioms Zkpc.Games.frame_real_le_ghost_plus_bad
+#print axioms Zkpc.Games.auditedFrameImpl_support_audit
+#print axioms Zkpc.Games.auditedFrameImpl_run_bad_monotone
+#print axioms Zkpc.Games.auditedFrameImpl_badOrComplete_step
+#print axioms Zkpc.Games.auditedFrameImpl_run_badOrComplete
+#print axioms Zkpc.Games.roXCacheNonzero_init
+#print axioms Zkpc.Games.auditedFrameImpl_roXNonzero_step
+#print axioms Zkpc.Games.auditedFrameImpl_run_roXNonzero
