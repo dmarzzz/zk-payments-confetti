@@ -84,6 +84,22 @@ def DSShadowSt.consumeHole (sigma : DSShadowSt F M) (i j : Nat) (x : F) :
     pat := Function.update sigma.pat i (some (.tline j x))
     shadow := sigma.shadow.map (replaceHole j x) }
 
+/-- Replace a consumed pending hole by the concrete public line that the
+adversary receives.  Unlike `consumeHole`, this representation no longer
+uses tape coordinate `j`; leaving that coordinate as an unread dummy is what
+allows the public ordinate to be extracted as an independent uniform draw. -/
+def replaceHoleLine (j : Nat) (x y : F) (e : DSEntry F) : DSEntry F :=
+  if e = .hole j then .line x y else e
+
+/-- Symbolic state update for consuming an owned pending hole into a concrete
+public line.  The update is in place, so the order of the honest-slope audit
+is unchanged. -/
+def DSShadowSt.consumeHoleLine (sigma : DSShadowSt F M) (i j : Nat)
+    (x y : F) : DSShadowSt F M :=
+  { sigma with
+    pat := Function.update sigma.pat i (some (.line x y))
+    shadow := sigma.shadow.map (replaceHoleLine j x y) }
+
 /-- Record a direct-secret probe in the symbolic audit. -/
 def DSShadowSt.addSecretProbe (sigma : DSShadowSt F M) (q : F) :
     DSShadowSt F M :=
@@ -110,6 +126,294 @@ def DSShadowSt.setIdeal (sigma : DSShadowSt F M) (ideal : IdealFrameSt F M) :
     dsBudget (sigma.setIdeal ideal) nA nE nId nNf nSig =
       dsBudget sigma nA nE nId nNf nSig := by
   rfl
+
+omit [SampleableType F] [Fintype F] in
+/-- Replacing a hole by a concrete line preserves the nonzero-abscissa
+condition when the consuming line has nonzero abscissa. -/
+theorem xne0_replaceHoleLine (j : Nat) (x y : F) (hx : x ≠ 0)
+    (e : DSEntry F) (he : e.XNe0) :
+    (replaceHoleLine j x y e).XNe0 := by
+  unfold replaceHoleLine
+  split_ifs with h
+  · exact hx
+  · exact he
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- Every coordinate retained by `replaceHoleLine` was already a coordinate
+of the original entry. -/
+theorem coord_replaceHoleLine_some (j : Nat) (x y : F) (e : DSEntry F)
+    (q : Nat) (h : (replaceHoleLine j x y e).coord = some q) :
+    e.coord = some q := by
+  unfold replaceHoleLine at h
+  split at h <;> simp_all [DSEntry.coord]
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- If the owned hole is the only entry at coordinate `j`, replacing it by a
+line deletes exactly `j` from the coordinate list. -/
+theorem entryCoords_map_replaceHoleLine_eq_filter (shadow : List (DSEntry F))
+    (j : Nat) (x y : F)
+    (honly : ∀ e, e ∈ shadow → e.coord = some j → e = .hole j) :
+    entryCoords (shadow.map (replaceHoleLine j x y)) =
+      (entryCoords shadow).filter (fun q => q ≠ j) := by
+  induction shadow with
+  | nil => simp [entryCoords]
+  | cons e rest ih =>
+      have htail : ∀ e', e' ∈ rest → e'.coord = some j →
+          e' = DSEntry.hole j := by
+        intro e' he' hc
+        exact honly e' (List.mem_cons_of_mem e he') hc
+      rw [List.map_cons]
+      cases e with
+      | line x' y' =>
+          simp [entryCoords, replaceHoleLine, ih htail]
+      | hole q =>
+          by_cases hq : q = j
+          · subst q
+            simp [entryCoords, replaceHoleLine, ih htail]
+          · simp [entryCoords, replaceHoleLine, hq, ih htail]
+      | tline q x' =>
+          by_cases hq : q = j
+          · subst q
+            have hbad := honly (DSEntry.tline j x')
+              (List.mem_cons_self) rfl
+            cases hbad
+          · simp [entryCoords, replaceHoleLine, hq, ih htail]
+
+omit [Field F] [SampleableType F] [Fintype F] in
+theorem entryCoords_tail_nodup (e : DSEntry F) (rest : List (DSEntry F))
+    (h : (entryCoords (e :: rest)).Nodup) :
+    (entryCoords rest).Nodup := by
+  cases e with
+  | line x y => simpa [entryCoords] using h
+  | hole q =>
+      have h' : (q :: entryCoords rest).Nodup := by
+        simpa [entryCoords] using h
+      exact (List.nodup_cons.mp h').2
+  | tline q x =>
+      have h' : (q :: entryCoords rest).Nodup := by
+        simpa [entryCoords] using h
+      exact (List.nodup_cons.mp h').2
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- Replacing the unique owned hole by a nonduplicating public line preserves
+pairwise line separation. -/
+theorem pairwise_sep_map_replaceHoleLine (shadow : List (DSEntry F))
+    (j : Nat) (x y : F) (hsep : shadow.Pairwise DSEntry.Sep)
+    (hnd : (entryCoords shadow).Nodup) (hy : y ∉ dupTargets x shadow) :
+    (shadow.map (replaceHoleLine j x y)).Pairwise DSEntry.Sep := by
+  induction shadow with
+  | nil => simp
+  | cons e rest ih =>
+      rw [List.pairwise_cons] at hsep
+      have hndRest := entryCoords_tail_nodup e rest hnd
+      have hyRest : y ∉ dupTargets x rest := by
+        intro hyr
+        apply hy
+        rw [dupTargets_cons]
+        exact List.mem_append.2 (Or.inr hyr)
+      have htail := ih hsep.2 hndRest hyRest
+      rw [List.map_cons, List.pairwise_cons]
+      refine ⟨?_, htail⟩
+      intro b hb
+      have heb := hsep.1 b hb
+      cases e with
+      | line x' y' =>
+          cases b with
+          | line xb yb =>
+              simpa [replaceHoleLine] using heb
+          | hole q =>
+              by_cases hq : q = j
+              · subst q
+                simp only [replaceHoleLine, if_pos rfl, DSEntry.Sep]
+                intro hxx hyy
+                apply hy
+                simp [dupTargets, hxx.symm, hyy]
+              · simp [replaceHoleLine, hq]
+          | tline q xb => trivial
+      | hole q =>
+          by_cases hq : q = j
+          · subst q
+            have hjrest : j ∉ entryCoords rest := by
+              have h' : (j :: entryCoords rest).Nodup := by
+                simpa [entryCoords] using hnd
+              exact (List.nodup_cons.mp h').1
+            cases b with
+            | line xb yb =>
+                simp only [replaceHoleLine, if_pos rfl, DSEntry.Sep]
+                intro hxx hyy
+                apply hy
+                simp only [dupTargets, List.mem_filterMap]
+                refine ⟨DSEntry.line xb yb,
+                  List.mem_cons_of_mem _ hb, ?_⟩
+                simp [hxx, hyy]
+            | hole qb =>
+                have hqb : qb ≠ j := by
+                  intro heq
+                  subst qb
+                  apply hjrest
+                  simp only [entryCoords, List.mem_filterMap]
+                  exact ⟨DSEntry.hole j, hb, rfl⟩
+                simp [replaceHoleLine, hqb]
+            | tline qb xb => trivial
+          · trivial
+      | tline q x' => trivial
+
+omit [Field F] [SampleableType F] [Fintype F] in
+theorem map_replaceHoleLine_eq_self_of_not_mem (shadow : List (DSEntry F))
+    (j : Nat) (x y : F) (h : DSEntry.hole j ∉ shadow) :
+    shadow.map (replaceHoleLine j x y) = shadow := by
+  induction shadow with
+  | nil => rfl
+  | cons e rest ih =>
+      have he : e ≠ DSEntry.hole j := by
+        intro heq
+        apply h
+        subst e
+        exact List.mem_cons_self
+      have hr : DSEntry.hole j ∉ rest := by
+        intro hm
+        exact h (List.mem_cons_of_mem e hm)
+      simp [replaceHoleLine, he, ih hr]
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- A tape-line, like a hole, contributes one charge against every existing
+entry. -/
+theorem scCount_tline_cons (j : Nat) (x : F) (shadow : List (DSEntry F)) :
+    scCount (DSEntry.tline j x :: shadow) =
+      shadow.length + scCount shadow := by
+  have h : (shadow.map (fun e' =>
+      if (DSEntry.tline j x).clash e' then 0 else 1)).sum = shadow.length := by
+    induction shadow with
+    | nil => rfl
+    | cons e rest ih =>
+        simp only [List.map_cons, List.sum_cons, List.length_cons]
+        rw [ih]
+        rfl
+  simp [scCount, h]
+
+/-- The head-against-tail contribution used by `scCount` for a concrete
+line. -/
+def lineCharge (x y : F) (shadow : List (DSEntry F)) : Nat :=
+  (shadow.map fun e => if (DSEntry.line x y).clash e then 0 else 1).sum
+
+omit [Field F] [SampleableType F] [Fintype F] in
+theorem lineCharge_replaceHoleLine_of_ne (x₀ y₀ x y : F) (j : Nat)
+    (hxx : x₀ ≠ x) (shadow : List (DSEntry F)) :
+    lineCharge x₀ y₀ (shadow.map (replaceHoleLine j x y)) =
+      lineCharge x₀ y₀ shadow := by
+  induction shadow with
+  | nil => rfl
+  | cons e rest ih =>
+      cases e <;> simp [lineCharge, replaceHoleLine, DSEntry.clash,
+        hxx, ih]
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- At the same abscissa, replacing the unique hole removes exactly its one
+head-pair charge. -/
+theorem lineCharge_replaceHoleLine_add_one (x y₀ y : F) (j : Nat)
+    (shadow : List (DSEntry F)) (hmem : DSEntry.hole j ∈ shadow)
+    (hnd : (entryCoords shadow).Nodup) :
+    lineCharge x y₀ (shadow.map (replaceHoleLine j x y)) + 1 =
+      lineCharge x y₀ shadow := by
+  induction shadow with
+  | nil => simp at hmem
+  | cons e rest ih =>
+      have hndRest := entryCoords_tail_nodup e rest hnd
+      by_cases he : e = DSEntry.hole j
+      · subst e
+        have hjrest : j ∉ entryCoords rest := by
+          have h' : (j :: entryCoords rest).Nodup := by
+            simpa [entryCoords] using hnd
+          exact (List.nodup_cons.mp h').1
+        have hnot : DSEntry.hole j ∉ rest := by
+          intro hm
+          apply hjrest
+          simp only [entryCoords, List.mem_filterMap]
+          exact ⟨DSEntry.hole j, hm, rfl⟩
+        have hmap := map_replaceHoleLine_eq_self_of_not_mem rest j x y hnot
+        simp [lineCharge, replaceHoleLine, hmap, DSEntry.clash]
+      · have hmrest : DSEntry.hole j ∈ rest := by
+          rcases List.mem_cons.mp hmem with h | h
+          · exact (he h).elim
+          · exact h
+        have hi := ih hmrest hndRest
+        simp only [lineCharge, List.map_cons, List.map_map,
+          Function.comp_apply, List.sum_cons] at hi ⊢
+        rw [show replaceHoleLine j x y e = e by
+          simp [replaceHoleLine, he]]
+        omega
+
+omit [Field F] [SampleableType F] [Fintype F] in
+/-- Replacing the unique hole by a concrete line removes exactly the
+same-abscissa concrete-line charges listed by `dupTargets`. -/
+theorem scCount_map_replaceHoleLine_add_dupTargets
+    (shadow : List (DSEntry F)) (j : Nat) (x y : F)
+    (hmem : DSEntry.hole j ∈ shadow) (hnd : (entryCoords shadow).Nodup) :
+    scCount (shadow.map (replaceHoleLine j x y)) +
+        (dupTargets x shadow).length = scCount shadow := by
+  induction shadow with
+  | nil => simp at hmem
+  | cons e rest ih =>
+      have hndRest := entryCoords_tail_nodup e rest hnd
+      by_cases he : e = DSEntry.hole j
+      · subst e
+        have hjrest : j ∉ entryCoords rest := by
+          have h' : (j :: entryCoords rest).Nodup := by
+            simpa [entryCoords] using hnd
+          exact (List.nodup_cons.mp h').1
+        have hnot : DSEntry.hole j ∉ rest := by
+          intro hm
+          apply hjrest
+          simp only [entryCoords, List.mem_filterMap]
+          exact ⟨DSEntry.hole j, hm, rfl⟩
+        have hmap := map_replaceHoleLine_eq_self_of_not_mem rest j x y hnot
+        simpa [replaceHoleLine, hmap, dupTargets_cons,
+          scCount_hole_cons] using scCount_line_cons x y rest
+      · have hmrest : DSEntry.hole j ∈ rest := by
+          rcases List.mem_cons.mp hmem with h | h
+          · exact (he h).elim
+          · exact h
+        have hi := ih hmrest hndRest
+        cases e with
+        | line x₀ y₀ =>
+            by_cases hxx : x₀ = x
+            · subst x₀
+              have hc := lineCharge_replaceHoleLine_add_one
+                x y₀ y j rest hmrest hndRest
+              simp only [List.map_cons, scCount]
+              change lineCharge x y₀
+                    (rest.map (replaceHoleLine j x y)) +
+                  scCount (rest.map (replaceHoleLine j x y)) +
+                  (dupTargets x (DSEntry.line x y₀ :: rest)).length = _
+              rw [dupTargets_cons]
+              simp only [if_pos rfl, List.length_append, List.length_cons,
+                List.length_nil]
+              change _ + _ + (1 + (dupTargets x rest).length) =
+                lineCharge x y₀ rest + scCount rest
+              omega
+            · have hc := lineCharge_replaceHoleLine_of_ne
+                x₀ y₀ x y j hxx rest
+              simp only [List.map_cons, scCount]
+              change lineCharge x₀ y₀
+                    (rest.map (replaceHoleLine j x y)) +
+                  scCount (rest.map (replaceHoleLine j x y)) +
+                  (dupTargets x (DSEntry.line x₀ y₀ :: rest)).length = _
+              rw [dupTargets_cons]
+              simp only [if_neg (Ne.symm hxx), List.nil_append]
+              change _ + _ + (dupTargets x rest).length =
+                lineCharge x₀ y₀ rest + scCount rest
+              omega
+        | hole q =>
+            have hq : q ≠ j := by
+              intro hqj
+              apply he
+              subst q
+              rfl
+            simp [replaceHoleLine, hq, scCount_hole_cons, dupTargets_cons,
+              List.length_map, hi]
+        | tline q x₀ =>
+            simp [replaceHoleLine, scCount_tline_cons, dupTargets_cons,
+              List.length_map, hi]
 
 omit [SampleableType F] [Fintype F] in
 /-- A cache-pattern entry has the structural properties carried by its
@@ -185,6 +489,66 @@ theorem DSShadowInvStrong.coord_ne_of_mem_of_ne_hole
   subst q
   have hh : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
   exact hne (entry_eq_of_coord_nodup h.hnd he hh hq rfl)
+
+omit [SampleableType F] [Fintype F] in
+/-- Consuming an owned hole into a concrete line removes exactly its tape
+coordinate from the shadow. -/
+theorem DSShadowInvStrong.entryCoords_consumeHoleLine
+    {sigma : DSShadowSt F M} {m i j : Nat}
+    (h : DSShadowInvStrong sigma m)
+    (hi : sigma.pat i = some (.hole j)) (x y : F) :
+    entryCoords (sigma.consumeHoleLine i j x y).shadow =
+      (entryCoords sigma.shadow).filter (fun q => q ≠ j) := by
+  apply entryCoords_map_replaceHoleLine_eq_filter
+  intro e he hc
+  have hh : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
+  exact entry_eq_of_coord_nodup h.hnd he hh hc rfl
+
+omit [SampleableType F] [Fintype F] in
+/-- The consumed coordinate is an unread dummy in the concrete-line
+successor. -/
+theorem DSShadowInvStrong.consumeHoleLine_coord_unused
+    {sigma : DSShadowSt F M} {m i j : Nat}
+    (h : DSShadowInvStrong sigma m)
+    (hi : sigma.pat i = some (.hole j)) (x y : F) :
+    j ∉ entryCoords (sigma.consumeHoleLine i j x y).shadow := by
+  rw [h.entryCoords_consumeHoleLine hi x y]
+  simp
+
+omit [SampleableType F] [Fintype F] in
+/-- If a coordinate is absent from the owned shadow, changing that dummy
+tape coordinate does not change the seeded concrete state. -/
+theorem DSShadowInvStrong.seed_set_of_coord_not_mem
+    {sigma : DSShadowSt F M} {m j : Nat}
+    (h : DSShadowInvStrong sigma m) (hj : j ∉ entryCoords sigma.shadow)
+    (k w : F) (vs : List F) :
+    sigma.seed k (vs.set j w) = sigma.seed k vs := by
+  apply dsFrameSt_ext
+  · rfl
+  · funext i
+    simp only [DSShadowSt.seed_slope]
+    cases hi : sigma.pat i with
+    | none => simp [hi]
+    | some e =>
+        simp only [hi, Option.map_some]
+        congr 1
+        apply DSEntry.eval_set_ne
+        intro q hq hqj
+        subst q
+        apply hj
+        simp only [entryCoords, List.mem_filterMap]
+        exact ⟨e, h.hpat_mem i e hi, hq⟩
+  · apply frameAudit_ext
+    · rfl
+    · rfl
+    · simp only [DSShadowSt.seed_audit]
+      refine List.map_congr_left fun e he => ?_
+      apply DSEntry.eval_set_ne
+      intro q hq hqj
+      subst q
+      apply hj
+      simp only [entryCoords, List.mem_filterMap]
+      exact ⟨e, he, hq⟩
 
 omit [SampleableType F] [Fintype F] in
 /-- Replacing public caches without changing the honest counter preserves
@@ -524,6 +888,92 @@ theorem DSShadowInvStrong.consumeHole_advance
       refine List.mem_map.2 ⟨e, h.hpat_mem q e he, ?_⟩
       simp [replaceHole, hne]
 
+/-- Consuming the current pending hole into its concrete public line and
+advancing the honest counter preserves the strong invariant away from the
+listed duplicate ordinates.  Coordinate `j` becomes unused. -/
+theorem DSShadowInvStrong.consumeHoleLine_advance
+    {sigma : DSShadowSt F M} {m j : Nat} (h : DSShadowInvStrong sigma m)
+    (ideal : IdealFrameSt F M) (x y : F)
+    (hi : sigma.pat sigma.ideal.idx = some (.hole j))
+    (hidx : ideal.idx = sigma.ideal.idx + 1)
+    (hroX : RoXCacheNonzero ideal.roX) (hx : x ≠ 0)
+    (hy : y ∉ dupTargets x sigma.shadow) :
+    DSShadowInvStrong
+      ((sigma.consumeHoleLine sigma.ideal.idx j x y).setIdeal ideal) m := by
+  have hhole : DSEntry.hole j ∈ sigma.shadow :=
+    h.hpat sigma.ideal.idx j hi
+  have hcoords := h.entryCoords_consumeHoleLine hi x y
+  refine ⟨?_, ?_⟩
+  · refine ⟨?_, ?_, ?_, ?_, hroX, ?_, ?_, ?_⟩
+    · intro e he
+      obtain ⟨e0, he0, rfl⟩ := List.mem_map.1 he
+      exact xne0_replaceHoleLine j x y hx e0 (h.hx e0 he0)
+    · exact pairwise_sep_map_replaceHoleLine sigma.shadow j x y
+        h.hsep h.hnd hy
+    · intro q hq
+      rw [hcoords] at hq
+      exact h.hlt q (List.mem_of_mem_filter hq)
+    · rw [hcoords]
+      exact h.hnd.filter _
+    · intro q l hq
+      have hqi : q ≠ sigma.ideal.idx := by
+        intro heq
+        subst q
+        simp [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine] at hq
+      simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine,
+        Function.update_of_ne hqi] at hq
+      have hlj : l ≠ j := by
+        intro heq
+        subst l
+        exact hqi (h.hpatinj q sigma.ideal.idx j hq hi)
+      refine List.mem_map.2 ⟨.hole l, h.hpat q l hq, ?_⟩
+      simp [replaceHoleLine, hlj]
+    · intro q q' l hq hq'
+      have hqi : q ≠ sigma.ideal.idx := by
+        intro heq
+        subst q
+        simp [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine] at hq
+      have hq'i : q' ≠ sigma.ideal.idx := by
+        intro heq
+        subst q'
+        simp [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine] at hq'
+      simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine,
+        Function.update_of_ne hqi] at hq
+      simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine,
+        Function.update_of_ne hq'i] at hq'
+      exact h.hpatinj q q' l hq hq'
+    · intro q hq e he
+      have hqi : q ≠ sigma.ideal.idx := by
+        intro heq
+        subst q
+        change ideal.idx ≤ sigma.ideal.idx at hq
+        rw [hidx] at hq
+        omega
+      simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine,
+        Function.update_of_ne hqi] at he
+      apply h.hfresh q
+      · change sigma.ideal.idx ≤ q
+        change ideal.idx ≤ q at hq
+        omega
+      · exact he
+  · intro q e he
+    by_cases hqi : q = sigma.ideal.idx
+    · subst q
+      simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine,
+        Function.update_self] at he
+      have heq : e = .line x y := (Option.some.inj he).symm
+      subst e
+      refine List.mem_map.2 ⟨.hole j, hhole, ?_⟩
+      simp [replaceHoleLine]
+    · simp only [DSShadowSt.setIdeal, DSShadowSt.consumeHoleLine,
+        Function.update_of_ne hqi] at he
+      have hne : e ≠ .hole j := by
+        intro heq
+        subst e
+        exact hqi (h.hpatinj q sigma.ideal.idx j he hi)
+      refine List.mem_map.2 ⟨e, h.hpat_mem q e he, ?_⟩
+      simp [replaceHoleLine, hne]
+
 omit [SampleableType F] [Fintype F] in
 /-- Seeding a fresh concrete line stores exactly its reconstructed slope
 and records that slope at the head of the audit. -/
@@ -605,6 +1055,39 @@ theorem seed_consumeHole (sigma : DSShadowSt F M) (m i j : Nat)
         apply DSEntry.eval_set_ne
         exact hInv.coord_ne_of_mem_of_ne_hole hi he heq
 
+omit [SampleableType F] [Fintype F] in
+/-- Replacing an owned hole by the concrete line actually returned by the
+handler leaves the seeded slope cache and audit unchanged. -/
+theorem seed_consumeHoleLine (sigma : DSShadowSt F M) (i j : Nat)
+    (k x : F) (vs : List F) (hi : sigma.pat i = some (.hole j))
+    (hx : x ≠ 0) :
+    (sigma.consumeHoleLine i j x (rlnY k (vs.getD j 0) x)).seed k vs =
+      sigma.seed k vs := by
+  apply dsFrameSt_ext
+  · rfl
+  · funext q
+    by_cases hqi : q = i
+    · subst q
+      simp only [DSShadowSt.seed_slope, DSShadowSt.consumeHoleLine,
+        Function.update_self, Option.map_some, DSEntry.eval]
+      rw [hi]
+      simp only [Option.map_some, DSEntry.eval, rlnY]
+      rw [add_sub_cancel_left, mul_div_cancel_right₀ _ hx]
+    · simp [DSShadowSt.seed_slope, DSShadowSt.consumeHoleLine,
+        Function.update_of_ne hqi]
+  · apply frameAudit_ext
+    · rfl
+    · rfl
+    · simp only [DSShadowSt.seed_audit, DSShadowSt.consumeHoleLine,
+        List.map_map]
+      refine List.map_congr_left fun e he => ?_
+      by_cases heq : e = .hole j
+      · subst e
+        simp only [Function.comp_apply, replaceHoleLine, if_pos rfl,
+          DSEntry.eval, rlnY]
+        rw [add_sub_cancel_left, mul_div_cancel_right₀ _ hx]
+      · simp [Function.comp_apply, replaceHoleLine, heq]
+
 /-! ## Budget algebra -/
 
 theorem choose_succ_two (n : Nat) : Nat.choose (n + 1) 2 = n + Nat.choose n 2 := by
@@ -664,6 +1147,39 @@ theorem dsBudget_consumeHole_le (sigma : DSShadowSt F M) (i j : Nat) (x : F)
     List.length_map _
   simp only [dsBudget, DSShadowSt.consumeHole, hl, hc, choose_succ_two]
   ring_nf
+  omega
+
+/-- Exact potential delta for concrete-line hole consumption.  The
+`dupTargets` charge plus the good successor leaves the unused signal-query
+margin: all prior slope probes, one cross-pair per existing shadow entry, and
+one cross-pair per future signal. -/
+theorem dsBudget_consumeHoleLine_delta (sigma : DSShadowSt F M)
+    (i j : Nat) (x y : F) (nA nE nId nNf nSig : Nat)
+    (hmem : DSEntry.hole j ∈ sigma.shadow)
+    (hnd : (entryCoords sigma.shadow).Nodup) :
+    (dupTargets x sigma.shadow).length +
+        dsBudget (sigma.consumeHoleLine i j x y) nA nE nId nNf nSig +
+        (sigma.slopeProbes.length + nNf + sigma.shadow.length + nSig) =
+      dsBudget sigma nA nE nId nNf (nSig + 1) := by
+  have hc := scCount_map_replaceHoleLine_add_dupTargets
+    sigma.shadow j x y hmem hnd
+  have hl : (sigma.shadow.map (replaceHoleLine j x y)).length =
+      sigma.shadow.length := List.length_map _
+  simp only [dsBudget, DSShadowSt.consumeHoleLine, hl, choose_succ_two]
+  ring_nf at hc ⊢
+  omega
+
+/-- The duplicate-ordinate union-bound charge and the good concrete-line
+successor fit inside the predecessor signal-query potential. -/
+theorem dsBudget_consumeHoleLine_add_dupTargets_le
+    (sigma : DSShadowSt F M) (i j : Nat) (x y : F)
+    (nA nE nId nNf nSig : Nat) (hmem : DSEntry.hole j ∈ sigma.shadow)
+    (hnd : (entryCoords sigma.shadow).Nodup) :
+    (dupTargets x sigma.shadow).length +
+        dsBudget (sigma.consumeHoleLine i j x y) nA nE nId nNf nSig ≤
+      dsBudget sigma nA nE nId nNf (nSig + 1) := by
+  have hdelta := dsBudget_consumeHoleLine_delta sigma i j x y
+    nA nE nId nNf nSig hmem hnd
   omega
 
 /-- Recording a direct probe while decrementing its matching budget leaves
@@ -774,16 +1290,131 @@ theorem dsBudget_base_le (sigma : DSShadowSt F M)
 ordinate at any fixed nonzero abscissa. -/
 theorem evalDist_rlnY_uniform {beta : Type} (k x : F) (hx : x ≠ 0)
     (G : F → ProbComp beta) :
-    𝓓[($ᵗ F) >>= fun a => G (rlnY k a x)] =
-      𝓓[($ᵗ F) >>= G] := by
+    𝒟[($ᵗ F) >>= fun a => G (rlnY k a x)] =
+      𝒟[($ᵗ F) >>= G] := by
   calc
-    𝓓[($ᵗ F) >>= fun a => G (rlnY k a x)] =
-        𝓓[($ᵗ F) >>= fun a => G (a * x + k)] := by
+    𝒟[($ᵗ F) >>= fun a => G (rlnY k a x)] =
+        𝒟[($ᵗ F) >>= fun a => G (a * x + k)] := by
           refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
           simp [rlnY, add_comm]
-    _ = 𝓓[($ᵗ F) >>= G] :=
+    _ = 𝒟[($ᵗ F) >>= G] :=
       evalDist_bind_bijective_add_right_uniform F
         (fun a : F => a * x) (mulRight_bijective₀ x hx) k G
+
+/-- Extract a tape coordinate through a bijection while replacing that
+coordinate by an independent fresh dummy.  The result exposes the extracted
+value as an independent uniform draw and leaves a fresh tape of the same
+length. -/
+theorem evalDist_drawList_extract_replace {beta : Type} (m j : Nat)
+    (hj : j < m) (phi : F → F) (hphi : Function.Bijective phi)
+    (G : F → List F → ProbComp beta) :
+    𝒟[drawList ($ᵗ F) m >>= fun vs => ($ᵗ F) >>= fun w =>
+        G (phi (vs.getD j 0)) (vs.set j w)] =
+      𝒟[($ᵗ F) >>= fun y => drawList ($ᵗ F) m >>= fun vs =>
+        G y vs] := by
+  induction m generalizing j G with
+  | zero => omega
+  | succ m ih =>
+      rw [show drawList ($ᵗ F) (m + 1) =
+          (($ᵗ F) >>= fun v => drawList ($ᵗ F) m >>= fun ws =>
+            pure (v :: ws)) from rfl]
+      simp only [bind_assoc, pure_bind]
+      cases j with
+      | zero =>
+          calc
+            𝒟[($ᵗ F) >>= fun v => drawList ($ᵗ F) m >>= fun ws =>
+                ($ᵗ F) >>= fun w =>
+                  G (phi ((v :: ws).getD 0 0)) ((v :: ws).set 0 w)] =
+              𝒟[($ᵗ F) >>= fun v => drawList ($ᵗ F) m >>= fun ws =>
+                ($ᵗ F) >>= fun w => G (phi v) (w :: ws)] := by
+                  refine evalDist_bind_congr' ($ᵗ F) fun v => ?_
+                  refine evalDist_bind_congr' (drawList ($ᵗ F) m)
+                    fun ws => ?_
+                  simp
+            _ = 𝒟[($ᵗ F) >>= fun v => ($ᵗ F) >>= fun w =>
+                drawList ($ᵗ F) m >>= fun ws => G (phi v) (w :: ws)] := by
+                  refine evalDist_bind_congr' ($ᵗ F) fun v => ?_
+                  exact OracleComp.DeferredSampling.evalDist_bind_comm
+                    (drawList ($ᵗ F) m) ($ᵗ F)
+                      (fun ws w => G (phi v) (w :: ws))
+            _ = 𝒟[($ᵗ F) >>= fun y => ($ᵗ F) >>= fun w =>
+                drawList ($ᵗ F) m >>= fun ws => G y (w :: ws)] := by
+                  have hpad := evalDist_bind_bijective_add_right_uniform F
+                    phi hphi 0 (fun y => ($ᵗ F) >>= fun w =>
+                      drawList ($ᵗ F) m >>= fun ws => G y (w :: ws))
+                  simpa using hpad
+      | succ j =>
+          calc
+            𝒟[($ᵗ F) >>= fun v => drawList ($ᵗ F) m >>= fun ws =>
+                ($ᵗ F) >>= fun w =>
+                  G (phi ((v :: ws).getD (j + 1) 0))
+                    ((v :: ws).set (j + 1) w)] =
+              𝒟[($ᵗ F) >>= fun v => drawList ($ᵗ F) m >>= fun ws =>
+                ($ᵗ F) >>= fun w =>
+                  G (phi (ws.getD j 0)) (v :: ws.set j w)] := by
+                    refine evalDist_bind_congr' ($ᵗ F) fun v => ?_
+                    refine evalDist_bind_congr' (drawList ($ᵗ F) m)
+                      fun ws => ?_
+                    simp
+            _ = 𝒟[($ᵗ F) >>= fun v => ($ᵗ F) >>= fun y =>
+                drawList ($ᵗ F) m >>= fun ws => G y (v :: ws)] := by
+                  refine evalDist_bind_congr' ($ᵗ F) fun v => ?_
+                  exact ih j (by omega) (fun y ws => G y (v :: ws))
+            _ = 𝒟[($ᵗ F) >>= fun y => ($ᵗ F) >>= fun v =>
+                drawList ($ᵗ F) m >>= fun ws => G y (v :: ws)] :=
+                  OracleComp.DeferredSampling.evalDist_bind_comm
+                    ($ᵗ F) ($ᵗ F)
+                      (fun v y => drawList ($ᵗ F) m >>= fun ws =>
+                        G y (v :: ws))
+
+/-- Concrete-line hole-consumption potential is independent of the public
+ordinate once the owned-hole hypotheses are fixed. -/
+theorem dsBudget_consumeHoleLine_y_eq (sigma : DSShadowSt F M)
+    (i j : Nat) (x y y' : F) (nA nE nId nNf nSig : Nat)
+    (hmem : DSEntry.hole j ∈ sigma.shadow)
+    (hnd : (entryCoords sigma.shadow).Nodup) :
+    dsBudget (sigma.consumeHoleLine i j x y) nA nE nId nNf nSig =
+      dsBudget (sigma.consumeHoleLine i j x y') nA nE nId nNf nSig := by
+  have h := dsBudget_consumeHoleLine_delta sigma i j x y
+    nA nE nId nNf nSig hmem hnd
+  have h' := dsBudget_consumeHoleLine_delta sigma i j x y'
+    nA nE nId nNf nSig hmem hnd
+  omega
+
+/-- Seed insensitivity needs only pattern ownership and coordinate absence;
+separation is irrelevant.  This raw form is used before splitting off the
+duplicate-ordinate event. -/
+theorem DSShadowSt.seed_set_of_coord_not_mem_raw
+    (sigma : DSShadowSt F M) (j : Nat)
+    (hpat : forall i e, sigma.pat i = some e -> e ∈ sigma.shadow)
+    (hj : j ∉ entryCoords sigma.shadow) (k w : F) (vs : List F) :
+    sigma.seed k (vs.set j w) = sigma.seed k vs := by
+  apply dsFrameSt_ext
+  · rfl
+  · funext i
+    simp only [DSShadowSt.seed_slope]
+    cases hi : sigma.pat i with
+    | none => simp [hi]
+    | some e =>
+        simp only [hi, Option.map_some]
+        apply congrArg some
+        apply DSEntry.eval_set_ne
+        intro q hq hqj
+        subst q
+        apply hj
+        simp only [entryCoords, List.mem_filterMap]
+        exact ⟨e, hpat i e hi, hq⟩
+  · apply frameAudit_ext
+    · rfl
+    · rfl
+    · simp only [DSShadowSt.seed_audit]
+      refine List.map_congr_left fun e he => ?_
+      apply DSEntry.eval_set_ne
+      intro q hq hqj
+      subst q
+      apply hj
+      simp only [entryCoords, List.mem_filterMap]
+      exact ⟨e, he, hq⟩
 
 /-- Seeded-shadow master bound for an arbitrary query-bounded FRAME
 computation. -/
@@ -945,7 +1576,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                               honestNf := nc.2 }).seed k vs) >>= fun z =>
                           pure (k, z)
                 calc
-                  𝓓[($ᵗ F) >>= fun a =>
+                  𝒟[($ᵗ F) >>= fun a =>
                       lazyRO sigma.ideal.honestNf sigma.ideal.idx >>= fun nc =>
                       (simulateQ (dsFrameImpl k mclose)
                         (cont (some ⟨xc.1, rlnY k a xc.1, nc.1⟩))).run
@@ -959,7 +1590,7 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                               honestSlopes := a ::
                                 (sigma.seed k vs).audit.honestSlopes }⟩
                             >>= fun z => pure (k, z)] =
-                      𝓓[($ᵗ F) >>= fun a => G (rlnY k a xc.1)] := by
+                      𝒟[($ᵗ F) >>= fun a => G (rlnY k a xc.1)] := by
                         refine evalDist_bind_congr' ($ᵗ F) fun a => ?_
                         dsimp [G]
                         refine evalDist_bind_congr'
@@ -969,14 +1600,40 @@ theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
                           seed_insertLine sigma sigma.ideal.idx k xc.1
                             (rlnY k a xc.1) vs hi]
                         simp [rlnY, hx.1]
-                    _ = 𝓓[($ᵗ F) >>= G] :=
+                    _ = 𝒟[($ᵗ F) >>= G] :=
                       evalDist_rlnY_uniform k xc.1 hx.1 G
             | some e =>
                 simp only [DSShadowSt.seed_slope, hi, Option.map_some,
                   dsTouch, bind_assoc, pure_bind, DSShadowSt.seed_audit,
                   OracleQuery.cont_query]
       | close =>
-          simp only [dsFrameImpl, StateT.run_mk]
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal]
+          by_cases hc : sigma.ideal.closed = true
+          · simp only [hc, if_pos, pure_bind, OracleQuery.cont_query]
+            have hih := ih none sigma m nA nE nId nNf (nSig - 1) hInv
+              (by simpa [isDirectRoAQuery] using hA.2 none)
+              (by simpa [isDirectRoEQuery] using hE.2 none)
+              (by simpa [isDirectRoIdQuery] using hId.2 none)
+              (by simpa [isDirectRoNfQuery] using hNf.2 none)
+              (by simpa [isSignalQuery] using hSig.2 none)
+            refine le_trans (by simpa [dsSeededRun] using hih) ?_
+            refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+            simpa [Nat.sub_add_cancel hposSig] using
+              (dsBudget_signal_same_le sigma nA nE nId nNf (nSig - 1))
+          · simp only [hc, if_neg]
+            cases hi : sigma.pat sigma.ideal.idx with
+            | none =>
+                rw [DSShadowSt.seed_slope, hi]
+                simp only [Option.map_none, dsTouch, bind_assoc, pure_bind,
+                  DSShadowSt.seed_audit, OracleQuery.cont_query]
+            | some e =>
+                simp only [DSShadowSt.seed_slope, hi, Option.map_some,
+                  dsTouch, bind_assoc, pure_bind, DSShadowSt.seed_audit,
+                  OracleQuery.cont_query]
       | nfAt i =>
           have hposSig : 0 < nSig := by
             rcases hSig.1 with h | h
@@ -1227,5 +1884,12 @@ theorem dsBadMassLe_of_queryBounds (mclose : M)
     (qb.roA_bound cm) (qb.roE_bound cm) (qb.roId_bound cm)
     (qb.roNf_bound cm) (qb.signal_bound cm)
   simpa [dsSeededBad, dsBudget, dsShadowInit, FrameQueryBounds.total] using h
+
+/-- Public stage-2 endpoint: the deferred FRAME leakage mass satisfies the
+declared aggregate query budget. -/
+theorem dsBadMassLe_holds (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) : DSBadMassLe mclose A qb :=
+  dsBadMassLe_of_queryBounds mclose A qb
 
 end Zkpc.Games
