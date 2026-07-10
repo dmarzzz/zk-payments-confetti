@@ -5,12 +5,13 @@ standard assumption, and confirm no accidental proof escape hatches.
 
 ## Method
 
-`#print axioms` on every headline theorem, run against the built project
-(`lake env lean` over the cached build, 2026-07-08). CI's guardrail job
+`#print axioms` on the headline endpoints listed below, run against the built
+project (`lake env lean` over the cached build, 2026-07-08). CI's guardrail job
 independently greps every `.lean` file for the four forbidden tokens as
-whole words on every push.
+whole words when the workflow runs (pushes to `main` and pull requests, not
+every arbitrary branch push).
 
-## Result — every theorem, only the three standard Lean axioms
+## Result for the 2026-07-08 audited endpoints — only the three standard Lean axioms
 
 ```
 Zkpc.Core.T1_no_overspend            [propext, Classical.choice, Quot.sound]
@@ -32,7 +33,8 @@ shows `[propext, Classical.choice, Quot.sound]`; the refund set
 
 `propext`, `Classical.choice`, and `Quot.sound` are the three axioms of
 Lean 4's standard library — the baseline every mathlib development stands
-on. Nothing beyond them appears.
+on. Nothing beyond them appears in the captured outputs above. This table is
+not evidence for endpoints added after that audited tree.
 
 ## The two things this audit is really checking
 
@@ -44,37 +46,42 @@ on. Nothing beyond them appears.
    sampling, EUF-CMA / re-randomization / opening-homomorphism as the
    ideal shapes of the refund chain). `Assumptions.Named` is a data
    registry for this audit, not logic. So the trust surface is exactly the
-   *model definitions* (gate-reviewed at B1/B3/K1) plus this table — there
+   *model definitions* (reviewed by the B1/B3/K1 agent simulations, with the
+   required human acceptance still pending) plus this table — there
    is no axiomatized shortcut that could hide a false assumption.
 
 2. **No escape hatch.** No `sorry`, `admit`, or `native_decide` anywhere
-   in `Zkpc/` (CI-enforced every push; `native_decide` in particular would
+   in the audited `Zkpc/` tree (CI-enforced on `main` pushes and pull
+   requests; `native_decide` in particular would
    inject the compiler into the trusted base — it is absent).
 
 ## Honest scope notes (hypotheses are not axioms)
 
-- **`T7_frame_bound`** is kernel-clean, but its statement carries the
+- **At the audited 2026-07-08 snapshot, `T7_frame_bound`** is kernel-clean,
+  but its statement carries the
   `hobliv` hypothesis (the RO-oblivious good event): the proved claim is
   "under `hobliv`, the FRAME slash probability ≤ 1/|F|". `hobliv` is a
   *stated hypothesis*, not an axiom — the theorem is honest about what it
   assumes, and the deferred half (bounding the `q/|F|` RO-hit terms that
   discharge `hobliv` for an unbounded interactive adversary) is the
   documented PPT-accounting follow-up (GATE-NOTE in T7.lean), not a hidden
-  assumption. A reader who wants the unconditional bound reads the
-  GATE-NOTE; the kernel guarantees everything up to `hobliv`.
+  assumption. At that snapshot the kernel guarantees everything only up to
+  `hobliv`; the later no-residual source chain is tracked separately below.
 - **`T4_flat_unlinkability`** is unconditional (advantage = 0 for every
   adversary and budget) in the ideal ROM model; the model-to-real bridge
   (real `nf_e = H_e(k,e)`, the NIZK proof, re-randomization) is the
-  `zkBridgeObligation` / GATE-NOTE surface, discharged per the named
-  assumptions rather than axiomatized.
+  `zkBridgeObligation` / GATE-NOTE surface. The tree supplies ideal masked,
+  Sigma, and lazy-ROM Fiat--Shamir references; a deployed proof-system
+  reduction is not axiomatized or claimed.
 
-## Verdict
+## Verdict for the captured audit
 
-Clean. Every machine-checked theorem reduces to the three standard Lean
-axioms; the crypto assumptions live as reviewed model shapes, not
-axioms; no escape hatches. The K3 adversarial-vacuity review (separate)
-checks the complementary risk — that a clean-but-vacuous statement was
-proved — which axioms alone cannot detect.
+Clean for the endpoints and tree actually captured. Each listed theorem
+reduces to Lean's three standard axioms; the crypto assumptions live as
+reviewed model shapes, not project axioms; the scan found no escape hatches.
+Later endpoints require the pending refresh below. The K3
+adversarial-vacuity review (separate) checks the complementary risk — that a
+clean-but-vacuous statement was proved — which axioms alone cannot detect.
 
 ## Extension — 2026-07-10: files landed since the 2026-07-08 audit
 
@@ -94,8 +101,8 @@ at land time were the three standard axioms (`propext`,
 `Classical.choice`, `Quot.sound`) and nothing else — several files also
 annotate the expected output inline (e.g. the "Kernel audit: only Lean's
 own …" comments in `FrameFactor.lean`, `T7.lean`). The CI guardrail grep
-for the four forbidden tokens (Method above) is unchanged and covers all
-of these files.
+for the four forbidden tokens (Method above) is unchanged and covers all of
+these files whenever that workflow is triggered.
 
 Per-file `#print axioms` line counts (grep `#print axioms`, 2026-07-10):
 
@@ -153,8 +160,8 @@ Two structural notes specific to the new T7 files:
   property of the mechanization's ambient monad, checked by the kernel
   wherever it is used — not an assumption that could hide in this table.
 
-The residual trust surface is unchanged from the 2026-07-08 verdict:
-model definitions plus the three standard axioms. The open T7 residuals
+At the extension's audited commits, the residual trust surface remained the
+model definitions plus the three standard axioms. The then-open T7 residuals
 (`FrameGoodSliceTransfer`, `FrameRealBadMassLe`) are stated `def`s
 consumed as hypotheses by the assembly theorems — they appear in theorem
 *statements*, never as axioms, so nothing in this extension weakens the
@@ -175,17 +182,25 @@ hypotheses.
 This addendum intentionally does **not** extend the axiom-output table from
 source text alone. Required release evidence is still:
 
-- [pending] a successful source check/build containing the final four
-  theorems;
+- [pending] a successful clean build of the exact final candidate containing
+  the final T7, composition, and scaling theorems;
 - [pending] captured `#print axioms` output for
   `dsBadMassLe_of_queryBounds`, `frameDeferredSamplingAvg_holds`,
   `T7_frame_query_bound_unconditional`, and
   `T7Certificate.ofQueryBounds`;
-- [pending] the final audited commit SHA and the repository escape-hatch
-  greps.
+- [pending] captured `#print axioms` output for
+  `flat_endToEnd_unconditional`, `refund_endToEnd_unconditional`,
+  `frameWinProb_negligible_of_query_bound`, and
+  `frameWinProb_negligible_of_polynomial_query_bound` if the scaling module
+  is included in the final candidate;
+- [pending] the final audited commit SHA, repository escape-hatch greps, and
+  diff hygiene checks.
 
 Until those observations are recorded, the 2026-07-08 and earlier
 2026-07-10 axiom claims remain the last evidence-backed table. The intended
 trust boundary is unchanged: an exact finite query bound in ideal random
 oracles, not a formal PPT-asymptotic theorem and not a concrete/deployed-hash
-reduction.
+reduction. The optional scaling theorems do not change that description:
+they assume per-parameter query certificates and explicit ratio
+negligibility, or a polynomial numerator plus negligible inverse field size.
+They do not classify adversaries as PPT or derive those premises from PPT.

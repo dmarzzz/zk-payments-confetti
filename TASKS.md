@@ -6,8 +6,12 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` blocked/ne
 
 This is the original execution plan, not a complete current-state audit of
 every checkbox. The T7 and clean-room entries below are updated for the
-current PR; final delivery still requires K5 against the exact merge
-candidate.
+current PR. Agent-simulated reviews never satisfy a 🚦 checkbox: B1, B3, and
+K1 still require a non-author human sign-off, and K4 still requires a real
+outside cryptographer if the full task contract is being closed. Final
+delivery also requires K5 against the exact merge candidate and the K6
+operator decision about outbound publication. The repository itself is
+already public; acceptance and merge remain maintainer-controlled actions.
 
 ---
 
@@ -60,7 +64,7 @@ candidate.
 
 - [ ] **G1** Distributed spent-set model: N gateways, per-gateway nullifier views, a reconciliation relation with lag L. DoD: compiles; matches the TLA+ C4 model.
 - [ ] **G2** **T6 Priced divergence**: extractable double-spend value before detection ≤ f(L, r) < D. DoD: proved; the bound is explicit and matches C4.
-- [x] **G3** **T7 Exculpability under collusion**: concrete finite-query result proved. For every `A` carrying `FrameQueryBounds`, `T7_frame_query_bound_unconditional` bounds the secret-averaged FRAME win probability by `(qb.total + 1)/|F|` with no residual coupling or counting hypothesis. This does not by itself formalize asymptotic PPT negligibility or deployed hashes/signatures.
+- [~] **G3** **T7 Exculpability under collusion**: the concrete finite-query endpoint is implemented in source. For every `A` carrying `FrameQueryBounds`, `T7_frame_query_bound_unconditional` states the secret-averaged FRAME bound `(qb.total + 1)/|F|` with no residual coupling or counting hypothesis. Final build/axiom evidence for the exact merge candidate is pending K5/K2 refresh. This does not by itself formalize asymptotic PPT negligibility or deployed hashes/signatures; the scaling wrapper assumes per-parameter query bounds and field-growth/negligibility premises rather than deriving them from PPT.
 - [x] **G4** RLN algebra lemmas: two signals on the same (secret, index) reveal the secret; one signal reveals nothing. Proved and reused by T7 and the slash logic; the stronger pointwise T7 certificate is separately kernel-refuted, so the final theorem correctly uses the uniform-secret average.
 
 ## H. Refund-bearing variant (M5 — answers Vitalik's actual use case)
@@ -89,12 +93,12 @@ candidate.
 ## K. Verification, review, delivery
 
 - [ ] **K1** Independent statement audit: a second agent (and a human) reads only `Spec.md` + the games and confirms they say what's meant, before trusting any proof. 🚦 DoD: sign-off logged.
-- [ ] **K2** Axiom audit: enumerate every axiom actually used, confirm each is a standard assumption, no accidental `admit`/`native_decide` escape hatches. DoD: audit note in repo.
+- [~] **K2** Axiom audit: historical endpoint tables are recorded, but the final T7, composition, and scaling endpoints still need exact-commit `#print axioms` output plus the final escape-hatch scan. DoD: refreshed audit note tied to the merge-candidate SHA.
 - [ ] **K3** Adversarial proof review: a skeptic agent tries to find a vacuous theorem (true because a hypothesis is unsatisfiable) or a definition that trivializes T4. DoD: report; anything found becomes a task.
 - [ ] **K4** External review of the *definitions* (the A2L lesson): solicit one outside cryptographer to attack the games, not the proofs. DoD: feedback incorporated or rebutted in writing.
 - [~] **K5** Full clean-room rebuild from a fresh checkout on a clean machine. Earlier output predates the current T7 closure and is not final evidence; rerun on the exact merge candidate and record its commit plus build/audit output. DoD: green.
-- [ ] **K6** Delivery package for the thread: repo made shareable (visibility decision 🚦), the post, the PDF, and a two-paragraph "what got proved" note for Ken/Vitalik. DoD: sent.
-- [ ] **K7** Log the experiment's outcome against README's success/failure shapes (did definitions drift? trivial theorems? did Lean hold or fall back to SSProve?). DoD: `research_knowledge/experiment-outcome.md` written — this is the autoresearch result.
+- [ ] **K6** Delivery package for the thread: the repo is public; the remaining operator gate is whether/when to send the post, PDF, and two-paragraph "what got proved" note for Ken/Vitalik. DoD: sent.
+- [~] **K7** Log the experiment's outcome against README's success/failure shapes (did definitions drift? trivial theorems? did Lean hold or fall back to SSProve?). The note is written, but its final success verdict remains pending the required human gate and exact-candidate release validation.
 
 ---
 
@@ -108,5 +112,7 @@ Everything in J (paper) can draft in parallel with D–I once B is frozen; K4 (e
 
 - Nothing downstream of B is safe to trust until B1 and B3 pass their human gates. Do not let proof work race ahead of frozen definitions.
 - C (TLA+) is deliberately before D–G: it is hours, not days, and it catches state-model bugs that would otherwise be discovered expensively mid-proof.
-- F1 is the headline and the riskiest Lean task; if it stalls, the documented fallback is SSProve (RESEARCH.md), and J can still ship with T1-T3, T6-T7 machine-checked and T4 pen-and-paper-plus-TLA+.
+- F1 was the headline Lean risk and SSProve was the documented fallback. The
+  T4 source has since landed; no delivery should label the final T7 chain
+  machine-checked until the K5/K2 exact-candidate evidence is recorded.
 - H (refunds) is what makes the paper answer the thread rather than simplify it; treat it as required, not optional, for the delivery in K6.

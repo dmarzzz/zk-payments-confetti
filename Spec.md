@@ -625,11 +625,12 @@ assumption below names the Lean declaration that carries it):
    presence must not be silently load-bearing; the axiom audit (task K2)
    checks this.
 
-Axioms are stated reduction-shaped where they bound adversaries (for every
-PPT $\mathcal{A}$ there is a bound), and T4's Lean statement must be a
-*reduction to* assumptions 2/3/5, never a per-scheme "advantage is
-negligible" axiom — that would assume the theorem (K2 checks this
-specifically).
+Assumption interfaces that bound adversaries are reduction-shaped (for every
+PPT $\mathcal{A}$ there is a bound), and T4's Lean statement must reduce to
+interfaces 2/3/5 rather than postulate a per-scheme "advantage is negligible"
+axiom — that would assume the theorem. The current reference development
+realizes these interfaces as model guards, ideal sampling, and proved lemmas;
+it declares no project-specific Lean axioms. K2 audits that boundary.
 
 **Explicitly out of scope** (the theorems say nothing about these):
 circuit correctness; network-level timing, latency, token-count, and content
@@ -1422,7 +1423,7 @@ Rev-2 additions are the repair rows at the bottom.
 | Refund variant: server-signed refund tickets / encrypted running total; static $E(R)$ linkable (omarespejel), re-randomization with proof of equivalence as the patch | RESEARCH.md deep dive 1; BRIEF.md T4 calibration requirement |
 | Abort/evict oracle requirement and its two attack modes (evict to shrink the set; abort mid-sequence to link) | BOLT §1.4 as quoted in RESEARCH.md deep dive 2; BRIEF.md T4 |
 | Anonymity-set accounting (set = capable/completed participants, shrinking under aborts) informing the $\bot$-branch of T4 | RESEARCH.md deep dives 2, 3 |
-| The seven theorem targets, their priority, and the model boundary (idealized ledger, axioms in one file, no circuit verification) | BRIEF.md, Deliverable 2 |
+| The seven theorem targets, their priority, and the original contract's permitted model boundary (idealized ledger, axioms confined to one file, no circuit verification) | BRIEF.md, Deliverable 2 |
 | Exculpability shape: forging a second point on the line requires the secret; $N-1$ collusion | RESEARCH.md open problem 5; BRIEF.md T7 |
 | Priced-divergence shape: extractable value $\le f(\text{lag}, \text{rate}) < D$ | RESEARCH.md open problem 1; BRIEF.md T6; egress post Addendum |
 | Self-slash race and mitigation directions (frequent claims / unclaimed-balance ceiling) informing MC4 | RESEARCH.md deep dive 1 (e), open problem 2, and Application "design imports" |

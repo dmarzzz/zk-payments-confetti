@@ -5,6 +5,10 @@ surface: contributions prove statements against those definitions, and a
 statement failure is recorded in `research_knowledge/gates.md` rather than
 hidden by weakening the theorem.
 
+The gate record contains independent-agent review rounds. It does not record
+the non-author human approval required by `BRIEF.md`; B1, B3, and K1 remain
+acceptance gates even though the agent review rounds reached sign-off.
+
 The implementation inventory below is **subject to final release
 validation**. The release gate is a cold dependency fetch and clean full
 build, followed by the forbidden-token scan, endpoint axiom printouts, and
@@ -49,6 +53,11 @@ uniformly. It is therefore a secret-averaged statement. It has no residual
 coupling or counting hypotheses beyond the five structural query-bound
 certificates carried by `FrameQueryBounds`.
 
+This finite inequality is the mechanized counterpart to `Spec.md` T7. It is
+not, by itself, a proof of the literal “every PPT adversary has negligible
+probability” clause; that requires the runtime/query and scaling facts
+described under research extensions.
+
 The final theorem chain is:
 
 | Role | Theorem or definition | File |
@@ -61,7 +70,7 @@ The final theorem chain is:
 | Averaged route-B assembly | `frameDeferredSamplingAvg_of_goodSlice_and_realBad` | `Zkpc/Games/FrameTransfer.lean` |
 | Public game endpoint | `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional` | `Zkpc/Games/FrameComplete.lean` |
 | Scheme-facing certificate | `T7Certificate.ofQueryBounds` | `Zkpc/Composition/EndToEnd.lean` |
-| Premise-free compositions | `flat_endToEnd_unconditional`, `refund_endToEnd_unconditional` | `Zkpc/Composition/EndToEnd.lean` |
+| T7-residual-free composition wrappers | `flat_endToEnd_unconditional`, `refund_endToEnd_unconditional` | `Zkpc/Composition/EndToEnd.lean` |
 
 The formerly proposed `FrameDeferredSampling` certificate quantified
 pointwise in the secret while requiring one secret-independent generator.
@@ -69,6 +78,11 @@ That shape is formally refuted by a two-probe adversary whenever `|F| > 5`.
 It is kept as a negative result and is not used by the final theorem. The
 refutation does not refute `frameGame` or the secret-averaged `Spec.md`
 claim.
+
+The composition wrappers are “unconditional” only with respect to the T7
+transfer/counting certificate: they construct it from `FrameQueryBounds`.
+They still take the operational trace, honest-key/time, and completion
+premises shown in their theorem signatures.
 
 ## Current source inventory
 
@@ -88,6 +102,7 @@ release validation described above.
 | Calibration and must-win checks | `unlinkAdvantage_staticDistinguisher_eq_half`, `frameWinProb_YK_eq_one` | `Zkpc/Games/{Calibration,T7}.lean` |
 | RLN algebra | `rln_recover_k`, `rln_single_point_hiding`, `rln_evidence_sound` | `Zkpc/Games/RLN.lean` |
 | Ideal Sigma/FS reference layer | simulation, extraction, and collision-bound endpoints | `Zkpc/Crypto/{LinearSigma,FSRom}.lean` |
+| Conditional T7 scaling | query/field-size negligibility transfers (no PPT classifier) | `Zkpc/Games/FrameAsymptotic.lean` |
 | Masked encryption and receipt MAC reference layer | exact hiding/update and finite-field forgery endpoints | `Zkpc/Crypto/{MaskedEncryption,ReceiptMac}.lean` |
 | Refund and fleet safety | finite-fleet accounting, cascade, and recovery endpoints | `Zkpc/Refund/{Safety,Fleet,Cascade}.lean`, `Zkpc/Fleet/Recovery.lean` |
 | Executable refinement | flat, refund, fleet, and network refinement endpoints | `Zkpc/{Core,Refund,Fleet,Network}/` |
@@ -128,10 +143,14 @@ finite query-bounded T7 theorem above.
 - **Adaptive multi-session network security.** Lift the local threshold
   issuance and recipient-view results to an adaptive executable network game
   and a production threshold-signature unforgeability reduction.
-- **Asymptotic complexity layer.** Introduce an explicit security-parameter
-  family, polynomial-time adversary model, and negligibility calculus. The
-  current results are finite, exact or query-bounded statements; they do not
-  formalize a PPT/asymptotic theorem.
+- **PPT complexity layer.** `Zkpc/Games/FrameAsymptotic.lean` indexes the
+  finite result by a security parameter and applies the existing
+  negligibility calculus, but it is a conditional scaling wrapper only. Its
+  conclusions assume per-parameter
+  query certificates and either negligibility of the explicit ratio, or a
+  polynomial numerator bound plus negligible inverse field size. It neither
+  classifies adversaries as PPT nor derives query certificates from PPT; a
+  runtime model and that derivation remain research extensions.
 - **Deployed-system composition.** Connect concrete cryptographic
   implementations and schedulers to the synchronized reference traces.
 
@@ -142,8 +161,9 @@ Before calling the branch release-verified:
 1. fetch dependencies from a clean checkout;
 2. run a clean full build of the root target;
 3. run the repository's forbidden-token scan over proof source;
-4. inspect `#print axioms` for every headline endpoint, including the T7 and
-   unconditional composition endpoints;
+4. inspect `#print axioms` for every headline endpoint, including the final
+   T7 chain, the flat/refund T7-residual-free wrappers, and the conditional
+   scaling endpoints;
 5. run `git diff --check` and reconcile all theorem tables and generated
    paper artifacts;
 6. record the validated commit only after all checks succeed.

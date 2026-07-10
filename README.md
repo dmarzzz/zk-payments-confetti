@@ -85,36 +85,40 @@ so the corrected theorem works at exactly that secret-averaged level.
 
 The source-level release claim above is **subject to final release
 validation**: a cold dependency fetch, clean full build, forbidden-token
-scan, endpoint axiom printout, and diff check. The formalization also does
-not claim an asymptotic PPT/negligibility theorem or a reduction for a
-deployed hash function. The Fiat--Shamir results are for the stated ideal
-lazy-ROM reference model; concrete-hash, production refund cryptography, and
-adaptive multi-session threshold/network reductions remain separate research
-extensions.
+scan, endpoint axiom printout, and diff check. The finite endpoint also does
+not by itself prove asymptotic negligibility for every PPT adversary or give
+a reduction for a deployed hash function. The Fiat--Shamir results are for
+the stated ideal lazy-ROM reference model; concrete-hash, production refund
+cryptography, and adaptive multi-session threshold/network reductions remain
+separate research extensions.
 
 If you are extending the project, start from `OPEN-PROOFS.md`, the template
 for the relevant proof class, the corresponding `Spec.md` clause, and the
 gate record in `research_knowledge/gates.md`.
 
-## Why the definitions can be trusted before the proofs are read
+## Separating definition review from proof checking
 
 The whole design rests on an evaluation asymmetry. Agent-produced research
 usually dies at review because checking it costs as much as producing it.
 Machine-checked proofs invert that: if `lake build` passes with no `sorry`
 and the axiom audit is clean, the proofs are correct, and the only thing
-left for human judgment is whether the theorem statements say what was
-meant. The trust surface shrinks from everything to one page, `Spec.md`.
+left for human judgment is whether the theorem statements and model say
+what was meant. That judgment surface is concentrated in `Spec.md` and the
+security-game definitions; `Spec.md` is a substantial revision-controlled
+document, not literally a one-page artifact.
 
-That page was hardened accordingly. It went through eleven rounds of
-adversarial definition review (the full record, with every counterexample,
-is `research_knowledge/gates.md`), the security games through three more,
-an independent statement audit, an axiom audit, a vacuity review, and a
-simulated external-cryptographer review that strengthened the unlinkability
-game rather than narrowing it. The field has already shown the one failure
-mode that survives this setup: A2L's privacy model passed peer review in
-2021 and was shown a year later to admit insecure instantiations. Wrong
-definition, correct proof. That is precisely where the review effort was
-concentrated here.
+The definitions were hardened by eleven rounds of adversarial agent review
+(the full record, with every counterexample, is
+`research_knowledge/gates.md`), the security games by five more agent rounds,
+plus agent-run statement, axiom, vacuity, and simulated
+external-cryptographer reviews. Those exercises strengthened the
+unlinkability game rather than narrowing it. They are evidence, but they do
+**not** satisfy the executor contract's independent-human acceptance gate:
+B1, B3, and K1 still require a human who did not write the statements to
+review and sign off. The field has already shown why that distinction
+matters: A2L's privacy model passed peer review in 2021 and was shown a year
+later to admit insecure instantiations. Wrong definition, correct proof.
+That is precisely where the remaining human review belongs.
 
 One unplanned result is worth flagging for anyone assessing the method: a
 TLA+ model checker independently found the deepest definitional hole (a
@@ -124,21 +128,33 @@ on the same defect and the same fix.
 
 ## Status
 
-The definition is frozen (`Spec.md`, revision 11, gate-signed). The source
-tree contains the core safety theorems, perfect unlinkability and its
-challenge-fires witness, fleet and refund results, ideal-model ZK bridges,
+The definition is at agent-reviewed revision 11; the required independent
+human sign-off is still pending. The source tree contains the core safety
+theorems, perfect unlinkability and its challenge-fires witness, fleet and
+refund results, ideal-model ZK bridges,
 executable refinements, network reference constructions, the nullifier-chain
 instantiation, and the completed secret-averaged T7 endpoint described above.
 `Zkpc/Composition/EndToEnd.lean` consumes T7 through
-`T7Certificate.ofQueryBounds` and exposes premise-free flat and refund
-end-to-end constructors.
+`T7Certificate.ofQueryBounds` and exposes flat and refund end-to-end
+constructors with no additional T7 transfer/counting certificate. Those
+constructors still require their operational trace, key/time, and completion
+premises; “unconditional” in their Lean names refers only to discharging the
+T7 certificate from `FrameQueryBounds`.
 
 The precise T7 claim is finite and query-bounded: for every `A` with
 `qb : FrameQueryBounds A`, `frameWinProb` is at most
 `(qb.total + 1) / |F|`. It is not a pointwise-in-secret statement, an
-asymptotic PPT theorem, or a deployed-cryptography claim. Release-wide build
+asymptotic PPT theorem, or a deployed-cryptography claim; it is the
+mechanized finite counterpart to, not a proof of, `Spec.md`'s literal
+PPT/negligibility clause. Release-wide build
 and axiom status remain subject to final release validation; nothing should
 be described as release-verified until that validation completes.
+
+`Zkpc/Games/FrameAsymptotic.lean` provides only a conditional scaling lift:
+it derives negligibility from per-parameter query certificates plus either
+an explicit negligibility hypothesis for the displayed ratio, or an explicit
+polynomial numerator bound together with negligible inverse field size. It
+does not define PPT adversaries or prove that PPT implies those query bounds.
 
 ## Layout
 
@@ -162,4 +178,5 @@ Born from the payment-design question in the reputation-gated egress post
 github.com/dmarzzz/reputation-gated-onion-egress) and a conversation about
 whether zk payment channel literature should exist. The research sweep, the
 brief, the definitions, and the proofs were produced agentically; the
-definitions were reviewed adversarially, which is the entire design.
+definitions were reviewed adversarially by independent agents. The separate
+human acceptance required by `BRIEF.md` remains to be logged.

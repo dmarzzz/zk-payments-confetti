@@ -6,19 +6,19 @@ import Zkpc.Games.FrameRealBad
 This file assembles the route-B reduction skeleton on top of the
 deferred-slope handler of `Zkpc/Games/FrameRealBad.lean`. It fixes the
 good-state relation `RealDSGood` of the identical-until-bad coupling, states
-the per-operation coupling obligation `RealDSStepCoupling` as a named
-residual (house convention: open sub-proofs are explicit named hypotheses),
+the per-operation coupling interface `RealDSStepCoupling`,
 and derives from it — through the generic absorbing rule
 `relTriple_simulateQ_run_untilAbsorbing` — the complete run-level and
 k-averaged transfer of the audited leakage mass from the real handler to the
-deferred-slope handler. Combined with the deferred-slope counting residual
+deferred-slope handler. Combined with the deferred-slope counting interface
 `DSBadMassLe` (stage 2, the k-root union bound), this discharges
 `FrameRealBadMassLe`, which the landed assembly
 `T7_frame_query_bound_of_goodSlice_and_realBad` consumes.
 
-The reduction surface after this file is exactly:
-`RealDSStepCoupling` (eight per-operation coupled steps) and
-`DSBadMassLe` (first-order k-root counting over the deferred run).
+The two interfaces introduced here are now discharged:
+`FrameRealBadStep.lean` proves every `RealDSStepCoupling` operation, and
+`FrameDSCountInduction.lean` proves `DSBadMassLe`.  `FrameComplete.lean`
+uses both results in the final query-bounded theorem.
 -/
 
 open OracleSpec OracleComp OracleComp.ProgramLogic.Relational
@@ -173,13 +173,14 @@ theorem realDS_roNf_slopeHit_step_bad (k aq : F) (mclose : M)
     rw [← hc.audit]
     exact ha
 
-/-! ## The per-operation coupling obligation (named residual) -/
+/-! ## The per-operation coupling interface -/
 
-/-- **Stage-1 per-operation coupling (named residual).** From good-related
+/-- **Stage-1 per-operation coupling interface.** From good-related
 states, each coupled real/deferred oracle step either returns equal answers
 with good-related next states, or raises the (shared) audited leakage event
-on both sides simultaneously. True by the divergence enumeration recorded in
-`OPEN-PROOFS.md` §1: direct probes at the secret, `H_nf` probes at recorded
+on both sides simultaneously. The completed proof in
+`FrameRealBadStep.lean` follows this divergence enumeration: direct probes at
+the secret, `H_nf` probes at recorded
 honest slopes, fresh honest slopes colliding with recorded probes or
 slopes, and `H_id(k)` probes each mark the audit bad on both sides in the
 same step, while every other step is answer- and audit-identical under the
@@ -269,13 +270,14 @@ section Counting
 
 variable [Fintype F]
 
-/-- **Stage-2 counting obligation (named residual).** The k-averaged
+/-- **Stage-2 counting interface.** The k-averaged
 leakage mass of the deferred-slope run is at most `qb.total/|F|`: with the
 honest nullifiers private and hidden slopes read only through
 `y = k + a·x`, every leakage branch pins the uniform secret or one fresh
 slope to a single root per budget pair — `qA + qE + qId` direct-probe
 roots, `qNf · qSig` slope-probe roots, `qSig²` collision roots
-(Spec.md §7 T7, first-order union bound). -/
+(Spec.md §7 T7, first-order union bound).  The adaptive seeded-shadow proof
+is `dsBadMassLe_of_queryBounds` in `FrameDSCountInduction.lean`. -/
 def DSBadMassLe (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (qb : FrameQueryBounds A) : Prop :=
@@ -283,7 +285,7 @@ def DSBadMassLe (mclose : M)
     ≤ (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹
 
 /-- **Route-B endpoint reduction** (Spec.md §7 T7). The stage-1 coupling and
-the stage-2 counting residual together discharge the direct real-side
+the stage-2 counting interface together discharge the direct real-side
 bad-mass bound consumed by the T7 assembly. -/
 theorem frameRealBadMassLe_of_stepCoupling_and_count (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))

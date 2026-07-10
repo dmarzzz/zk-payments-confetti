@@ -5,7 +5,6 @@ import Zkpc.Chain.State
 import Zkpc.Chain.Collision
 import Zkpc.Chain.Anonymity
 import Zkpc.Chain.Refinement
-import Zkpc.Chain.Anonymity
 import Zkpc.Core.State
 import Zkpc.Core.T1
 import Zkpc.Core.T2
@@ -58,6 +57,7 @@ import Zkpc.Games.FrameBadMass
 import Zkpc.Games.BInstances
 import Zkpc.Games.Calibration
 import Zkpc.Games.FrameComplete
+import Zkpc.Games.FrameAsymptotic
 import Zkpc.Refund.State
 import Zkpc.Refund.Safety
 import Zkpc.Refund.Fleet

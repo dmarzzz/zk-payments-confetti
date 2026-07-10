@@ -27,9 +27,8 @@ The derivation chain, fully proved here:
 4. `frame_real_le_ghost_plus_bad` — the master theorem, assembled from 1–3 and the
    two run-level transfer inequalities.
 
-The two transfer inequalities are the named residual hypotheses of the master
-theorem (house convention: open sub-proofs are explicit named hypotheses, never
-silent gaps):
+The two transfer inequalities are explicit interface hypotheses of the master
+theorem.  They record the historical route-A decomposition:
 
 * `FrameGoodSliceTransfer` — the good-slice coupling: the k-averaged probability
   that the real run both slashes and never trips the audited leakage event is at
@@ -45,10 +44,11 @@ silent gaps):
   monotone (`auditedFrameImpl_run_bad_monotone`, `ghostFrameImpl_run_bad_monotone`),
   and bad-at-end coincides with bad-ever-fired on both sides.
 
-The transfer predicates remain explicit residuals: this module performs the
-run-level probability algebra but does not claim the continuation-level
-fresh-slope induction. Its per-operation ingredients live in
-`FrameCoupling`, `FrameGhostCoupling`, and `FrameGhostCoverage`.
+The final proof keeps this factorization as reusable history but closes T7 by
+route B: `FrameGoodSliceTapeInduction.lean` proves the good-slice interface,
+while `FrameRealBadStep.lean` and `FrameDSCountInduction.lean` bound the real
+bad mass directly, bypassing `FrameBadMassTransfer`.  `FrameComplete.lean`
+assembles the resulting premise-free query-bounded theorem.
 -/
 
 open OracleSpec OracleComp
@@ -144,16 +144,14 @@ theorem probOutput_bind_decide_eq_probEvent {α : Type} (oa : ProbComp α)
   refine tsum_congr fun z => ?_
   by_cases h : P z <;> simp [h, probEvent_pure, probOutput_pure]
 
-/-! ## The two named transfer residuals
+/-! ## The two route-A transfer interfaces
 
 These are the two run-level coupling inequalities that the master theorem
-consumes. They are stated as named `Prop`s (house convention for open
-sub-proofs): the coupling lane discharges them by the two-functional
-k-averaged induction over the adversary computation, whose per-operation
-ingredients are the landed `idealize_*_step` lemmas, ghost erasure, and the
-real/ghost invariants. -/
+consumes. They remain named `Prop`s so the factorization can be reused.  The
+completed route-B proof establishes the good-slice interface and bypasses the
+second interface with a direct real-bad bound. -/
 
-/-- **Good-slice transfer (named residual).** The k-averaged probability that
+/-- **Good-slice transfer interface.** The k-averaged probability that
 the real audited run slashes *and* never trips the audited leakage event is at
 most the deferred-secret ghost win probability. True because off the bad event
 every real oracle answer is exactly coupled to the ghost answer and each honest
@@ -168,7 +166,7 @@ def FrameGoodSliceTransfer (mclose : M)
         let k ← ($ᵗ F)
         pure (decide (Slashes k z.1)))]
 
-/-- **Bad-mass transfer (named residual).** The k-averaged probability that the
+/-- **Historical route-A bad-mass transfer interface.** The k-averaged probability that the
 real audited run ends in the leakage event is at most the deferred-secret
 probability that the ghost audit fails `GhostLeakBad`. True because both bad
 events are suffix-monotone, runs are total (`OracleComp` has no failure leaf),
@@ -190,8 +188,9 @@ composition layer). The complete real FRAME slash probability — secret drawn
 first, exactly as `frameGame` does — is bounded by the ghost run's win mass
 plus the ghost run's bad mass, both with the secret deferred to *after* the
 run. Assembled, fully proved, from the audit erasure, the generic split, and
-the two named transfer residuals; instantiating `FrameGoodSliceTransfer` and
-`FrameBadMassTransfer` is the remaining coupling obligation. -/
+the two transfer interfaces.  The final route-B theorem uses the proved
+`FrameGoodSliceTransfer` together with a direct real-bad bound, so no
+unresolved interface remains in the public T7 endpoint. -/
 theorem frame_real_le_ghost_plus_bad (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (hgood : FrameGoodSliceTransfer mclose A)

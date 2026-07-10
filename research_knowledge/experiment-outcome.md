@@ -1,11 +1,12 @@
 # K7 — Experiment outcome
 
 Task K7 (TASKS.md): log the autoresearch experiment's outcome against the
-success and failure shapes README.md named up front. This is the result,
-not a status report: the point of the repo was never only the theorems,
-it was the question *how much of a missing cryptography literature can
-agents build when the human can evaluate the definitions but not the
-proofs?* — and what the failure looks like when it comes.
+success and failure shapes README.md named up front. This is an evidence
+ledger, not a claim that every acceptance gate has closed: the point of the
+repo was never only the theorems, it was the question *how much of a missing
+cryptography literature can agents build when the human can evaluate the
+definitions but not the proofs?* — and what the failure looks like when it
+comes.
 
 ## The bet, restated
 
@@ -17,9 +18,14 @@ shapes, to be *logged not hidden*: (1) definitions drifting toward what is
 as theorems; (3) the Lean bet losing to the mature frameworks (SSProve the
 documented fallback).
 
+The technical source target and the required acceptance process are distinct.
+The agent-run work can establish the former; it cannot certify that the
+human-read condition occurred. No non-author human B1/B3/K1 sign-off is
+recorded, so the original success condition is not yet fully met.
+
 ## What happened, against each shape
 
-### Success condition: MET (with one honestly-scoped deferral)
+### Success condition: FINITE SOURCE TARGETS IMPLEMENTED; HUMAN AND RELEASE GATES PENDING
 
 - **`T4_flat_unlinkability`: spend-unlinkability advantage exactly 0**,
   kernel-checked, dependent only on the three standard Lean axioms (K2).
@@ -30,32 +36,34 @@ documented fallback).
   game (the member's whole epoch session, not one spend), which is
   *stronger* than the single-spend version the internal review started
   with.
-- **The definition is attackable, and was attacked.** `Spec.md` went
-  through eleven B1 gate rounds and the T4/T7 games through three B3
-  rounds, each by a fresh reviewer with no stake in the prior text, plus
-  an independent statement audit (K1) and a simulated external
-  cryptographer (K4). The full counterexample record is `gates.md`. A
-  community reviewer inherits a definition that has already survived that.
-- **The rest of the suite** landed too: T1 (no-overspend), T2/T3 (balance
-  security both sides), T5 (closure liveness), T6 (priced divergence,
-  fleet), T7 (exculpability bound), the refund variant (T1-B/T3-B/
-  conservation), and the calibration pair — all kernel-checked, all
-  axiom-clean.
-- **The one deferral, logged:** T7's bound is proved as "≤ 1/|F| under the
-  RO-oblivious good event `hobliv`." The remaining half — bounding the
-  `q/|F|` random-oracle-hit terms that discharge `hobliv` for an unbounded
-  interactive adversary — is the "estimated-hard 20%" the VCV-io survey
-  (`vcvio-gap.md`) flagged, and it is scoped behind a stated hypothesis
-  with a GATE-NOTE, not smuggled into an axiom. This is exactly the
-  "logged, not hidden" discipline the README demanded.
+- **The definition is attackable, and agent reviewers attacked it.**
+  `Spec.md` went through eleven B1 rounds and the T4/T7 games through five
+  B3 rounds, each in an independent agent context, plus an agent-run
+  statement audit (K1) and a simulated external cryptographer (K4). The full
+  counterexample record is `gates.md`. This is useful pre-review evidence,
+  not a substitute for the required human sign-off.
+- **The rest of the suite is present in source:** T1 (no-overspend), T2/T3
+  (balance security both sides), T5 (closure liveness), T6 (priced
+  divergence, fleet), the finite-query T7 endpoint, the refund variant
+  (T1-B/T3-B/conservation), and the calibration pair. Earlier audited
+  endpoints have recorded kernel/axiom evidence. The repaired final T7 and
+  composition endpoints still need the exact-candidate build and axiom
+  capture listed in the amendment below.
+- **The T7 boundary, logged:** the source endpoint now states the
+  secret-averaged finite inequality
+  `frameWinProb ≤ (qb.total + 1)/|F|` directly from `FrameQueryBounds`; the
+  earlier `hobliv` description is historical. This is not itself an
+  asymptotic PPT theorem. The scaling wrapper assumes per-parameter query
+  certificates and explicit query/field-growth or negligibility premises;
+  it does not prove that PPT adversaries satisfy them.
 
-### Failure shape 1 — definitions drifting toward provability: DID NOT HAPPEN, and we can show why
+### Failure shape 1 — definitions drifting toward provability: NO DRIFT FOUND BY AGENT REVIEW; HUMAN GATE PENDING
 
 This is A2L's failure and the one the experiment most feared. It did not
-occur, and the reason is instructive: **the human gate (simulated by
-independent adversarial reviewers, per the operator's instruction) caught
-every attempt at drift before it reached a proof.** The load-bearing
-episodes:
+appear in the agent audit, and the reason is instructive: **the simulated
+definition gate used independent adversarial agent reviewers to catch
+attempts at drift before they reached a proof.** This is not called a human
+gate here; the actual human decision is pending. The load-bearing episodes:
 
 - **The gap-index understatement (round 5).** The close mechanism as first
   written let a payer skip index 0, spend at 1..m, and close claiming
@@ -68,16 +76,17 @@ episodes:
   *strong* — every scheme, including the sound ones, lost it (three
   post-challenge distinguishers). A less careful process would have
   quietly weakened the game at proof time until T4 went through, and the
-  weakened game would never have passed a human. The gate caught it at the
-  definition and prescribed the challenge-terminated repair.
-- **The external review strengthened, did not narrow (K4).** When the
-  simulated outside cryptographer found the q=1 game certified only
+  weakened game would not have met the stated semantic target. The agent
+  gate caught it at the definition and prescribed the challenge-terminated
+  repair.
+- **The simulated external review strengthened, did not narrow (K4).** When
+  the outside-cryptographer agent found the q=1 game certified only
   first-spend-per-epoch unlinkability, the response was to *upgrade* the
   game to the session form — more true, not more provable. The calibration
   battery was widened at the same time.
 
-The evidence that drift did not happen is the shape of the whole gate log:
-findings moved *outward* over the rounds (from the theorem cores, which
+The evidence that the agent process found no drift is the shape of the whole
+gate log: findings moved *outward* over the rounds (from the theorem cores, which
 held from round 2, into repair periphery), and the definitions got
 *stronger* under review, not weaker.
 
@@ -103,9 +112,10 @@ frameworks (SSProve/CryptHOL) ahead. It carried it: the T4 coupling landed
 via VCV-io's `DistEquiv`/`advantage_zero` machinery on the exact template
 (`OneTimePad/HeapBasic`) the `vcvio-gap.md` survey predicted, in days not
 weeks, and B-rerand reused the same technique. The SSProve fallback was
-never needed. Caveat retained honestly: T7's PPT tail is the one place the
-young Lean game layer showed its age (the identical-until-bad accounting
-the survey called the hard 20%), and it is deferred, not claimed.
+never needed. Caveat retained honestly: T7 is an exact finite-query theorem
+in the ideal random-oracle model. The optional asymptotic lift requires
+explicit per-parameter query certificates and scaling hypotheses; a
+PPT-to-query theorem and deployed-hash reduction are not formalized.
 
 ## The unplanned result: cross-method convergence
 
@@ -122,15 +132,21 @@ hallucinating agreement with itself.
 
 ## Honest ledger of what is NOT done
 
-- T7's unconditional (query-term) bound — scoped behind `hobliv`,
-  deferred.
-- The refund symbolic layer is single-channel (N=1) and models one
-  close-dispute round, not the full upgrade cascade (GATE-NOTE).
-- Instantiation-B's Lean UNLINK proof is the ideal-model calibration pair;
-  the model-to-real bridges (`zkBridgeObligation`, genesis obligations)
-  are stated obligations, not discharged per a concrete SNARK/encryption
-  scheme (that is out of the stated model boundary — we do not verify
-  circuits).
+- Final exact-commit build, forbidden-token scan, and axiom output for the
+  repaired T7/composition/scaling endpoints are pending.
+- A PPT/runtime model, a theorem deriving polynomial query certificates from
+  PPT, and a deployed-hash reduction are not formalized. The asymptotic
+  wrapper assumes the required query and field-growth/negligibility facts.
+- The non-author human B1/B3/K1 acceptance required by `BRIEF.md` has not
+  been logged; K4 is a simulated, not real outside-cryptographer review.
+- The refund base transition system is per-channel (N=1). The full
+  failed-upgrade cascade and finite-fleet aggregation are proved in
+  `Zkpc/Refund/Cascade.lean` and `Zkpc/Refund/Fleet.lean`; those results do
+  not turn it into a portable multi-recipient channel.
+- Instantiation-B's Lean UNLINK proof is the ideal-model calibration pair.
+  The masked, Sigma, and lazy-ROM Fiat–Shamir reference bridges and genesis
+  obligations are discharged; a reduction for a production SNARK/encryption
+  scheme remains outside the stated boundary — we do not verify circuits.
 - The honest-limits the reviews surfaced (retroactive `k`-linkage on
   identity-slash, the stale-close one-session residue, within-epoch
   linkage, spend-count-at-close, fleet-honesty presumption for window
@@ -139,15 +155,14 @@ hallucinating agreement with itself.
 
 ## Verdict on the experiment
 
-The evaluation asymmetry the README bet on held up: the human-equivalent
-effort concentrated on a page of definitions (which the gate rounds show
-was where all the danger lived — every blocking finding was a definitional
-one), and the kernel absorbed the proof-checking (K2: nothing but the
-three standard axioms). The definitions got harder and truer under attack
-rather than drifting soft, the headline theorem is real and first, and the
-one hard remainder is labelled as such. The failure modes the field has
-actually suffered were the ones the process was built to catch, and it
-caught them.
+The agent-run evidence supports the evaluation-asymmetry bet: review effort
+concentrated on the substantial definition/game surface, where every
+blocking finding arose, while recorded kernel checks handled the audited
+proof endpoints. The definitions became stronger under attack rather than
+softer. But the experiment's full success verdict is deliberately withheld
+until a non-author human accepts the statements and the final merge candidate
+passes the recorded release audit. Agent simulation cannot report those
+events on the human's behalf.
 
 ## T7 outcome amendment — 2026-07-10
 
@@ -169,9 +184,12 @@ conditional theorem:
   the recorded counterexample. `FrameDeferredSamplingAvg` is the sound
   replacement because `frameGame` itself samples the secret uniformly.
 
-This closes the finite, explicit query-accounting target only. The project
-does **not** formalize a security-parameter family, prove that the displayed
-ratio is asymptotically negligible for every PPT adversary, or reduce a
+At the statement/source level, this closes the finite, explicit
+query-accounting target only. The optional
+scaling wrapper indexes it by a security parameter but assumes the needed
+per-parameter query certificates and ratio/field-growth negligibility facts.
+The project does **not** classify adversaries as PPT, derive those
+certificates from PPT, prove the scaling premises automatically, or reduce a
 deployed hash function to the ideal random-oracle handlers used here.
 
 **Final-validation status at the time of this amendment:** pending. The

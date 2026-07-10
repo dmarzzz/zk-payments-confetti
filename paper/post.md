@@ -31,9 +31,11 @@ zero-knowledge bridges for three concrete proof-bearing wire encodings
 ledger refining every relational transition, a multi-recipient
 portable-deposit accounting layer with a threshold-issuance reference, one-trace
 end-to-end composition theorems, and a built-in calibration pair that
-separates the broken and fixed refund designs are all kernel-checked too —
-zero `sorry`, no axiom beyond Lean's three standard ones. Along the way, eleven
-rounds of adversarial review broke ten successive revisions of our own
+separates the broken and fixed refund designs have Lean declarations with
+zero `sorry`, and the source declares no project-specific axioms. Existing
+K2 captures report only Lean's standard axioms; final release capture for
+the new T7 endpoint remains pending. Along the way, eleven agent rounds of
+adversarial review broke ten successive revisions of our own
 definition with concrete counterexamples — and the repairs are, we think,
 design requirements for anyone building in this space. Repo:
 [dmarzzz/zk-payments-confetti](https://github.com/dmarzzz/zk-payments-confetti).
@@ -175,14 +177,13 @@ ones against the *game* definitions — is in
 [`research_knowledge/gates.md`](https://github.com/dmarzzz/zk-payments-confetti/blob/main/research_knowledge/gates.md).
 
 *A note on method, since this forum cares about it: the artifacts here
-(field report, spec, Lean, this post) were produced under an
-agent-assisted workflow in which humans review definitions and theorem
-statements only — never proofs — and each gate round was executed by a
-fresh reviewer that had not written the text under review. The definition
-went through eleven such rounds (gate B1) plus three on the Lean games
-(gate B3), an independent statement audit (K1), an axiom audit (K2), an
-adversarial-vacuity audit (K3, in the repo), and a simulated external
-cryptographer (K4). The premise: machine-checked proofs
+(field report, spec, Lean, this post) were produced under an agent-assisted
+workflow. Fresh agents simulated definition and theorem-statement reviewers;
+no independent human sign-off has been recorded yet. The definition went
+through eleven such agent rounds (gate B1) plus five on the Lean games
+(gate B3), an agent statement audit (K1), an axiom audit whose final-T7
+addendum is still pending (K2), an agent adversarial-vacuity audit (K3), and
+a simulated external cryptographer (K4). The premise: machine-checked proofs
 invert the review economics (if the kernel accepts, the proofs are right),
 so all scrutiny concentrates on whether the definitions say what we mean —
 which is precisely where this field's one famous failure lived. One datum
@@ -244,11 +245,15 @@ advantage exactly zero as an RO coupling.
 
 Lean 4 (`v4.30.0`, mathlib `v4.30.0`, games over
 [VCV-io](https://eprint.iacr.org/2026/899.pdf) pinned at `8f5dc4f`), CI
-enforcing zero `sorry`, no `axiom` outside the registry (in fact the
-development declares no axioms at all — assumptions are discharged by
-construction in the idealized model), no `admit`/`native_decide`. Model
-boundary, stated bluntly: idealized ledger, random-oracle model, protocol
-layer only. **We do not verify circuits.**
+configured to reject `sorry`, project-specific `axiom` declarations,
+`admit`, and `native_decide`. The source declares no project axioms.
+`Zkpc/Assumptions.lean` is audit data: knowledge soundness and refund-receipt
+EUF-CMA are model guards (the latter supports T1-B/T2-B/T3-B); ZK is proved
+through exact masked, Sigma, and lazy-ROM Fiat–Shamir simulator equalities;
+the ROM surface includes `H_a`, `H_e`, `H_nf`, `H_x`, and `H_id`; and the
+reference layers prove rerandomization privacy and single-signal hiding.
+Model boundary, stated bluntly: idealized ledger, random-oracle model,
+protocol layer only. **We do not verify circuits or deployed primitives.**
 
 Kernel-checked today, by declaration name:
 
@@ -280,29 +285,42 @@ Kernel-checked today, by declaration name:
   adaptive good-slice, seeded-shadow count, and real/deferred coupling with
   no residual coupling or counting premise. The two must-win degenerate
   adversaries still frame at probability 1, so the game has teeth.
+  `Zkpc/Games/FrameAsymptotic.lean` gives the conditional scaling bridge:
+  polynomial certified query growth plus negligible inverse field size
+  implies negligible FRAME win probability, without claiming a runtime/PPT
+  classifier or deployed-primitive reduction.
+- **Synchronized composition** `flat_endToEnd_unconditional` and
+  `refund_endToEnd_unconditional` (`Zkpc/Composition/EndToEnd.lean`) combine
+  their trace-derived operational guarantees with separate scheme-level T4
+  games and `T7Certificate.ofQueryBounds`. The T7 field remains the same
+  secret-averaged finite-query statement; composition does not create an
+  asymptotic PPT or deployed-hash guarantee.
 - **Calibration** (`Zkpc/Games/Calibration.lean`): the pair
   `unlinkAdvantage_staticDistinguisher_eq_half` (broken B-static at ½) and
   `unlinkAdvantage_bRerand_eq_zero` (B-rerand at 0), plus the must-catch
   battery `unlinkAdvantage_aIndexLeak`, `unlinkAdvantage_nfeReuse`,
   `unlinkAdvantage_multTagDistinguisher_eq_half` — each at ½.
-- **Refund variant** (B, single-channel, `Zkpc/Refund/`):
+- **Refund variant base** (B, per-channel, `Zkpc/Refund/{State,Safety}.lean`):
   `T1_B_no_overspend`, `T3_B_floor`, `conservation`,
-  `self_slash_race_closed`.
+  `self_slash_race_closed`; `Cascade.lean` proves the full failed-upgrade
+  cascade and `Fleet.lean` proves finite-fleet aggregation.
 - **Game framework** over VCV-io: advantage bridges, challenge-terminated
   adversary type, abort/evict wrapper (`Zkpc/Games/Framework.lean`).
 
 The originally frozen pointwise-in-secret T7 certificate was
 kernel-*refuted*: a two-probe adversary makes it unsatisfiable. The completed
 proof uses the corrected secret-averaged socket, exactly matching the FRAME
-experiment, and retains the same finite query bound. It is not a formal
-asymptotic/PPT theorem, nor a deployed-hash reduction; those interpretations
-require additional scaling or cryptographic premises. What remains beyond
+experiment, and retains the same finite query bound. The conditional scaling
+module derives negligibility from polynomial certified-query growth and
+negligible inverse field size; it does not classify runtime as PPT or reduce
+a deployed hash. What remains beyond
 the model is deployment-grade cryptography (concrete hash/signature
 reductions behind the ideal reference layers); circuits are out of scope.
 
-Every theorem above is axiom-clean: `#print axioms` shows only Lean's
-`propext`/`Quot.sound`/`Classical.choice` (audited declaration by
-declaration, K2).
+Existing captured and in-file `#print axioms` checks report only Lean's
+`propext`/`Quot.sound`/`Classical.choice`. The final K2 capture for the new
+T7 and composition endpoints is pending, so no completed release-wide audit
+is claimed here.
 
 ## Placement, compressed
 
