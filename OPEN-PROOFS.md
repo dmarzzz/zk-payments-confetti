@@ -41,11 +41,12 @@ All kernel-checked, axiom-clean (`research_knowledge/k2-axiom-audit.md`).
 | T5 closure liveness | `Core.T5_payer_close_liveness` | `Zkpc/Core/T5.lean` |
 | T6 priced divergence (both clauses) | `Fleet.T6_priced_divergence`, `T6_slash_within_L`, `epochs_in_window` | `Zkpc/Fleet/{T6,Basic}.lean` |
 | T4 spend unlinkability (advantage = 0, session form) | `Games.T4_flat_unlinkability` | `Zkpc/Games/T4.lean` |
-| T7 exculpability bound (conditional, see below) | `Games.T7_frame_bound` | `Zkpc/Games/T7.lean` |
+| T7 exculpability bound (conditional base plus averaged endpoint; final coupling open) | `Games.T7_frame_bound`, `T7_frame_query_bound_avg` | `Zkpc/Games/{T7,FrameDeferred,FrameAssembly,FrameTransfer}.lean` |
 | Calibration pair (B-static loses 1/2, B-rerand passes 0) | `Games.unlinkAdvantage_staticDistinguisher_eq_half`, `unlinkAdvantage_bRerand_eq_zero` | `Zkpc/Games/Calibration.lean` |
 | Battery + FRAME must-win breaks | `Games.unlinkAdvantage_{aIndexLeak,nfeReuse,multTagDistinguisher_eq_half}`, `frameWinProb_{YK,aReuse}_eq_one` | `Zkpc/Games/{Calibration,T7}.lean` |
 | RLN algebra | `Games.rln_recover_k`, `rln_single_point_hiding`, `rln_evidence_sound` | `Zkpc/Games/RLN.lean` |
 | Refund safety (T1-B, T3-B, conservation) | `Refund.T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed` | `Zkpc/Refund/Safety.lean` |
+| T4 non-vacuity (challenge fires) | `Games.challengeResp_flat_fires` | `Zkpc/Games/T4Fires.lean` |
 
 ## The five proof classes (with a template each)
 
@@ -299,14 +300,12 @@ case to rule out (`Zkpc/Games/README-games.md`, rev-9 obligation register) —
 and `bIdeal_closeViewSimulatable` discharges O4 for both B-static and
 B-rerand.
 
-### 4. The challenge-fires lemma (Class B, small, good first task)
+### 4. T4 challenge-fires lemma (discharged)
 
-K3 (`research_knowledge/k3-vacuity-review.md`) recommends adding an in-tree
-lemma `challengeResp (flatInstance …) = pure (some …)` for a satisfying
-configuration, so the headline's non-vacuity (the challenge actually
-produces a real ticket batch) is kernel-checked rather than traced by
-review. Small, self-contained, and it hardens the headline; a good way to
-learn the game plumbing.
+K3's non-vacuity recommendation is now kernel-checked by
+`challengeResp_flat_fires` in `Zkpc/Games/T4Fires.lean`: for every positive
+budget, the opened flat challenge produces a concrete nonempty ticket batch.
+The lemma is included in the proved-theorems table above.
 
 ### 5. Refund cascade and fleet-side settlement (Class A, medium)
 
