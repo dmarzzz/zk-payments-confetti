@@ -43,6 +43,7 @@ import Zkpc.Games.FrameAssembly
 import Zkpc.Games.FrameTransfer
 import Zkpc.Games.FrameRealBad
 import Zkpc.Games.FrameRealBadTransfer
+import Zkpc.Games.FrameGoodSlice
 import Zkpc.Games.FrameGhost
 import Zkpc.Games.FrameGhostBounds
 import Zkpc.Games.FrameGhostCoverage
