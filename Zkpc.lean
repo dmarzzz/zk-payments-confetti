@@ -34,6 +34,8 @@ import Zkpc.Games.T4Fires
 import Zkpc.Games.T7
 import Zkpc.Games.FrameDeferred
 import Zkpc.Games.FrameCoupling
+import Zkpc.Games.FrameGhost
+import Zkpc.Games.FrameGhostBounds
 import Zkpc.Games.BInstances
 import Zkpc.Games.Calibration
 import Zkpc.Refund.State
