@@ -23,12 +23,23 @@ structure DSShadowInvStrong (sigma : DSShadowSt F M) (m : Nat) : Prop
     extends DSShadowInv sigma m where
   hpat_mem : forall i e, sigma.pat i = some e -> e ∈ sigma.shadow
 
-/-- Extensionality helper for concrete deferred-slope states. -/
 omit [Field F] [DecidableEq F] [SampleableType F] [Fintype F]
     [DecidableEq M] in
-private theorem dsFrameSt_ext {s t : DSFrameSt F M}
+/-- Extensionality helper for concrete deferred-slope states. -/
+theorem dsFrameSt_ext {s t : DSFrameSt F M}
     (hideal : s.ideal = t.ideal) (hslope : s.slope = t.slope)
     (haudit : s.audit = t.audit) : s = t := by
+  cases s
+  cases t
+  simp_all
+
+omit [Field F] [DecidableEq F] [SampleableType F] [Fintype F]
+    [DecidableEq M] in
+/-- Extensionality helper for FRAME audit records. -/
+theorem frameAudit_ext {s t : FrameAudit F}
+    (hsecret : s.secretProbes = t.secretProbes)
+    (hslope : s.slopeProbes = t.slopeProbes)
+    (hhonest : s.honestSlopes = t.honestSlopes) : s = t := by
   cases s
   cases t
   simp_all
@@ -120,6 +131,51 @@ theorem DSShadowInvStrong.pat_coord_lt {sigma : DSShadowSt F M} {m i j : Nat}
 omit [SampleableType F] [Fintype F] in
 /-- No shadow entry distinct from the owned hole can use its tape
 coordinate. -/
+theorem entry_eq_of_coord_nodup {shadow : List (DSEntry F)}
+    (hnd : (entryCoords shadow).Nodup) {a b : DSEntry F}
+    (ha : a ∈ shadow) (hb : b ∈ shadow) {j : Nat}
+    (hca : a.coord = some j) (hcb : b.coord = some j) : a = b := by
+  induction shadow generalizing a b j with
+  | nil => simp at ha
+  | cons e rest ih =>
+      cases hec : e.coord with
+      | none =>
+          have hr : (entryCoords rest).Nodup := by
+            simpa [entryCoords, hec] using hnd
+          rcases List.mem_cons.1 ha with rfl | ha
+          · simp [hec] at hca
+          rcases List.mem_cons.1 hb with rfl | hb
+          · simp [hec] at hcb
+          exact ih hr ha hb hca hcb
+      | some q =>
+          have hc : (q :: entryCoords rest).Nodup := by
+            simpa [entryCoords, hec] using hnd
+          rw [List.nodup_cons] at hc
+          rcases hc with ⟨hq, hr⟩
+          rcases List.mem_cons.1 ha with rfl | ha
+          · rcases List.mem_cons.1 hb with rfl | hb
+            · rfl
+            · exfalso
+              apply hq
+              simp only [entryCoords, List.mem_filterMap]
+              refine ⟨b, hb, ?_⟩
+              have hqj : q = j := by
+                exact Option.some.inj (hec.symm.trans hca)
+              simpa [hqj] using hcb
+          · have haj : j ∈ entryCoords rest := by
+              simp only [entryCoords, List.mem_filterMap]
+              exact ⟨a, ha, hca⟩
+            rcases List.mem_cons.1 hb with rfl | hb
+            · exfalso
+              apply hq
+              have hqj : q = j := by
+                exact Option.some.inj (hec.symm.trans hcb)
+              simpa [hqj] using haj
+            · exact ih hr ha hb hca hcb
+
+omit [SampleableType F] [Fintype F] in
+/-- No shadow entry distinct from the owned hole can use its tape
+coordinate. -/
 theorem DSShadowInvStrong.coord_ne_of_mem_of_ne_hole
     {sigma : DSShadowSt F M} {m i j : Nat}
     (h : DSShadowInvStrong sigma m) (hi : sigma.pat i = some (.hole j))
@@ -128,38 +184,7 @@ theorem DSShadowInvStrong.coord_ne_of_mem_of_ne_hole
   intro q hq hqj
   subst q
   have hh : DSEntry.hole j ∈ sigma.shadow := h.hpat i j hi
-  apply hne
-  clear hne
-  induction sigma.shadow with
-  | nil => simp at he
-  | cons a rest ih =>
-      cases hca : a.coord with
-      | none =>
-          have hnd : (entryCoords rest).Nodup := by
-            simpa [entryCoords, hca] using h.hnd
-          rcases List.mem_cons.1 he with rfl | he
-          · simp [hca] at hq
-          rcases List.mem_cons.1 hh with rfl | hh
-          · simp [hca]
-          exact ih hnd he hh
-      | some l =>
-          have hnd : (l :: entryCoords rest).Nodup := by
-            simpa [entryCoords, hca] using h.hnd
-          rw [List.nodup_cons] at hnd
-          rcases hnd with ⟨hl, hnd⟩
-          rcases List.mem_cons.1 he with rfl | he
-          · rcases List.mem_cons.1 hh with rfl | hh
-            · rfl
-            · exfalso
-              apply hl
-              simp only [entryCoords, List.mem_filterMap]
-              refine ⟨.hole j, hh, rfl⟩
-          · rcases List.mem_cons.1 hh with rfl | hh
-            · exfalso
-              apply hl
-              simp only [entryCoords, List.mem_filterMap]
-              exact ⟨e, he, hq⟩
-            · exact ih hnd he hh
+  exact hne (entry_eq_of_coord_nodup h.hnd he hh hq rfl)
 
 omit [SampleableType F] [Fintype F] in
 /-- Replacing public caches without changing the honest counter preserves
@@ -183,8 +208,9 @@ theorem DSShadowInvStrong.addSecretProbe {sigma : DSShadowSt F M} {m : Nat}
     (h : DSShadowInvStrong sigma m) (q : F) :
     DSShadowInvStrong (sigma.addSecretProbe q) m := by
   refine ⟨?_, ?_⟩
-  · simpa [DSShadowSt.addSecretProbe] using h.toDSShadowInv
-  · simpa [DSShadowSt.addSecretProbe] using h.hpat_mem
+  · exact ⟨h.hx, h.hsep, h.hlt, h.hnd, h.hroX, h.hpat,
+      h.hpatinj, h.hfresh⟩
+  · exact h.hpat_mem
 
 omit [SampleableType F] [Fintype F] in
 /-- Merely recording a slope probe preserves the invariant. -/
@@ -192,8 +218,9 @@ theorem DSShadowInvStrong.addSlopeProbe {sigma : DSShadowSt F M} {m : Nat}
     (h : DSShadowInvStrong sigma m) (q : F) :
     DSShadowInvStrong (sigma.addSlopeProbe q) m := by
   refine ⟨?_, ?_⟩
-  · simpa [DSShadowSt.addSlopeProbe] using h.toDSShadowInv
-  · simpa [DSShadowSt.addSlopeProbe] using h.hpat_mem
+  · exact ⟨h.hx, h.hsep, h.hlt, h.hnd, h.hroX, h.hpat,
+      h.hpatinj, h.hfresh⟩
+  · exact h.hpat_mem
 
 omit [SampleableType F] [Fintype F] in
 /-- Seeding after appending the draw of a fresh pending hole is exactly the
@@ -209,30 +236,37 @@ theorem seed_insertHole (sigma : DSShadowSt F M) (m i : Nat) (k v : F)
   apply dsFrameSt_ext
   · rfl
   · funext q
+    simp only [DSShadowSt.seed_slope]
     by_cases hqi : q = i
     · subst q
       simp [DSShadowSt.seed, DSShadowSt.insertEntry, hi, DSEntry.eval,
         List.getD, hlen]
-    · rw [Function.update_of_ne hqi, Function.update_of_ne hqi]
-      simp only [DSShadowSt.seed_slope, DSShadowSt.insertEntry]
-      rw [Function.update_of_ne hqi]
+    · simp only [DSShadowSt.insertEntry, Function.update_of_ne hqi]
+      change (sigma.pat q).map (DSEntry.eval k (vs ++ [v])) =
+        (sigma.pat q).map (DSEntry.eval k vs)
       cases hq : sigma.pat q with
       | none => simp [hq]
       | some e =>
           simp only [hq, Option.map_some]
+          congr 1
           apply DSEntry.eval_append_lt
           intro j hj
           rw [hlen]
           exact hInv.pat_coord_lt hq hj
-  · simp only [DSShadowSt.seed_audit, DSShadowSt.insertEntry, List.map_cons]
-    congr 2
-    refine List.map_congr_left fun e he => ?_
-    apply DSEntry.eval_append_lt
-    intro j hj
-    rw [hlen]
-    apply hInv.hlt j
-    simp only [entryCoords, List.mem_filterMap]
-    exact ⟨e, he, hj⟩
+  · apply frameAudit_ext
+    · rfl
+    · rfl
+    · simp only [DSShadowSt.seed_audit, DSShadowSt.insertEntry,
+        List.map_cons]
+      congr 1
+      · simp [DSEntry.eval, List.getD, hlen]
+      · refine List.map_congr_left fun e he => ?_
+        apply DSEntry.eval_append_lt
+        intro j hj
+        rw [hlen]
+        apply hInv.hlt j
+        simp only [entryCoords, List.mem_filterMap]
+        exact ⟨e, he, hj⟩
 
 omit [SampleableType F] [Fintype F] in
 /-- Allocating the next tape coordinate to a fresh hole preserves the
@@ -279,7 +313,7 @@ theorem DSShadowInvStrong.insertHole {sigma : DSShadowSt F M} {m i : Nat}
       by_cases hqi : q = i
       · subst q
         simp only [DSShadowSt.insertEntry, Function.update_self] at hq
-          have hj : j = m := by simpa using (Option.some.inj hq).symm
+        have hj : j = m := by simpa using (Option.some.inj hq).symm
         subst j
         by_cases hq'i : q' = i
         · exact hq'i.symm
@@ -424,7 +458,7 @@ theorem DSShadowInvStrong.consumeHole_advance
       exact xne0_replaceHole j x hx e0 (h.hx e0 he0)
     · change (sigma.shadow.map (replaceHole j x)).Pairwise DSEntry.Sep
       rw [List.pairwise_map]
-      exact h.hsep.imp fun hab => sep_replaceHole j x _ _ hab
+      exact h.hsep.imp fun {a b} hab => sep_replaceHole j x a b hab
     · change ∀ q, q ∈ entryCoords (sigma.shadow.map (replaceHole j x)) -> q < m
       rw [entryCoords_map_replaceHole]
       exact h.hlt
@@ -524,6 +558,10 @@ theorem seed_consumeHole (sigma : DSShadowSt F M) (m i j : Nat)
         (vs.set j (k + vs.getD j 0 * x)) = sigma.seed k vs := by
   have hjm : j < m := hInv.pat_coord_lt hi rfl
   have hjv : j < vs.length := by simpa [hlen] using hjm
+  have hget :
+      (vs.set j (k + vs.getD j 0 * x)).getD j 0 =
+        k + vs.getD j 0 * x := by
+    simp [List.getD, hjv]
   apply dsFrameSt_ext
   · rfl
   · funext q
@@ -531,7 +569,7 @@ theorem seed_consumeHole (sigma : DSShadowSt F M) (m i j : Nat)
     · subst q
       simp only [DSShadowSt.seed_slope, DSShadowSt.consumeHole,
         Function.update_self, Option.map_some, DSEntry.eval]
-      rw [List.getD_set (by simpa using hjv)]
+      rw [hget]
       simp only [hi, Option.map_some, DSEntry.eval]
       rw [add_sub_cancel_left, mul_div_cancel_right₀ _ hx]
     · simp only [DSShadowSt.seed_slope, DSShadowSt.consumeHole,
@@ -544,21 +582,28 @@ theorem seed_consumeHole (sigma : DSShadowSt F M) (m i j : Nat)
             intro he
             subst e
             exact hqi (hInv.hpatinj q i j hq hi)
+          apply congrArg some
           apply DSEntry.eval_set_ne
           exact hInv.coord_ne_of_mem_of_ne_hole hi
             (hInv.hpat_mem q e hq) hne
-  · simp only [DSShadowSt.seed_audit, DSShadowSt.consumeHole, List.map_map]
-    congr 1
-    refine List.map_congr_left fun e he => ?_
-    by_cases heq : e = .hole j
-    · subst e
-      simp only [Function.comp_apply, replaceHole, if_pos rfl, DSEntry.eval]
-      rw [List.getD_set (by simpa using hjv)]
-      rw [add_sub_cancel_left, mul_div_cancel_right₀ _ hx]
-    · simp only [Function.comp_apply]
-      rw [eval_replaceHole_of_ne j x k _ e heq]
-      apply DSEntry.eval_set_ne
-      exact hInv.coord_ne_of_mem_of_ne_hole hi he heq
+  · apply frameAudit_ext
+    · rfl
+    · rfl
+    · simp only [DSShadowSt.seed_audit, DSShadowSt.consumeHole,
+        List.map_map]
+      refine List.map_congr_left fun e he => ?_
+      by_cases heq : e = .hole j
+      · subst e
+        simp only [Function.comp_apply]
+        rw [show replaceHole j x (.hole j) = .tline j x by
+          simp [replaceHole]]
+        simp only [DSEntry.eval]
+        simp [List.getD, hjv]
+        rw [mul_div_cancel_right₀ _ hx]
+      · simp only [Function.comp_apply]
+        rw [show replaceHole j x e = e by simp [replaceHole, heq]]
+        apply DSEntry.eval_set_ne
+        exact hInv.coord_ne_of_mem_of_ne_hole hi he heq
 
 /-! ## Budget algebra -/
 
@@ -572,7 +617,7 @@ theorem dsBudget_signal_same_le (sigma : DSShadowSt F M)
     dsBudget sigma nA nE nId nNf nSig ≤
       dsBudget sigma nA nE nId nNf (nSig + 1) := by
   simp only [dsBudget, choose_succ_two]
-  omega
+  ring_nf <;> omega
 
 /-- A fresh deferred hole consumes one remaining signal query and preserves
 the potential exactly. -/
@@ -594,6 +639,7 @@ theorem dsBudget_insertLine_add_dupTargets (sigma : DSShadowSt F M)
   have hc := scCount_line_cons x y sigma.shadow
   simp only [dsBudget, DSShadowSt.insertEntry, List.length_cons,
     choose_succ_two]
+  ring_nf at hc ⊢
   omega
 
 /-- Consuming a hole preserves the existing shadow size and pair count, so
@@ -606,6 +652,7 @@ theorem dsBudget_consumeHole_le (sigma : DSShadowSt F M) (i j : Nat) (x : F)
   have hl : (sigma.shadow.map (replaceHole j x)).length = sigma.shadow.length :=
     List.length_map _
   simp only [dsBudget, DSShadowSt.consumeHole, hl, hc, choose_succ_two]
+  ring_nf
   omega
 
 /-- Recording a direct probe while decrementing its matching budget leaves
@@ -635,8 +682,8 @@ theorem dsBudget_addSlopeProbe (sigma : DSShadowSt F M) (q : F)
     (nA nE nId nNf nSig : Nat) :
     dsBudget (sigma.addSlopeProbe q) nA nE nId nNf nSig =
       dsBudget sigma nA nE nId (nNf + 1) nSig := by
-  simp [dsBudget, DSShadowSt.addSlopeProbe]
-  ring
+  simp [dsBudget, DSShadowSt.addSlopeProbe, Nat.add_assoc,
+    Nat.add_left_comm, Nat.add_comm]
 
 /-! ## Seeded probability experiment -/
 
@@ -684,7 +731,316 @@ theorem dsSeededRun_pure_bad_le {alpha : Type} (mclose : M) (a : alpha)
         pure (k, (a, sigma.seed k vs))] ≤ _
   have hleaf := dsShadow_leaf_le sigma.secretProbes sigma.slopeProbes
     sigma.shadow m h.hx h.hsep h.hlt h.hnd
-  have hleaf' := hleaf
-  simpa [dsBudget] using hleaf'
+  refine le_trans (probEvent_bind_mono_of_le
+    (drawList ($ᵗ F) m)
+    (fun vs => ($ᵗ F) >>= fun k =>
+      pure (k, (a, sigma.seed k vs)))
+    (fun vs => ($ᵗ F) >>= fun k => pure (vs, k))
+    (fun w : F × (alpha × DSFrameSt F M) =>
+      FrameLeakBad w.1 w.2.2.audit)
+    (fun w : List F × F =>
+      FrameLeakBad w.2
+        ⟨sigma.secretProbes, sigma.slopeProbes,
+          sigma.shadow.map (DSEntry.eval w.2 w.1)⟩)
+    (fun vs => ?_)) ?_
+  · refine probEvent_bind_mono_of_le ($ᵗ F)
+      (fun k => pure (k, (a, sigma.seed k vs)))
+      (fun k => pure (vs, k)) _ _ (fun k => ?_)
+    simp [DSShadowSt.seed_audit]
+    exact le_rfl
+  · simpa [dsBudget] using hleaf
+
+/-! ## Adaptive master induction -/
+
+theorem dsBudget_base_le (sigma : DSShadowSt F M)
+    (nA nE nId nNf nSig : Nat) :
+    dsBudget sigma 0 0 0 0 0 ≤ dsBudget sigma nA nE nId nNf nSig := by
+  simp [dsBudget]
+  ring_nf
+  omega
+
+/-- Seeded-shadow master bound for an arbitrary query-bounded FRAME
+computation. -/
+theorem dsFrameImpl_seeded_bad_le (mclose : M) {alpha : Type}
+    (oa : OracleComp (frameSpec F M) alpha) (sigma : DSShadowSt F M)
+    (m nA nE nId nNf nSig : Nat) (hInv : DSShadowInvStrong sigma m)
+    (hA : OracleComp.IsQueryBoundP oa
+      (fun t => isDirectRoAQuery t = true) nA)
+    (hE : OracleComp.IsQueryBoundP oa
+      (fun t => isDirectRoEQuery t = true) nE)
+    (hId : OracleComp.IsQueryBoundP oa
+      (fun t => isDirectRoIdQuery t = true) nId)
+    (hNf : OracleComp.IsQueryBoundP oa
+      (fun t => isDirectRoNfQuery t = true) nNf)
+    (hSig : OracleComp.IsQueryBoundP oa
+      (fun t => isSignalQuery t = true) nSig) :
+    Pr[dsSeededBad | dsSeededRun mclose oa sigma m]
+      ≤ (dsBudget sigma nA nE nId nNf nSig : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  induction oa using OracleComp.inductionOn generalizing
+      sigma m nA nE nId nNf nSig with
+  | pure a =>
+      refine (dsSeededRun_pure_bad_le mclose a sigma m hInv).trans ?_
+      exact mul_le_mul_right' (Nat.cast_le.2
+        (dsBudget_base_le sigma nA nE nId nNf nSig)) _
+  | query_bind t cont ih =>
+      rw [isQueryBoundP_query_bind_iff] at hA hE hId hNf hSig
+      simp only [dsSeededRun, simulateQ_query_bind,
+        OracleQuery.input_query, monadLift_self, StateT.run_bind]
+      cases t with
+      | spend msg =>
+          simp only [dsFrameImpl, StateT.run_mk]
+      | close =>
+          simp only [dsFrameImpl, StateT.run_mk]
+      | nfAt i =>
+          have hposSig : 0 < nSig := by
+            rcases hSig.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal,
+            DSShadowSt.seed_slope, DSShadowSt.seed_audit,
+            OracleQuery.cont_query]
+          cases hi : sigma.pat i with
+          | none =>
+              rw [DSShadowSt.seed_slope, hi]
+              simp only [Option.map_none, dsTouch, bind_assoc, pure_bind]
+              refine probEvent_kTape_core_swap_le m
+                (lazyRO sigma.ideal.honestNf i) _ dsSeededBad _ ?_
+              intro c hc
+              let sigma' := (sigma.insertEntry i (.hole m)).setIdeal
+                { sigma.ideal with honestNf := c.2 }
+              have hinv : DSShadowInvStrong sigma' (m + 1) :=
+                (hInv.insertHole hi).setIdeal_sameIdx _ rfl hInv.hroX
+              have hih := ih c.1 sigma' (m + 1) nA nE nId nNf
+                (nSig - 1) hinv
+                (by simpa [isDirectRoAQuery] using hA.2 c.1)
+                (by simpa [isDirectRoEQuery] using hE.2 c.1)
+                (by simpa [isDirectRoIdQuery] using hId.2 c.1)
+                (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+                (by simpa [isSignalQuery] using hSig.2 c.1)
+              have hcanon :
+                  Pr[dsSeededBad | ($ᵗ F) >>= fun k =>
+                    drawList ($ᵗ F) m >>= fun vs =>
+                    ($ᵗ F) >>= fun v =>
+                    (simulateQ (dsFrameImpl k mclose) (cont c.1)).run
+                      (sigma'.seed k (vs ++ [v])) >>= fun z => pure (k, z)]
+                    ≤ (dsBudget sigma nA nE nId nNf nSig : ENNReal) *
+                        (Fintype.card F : ENNReal)⁻¹ := by
+                refine probEvent_kTape_snoc_le m
+                  (fun k vs =>
+                    (simulateQ (dsFrameImpl k mclose) (cont c.1)).run
+                      (sigma'.seed k vs) >>= fun z => pure (k, z))
+                  dsSeededBad _ ?_
+                simpa [dsSeededRun, sigma', dsBudget_setIdeal,
+                  dsBudget_insertHole, Nat.sub_add_cancel hposSig] using hih
+              refine le_trans (le_of_eq ?_) hcanon
+              refine probEvent_bind_congr_inner ($ᵗ F) _ _ dsSeededBad
+                (fun k => ?_)
+              apply probEvent_bind_congr_support (drawList ($ᵗ F) m)
+              intro vs hvs
+              have hlen := drawList_support_length m vs hvs
+              refine bind_congr fun v => ?_
+              rw [seed_insertHole sigma m i k v vs hInv hlen hi]
+              rfl
+          | some e =>
+              rw [DSShadowSt.seed_slope, hi]
+              simp only [Option.map_some, dsTouch, bind_assoc, pure_bind]
+              refine probEvent_kTape_core_swap_le m
+                (lazyRO sigma.ideal.honestNf i) _ dsSeededBad _ ?_
+              intro c hc
+              let sigma' := sigma.setIdeal
+                { sigma.ideal with honestNf := c.2 }
+              have hinv : DSShadowInvStrong sigma' m :=
+                hInv.setIdeal_sameIdx _ rfl hInv.hroX
+              have hih := ih c.1 sigma' m nA nE nId nNf (nSig - 1)
+                hinv
+                (by simpa [isDirectRoAQuery] using hA.2 c.1)
+                (by simpa [isDirectRoEQuery] using hE.2 c.1)
+                (by simpa [isDirectRoIdQuery] using hId.2 c.1)
+                (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+                (by simpa [isSignalQuery] using hSig.2 c.1)
+              have hstep :
+                  Pr[dsSeededBad | dsSeededRun mclose (cont c.1) sigma' m]
+                    ≤ (dsBudget sigma' nA nE nId nNf (nSig - 1) : ENNReal) *
+                        (Fintype.card F : ENNReal)⁻¹ := hih
+              refine le_trans (by simpa [dsSeededRun, sigma'] using hstep) ?_
+              refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+              simpa [Nat.sub_add_cancel hposSig] using
+                (dsBudget_signal_same_le sigma nA nE nId nNf (nSig - 1))
+      | roA kq i =>
+          have hposA : 0 < nA := by
+            rcases hA.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal,
+            DSShadowSt.seed_slope, DSShadowSt.seed_audit, bind_assoc,
+            pure_bind, OracleQuery.cont_query]
+          refine probEvent_kTape_core_swap_le m
+            (lazyRO sigma.ideal.roA (kq, i))
+            (fun k vs c =>
+              (simulateQ (dsFrameImpl k mclose) (cont c.1)).run
+                (((sigma.addSecretProbe kq).setIdeal
+                  { sigma.ideal with roA := c.2 }).seed k vs) >>= fun z =>
+                    pure (k, z)) dsSeededBad _ ?_
+          intro c hc
+          have hinv := (hInv.addSecretProbe kq).setIdeal_sameIdx
+            { sigma.ideal with roA := c.2 } rfl hInv.hroX
+          have hih := ih c.1
+            ((sigma.addSecretProbe kq).setIdeal
+              { sigma.ideal with roA := c.2 }) m (nA - 1) nE nId nNf nSig
+            hinv
+            (by simpa [isDirectRoAQuery] using hA.2 c.1)
+            (by simpa [isDirectRoEQuery] using hE.2 c.1)
+            (by simpa [isDirectRoIdQuery] using hId.2 c.1)
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+          simpa [dsSeededRun, dsBudget_setIdeal,
+            dsBudget_addSecretProbe_roA, Nat.sub_add_cancel hposA] using hih
+      | roX msg =>
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal,
+            DSShadowSt.seed_slope, DSShadowSt.seed_audit, bind_assoc,
+            pure_bind, OracleQuery.cont_query]
+          refine probEvent_kTape_core_swap_le m
+            (lazyROX sigma.ideal.roX msg)
+            (fun k vs c =>
+              (simulateQ (dsFrameImpl k mclose) (cont c.1)).run
+                ((sigma.setIdeal { sigma.ideal with roX := c.2 }).seed k vs)
+                  >>= fun z => pure (k, z)) dsSeededBad _ ?_
+          intro c hc
+          have hx := lazyROX_support_nonzero hInv.hroX msg c hc
+          have hinv := hInv.setIdeal_sameIdx
+            { sigma.ideal with roX := c.2 } rfl hx.2
+          have hih := ih c.1
+            (sigma.setIdeal { sigma.ideal with roX := c.2 }) m
+            nA nE nId nNf nSig hinv
+            (by simpa [isDirectRoAQuery] using hA.2 c.1)
+            (by simpa [isDirectRoEQuery] using hE.2 c.1)
+            (by simpa [isDirectRoIdQuery] using hId.2 c.1)
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+          simpa [dsSeededRun, dsBudget_setIdeal] using hih
+      | roNf aq =>
+          have hposNf : 0 < nNf := by
+            rcases hNf.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal,
+            DSShadowSt.seed_slope, DSShadowSt.seed_audit, bind_assoc,
+            pure_bind, OracleQuery.cont_query]
+          refine probEvent_kTape_core_swap_le m
+            (lazyRO sigma.ideal.roNf aq)
+            (fun k vs c =>
+              (simulateQ (dsFrameImpl k mclose) (cont c.1)).run
+                (((sigma.addSlopeProbe aq).setIdeal
+                  { sigma.ideal with roNf := c.2 }).seed k vs) >>= fun z =>
+                    pure (k, z)) dsSeededBad _ ?_
+          intro c hc
+          have hinv := (hInv.addSlopeProbe aq).setIdeal_sameIdx
+            { sigma.ideal with roNf := c.2 } rfl hInv.hroX
+          have hih := ih c.1
+            ((sigma.addSlopeProbe aq).setIdeal
+              { sigma.ideal with roNf := c.2 }) m nA nE nId
+            (nNf - 1) nSig hinv
+            (by simpa [isDirectRoAQuery] using hA.2 c.1)
+            (by simpa [isDirectRoEQuery] using hE.2 c.1)
+            (by simpa [isDirectRoIdQuery] using hId.2 c.1)
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+          simpa [dsSeededRun, dsBudget_setIdeal, dsBudget_addSlopeProbe,
+            Nat.sub_add_cancel hposNf] using hih
+      | roE kq e =>
+          have hposE : 0 < nE := by
+            rcases hE.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal,
+            DSShadowSt.seed_slope, DSShadowSt.seed_audit, bind_assoc,
+            pure_bind, OracleQuery.cont_query]
+          refine probEvent_kTape_core_swap_le m
+            (lazyRO sigma.ideal.roE (kq, e))
+            (fun k vs c =>
+              (simulateQ (dsFrameImpl k mclose) (cont c.1)).run
+                (((sigma.addSecretProbe kq).setIdeal
+                  { sigma.ideal with roE := c.2 }).seed k vs) >>= fun z =>
+                    pure (k, z)) dsSeededBad _ ?_
+          intro c hc
+          have hinv := (hInv.addSecretProbe kq).setIdeal_sameIdx
+            { sigma.ideal with roE := c.2 } rfl hInv.hroX
+          have hih := ih c.1
+            ((sigma.addSecretProbe kq).setIdeal
+              { sigma.ideal with roE := c.2 }) m nA (nE - 1) nId nNf nSig
+            hinv
+            (by simpa [isDirectRoAQuery] using hA.2 c.1)
+            (by simpa [isDirectRoEQuery] using hE.2 c.1)
+            (by simpa [isDirectRoIdQuery] using hId.2 c.1)
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+          simpa [dsSeededRun, dsBudget_setIdeal,
+            dsBudget_addSecretProbe_roE, Nat.sub_add_cancel hposE] using hih
+      | roId kq =>
+          have hposId : 0 < nId := by
+            rcases hId.1 with h | h
+            · exact absurd rfl h
+            · exact h
+          simp only [dsFrameImpl, StateT.run_mk, DSShadowSt.seed_ideal,
+            DSShadowSt.seed_slope, DSShadowSt.seed_audit, bind_assoc,
+            pure_bind, OracleQuery.cont_query]
+          refine probEvent_kTape_core_swap_le m
+            (lazyRO sigma.ideal.roId kq)
+            (fun k vs c =>
+              (simulateQ (dsFrameImpl k mclose) (cont c.1)).run
+                (((sigma.addSecretProbe kq).setIdeal
+                  { sigma.ideal with roId := c.2 }).seed k vs) >>= fun z =>
+                    pure (k, z)) dsSeededBad _ ?_
+          intro c hc
+          have hinv := (hInv.addSecretProbe kq).setIdeal_sameIdx
+            { sigma.ideal with roId := c.2 } rfl hInv.hroX
+          have hih := ih c.1
+            ((sigma.addSecretProbe kq).setIdeal
+              { sigma.ideal with roId := c.2 }) m nA nE (nId - 1) nNf nSig
+            hinv
+            (by simpa [isDirectRoAQuery] using hA.2 c.1)
+            (by simpa [isDirectRoEQuery] using hE.2 c.1)
+            (by simpa [isDirectRoIdQuery] using hId.2 c.1)
+            (by simpa [isDirectRoNfQuery] using hNf.2 c.1)
+            (by simpa [isSignalQuery] using hSig.2 c.1)
+          simpa [dsSeededRun, dsBudget_setIdeal,
+            dsBudget_addSecretProbe_roId, Nat.sub_add_cancel hposId] using hih
+
+/-- The adaptive seeded-shadow induction discharges the deferred-slope
+counting obligation for the public commitment family.  The commitment draw
+is independent of the secret/tape seed, so it can be moved outside the
+seeded experiment and the five per-commitment query certificates instantiate
+the master bound. -/
+theorem dsBadMassLe_of_queryBounds (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) : DSBadMassLe mclose A qb := by
+  unfold DSBadMassLe dsFrameJoint dsFrameRun
+  have hswap :
+      𝒟[($ᵗ F) >>= fun k => ($ᵗ F) >>= fun cm =>
+          (simulateQ (dsFrameImpl k mclose) (A cm)).run (DSFrameSt.init F M)
+            >>= fun z => pure (k, z)] =
+        𝒟[($ᵗ F) >>= fun cm => dsSeededRun mclose (A cm)
+          (dsShadowInit F M) 0] := by
+    simpa [dsSeededRun] using OracleComp.DeferredSampling.evalDist_bind_comm
+      ($ᵗ F) ($ᵗ F)
+      (fun k cm => (simulateQ (dsFrameImpl k mclose) (A cm)).run
+        (DSFrameSt.init F M) >>= fun z => pure (k, z))
+  rw [show (do
+      let k ← ($ᵗ F)
+      let cm ← ($ᵗ F)
+      let z ← (simulateQ (dsFrameImpl k mclose) (A cm)).run
+        (DSFrameSt.init F M)
+      pure (k, z)) =
+      (($ᵗ F) >>= fun k => ($ᵗ F) >>= fun cm =>
+        (simulateQ (dsFrameImpl k mclose) (A cm)).run (DSFrameSt.init F M)
+          >>= fun z => pure (k, z)) from rfl]
+  refine le_trans (le_of_eq (probEvent_congr' (fun _ _ => Iff.rfl) hswap)) ?_
+  refine probEvent_bind_le_of_forall_le fun cm _ => ?_
+  have h := dsFrameImpl_seeded_bad_le mclose (A cm) (dsShadowInit F M) 0
+    qb.qA qb.qE qb.qId qb.qNf qb.qSig dsShadowInvStrong_init
+    (qb.roA_bound cm) (qb.roE_bound cm) (qb.roId_bound cm)
+    (qb.roNf_bound cm) (qb.signal_bound cm)
+  simpa [dsSeededBad, dsBudget, dsShadowInit, FrameQueryBounds.total] using h
 
 end Zkpc.Games
