@@ -189,7 +189,17 @@ open.
    landed `qNf*qSig/|F|` membership and `qSig²/|F|` collision kernels. That
    theorem supplies `GhostSlopeBadBounds`, after which the already-factored
    `FrameBadMassTransfer` and `FrameGoodSliceTransfer` remain to close the
-   unconditional averaged T7 endpoint.
+   unconditional averaged T7 endpoint. The quantitative half of that target
+   is now factored and proved: `GhostSlopeTapeExtraction` records the exact
+   continuation-level distribution equality and its two structural support
+   bounds, while `ghostSlopeBadBounds_of_tape` derives both adaptive
+   `qNf*qSig/|F|` and `qSig²/|F|` fields without further hypotheses. The
+   canonical witness is no longer existential: `slopeCoreFrameImpl` removes
+   slope draws from the handler, counts cache misses, and `slopeCoreRun`
+   exposes the concrete core generator. What remains in this sublane is to
+   prove that materializing its counted tape equals the erased ghost run and
+   thread the already available query bounds into its counter/probe support
+   fields.
 
 2. **Production Fiat--Shamir reduction.** The finite-field Sigma and lazy-ROM
    Fiat--Shamir reference models now have exact simulator distributions,

@@ -642,6 +642,189 @@ omit [DecidableEq F] [SampleableType F] [DecidableEq M]
 
 end WithSlopesSimp
 
+/-! ## Extraction certificate and quantitative closure
+
+The handler-specific induction has one precise target: expose the write-only
+honest slopes as a fresh tape drawn after a slope-independent core run.  Once
+that equality is available, the probability calculation below is completely
+generic and needs no further facts about FRAME. -/
+
+/-- Materialize the honest-slope audit of a core outcome from a fresh uniform
+tape whose length is carried by that outcome. -/
+noncomputable def materializeSlopeTape
+    (core : ProbComp ((Evidence F × GhostFrameSt F M) × ℕ)) :
+    ProbComp (Evidence F × GhostFrameSt F M) := do
+  let z ← core
+  let vs ← drawList ($ᵗ F) z.2
+  pure (z.1.1, z.1.2.withSlopes vs)
+
+/-- **Continuation-level slope-tape extraction certificate.**  The ghost run
+is represented by a slope-independent core followed by exactly as many fresh
+uniform draws as slope-cache misses.  The two support bounds are the only
+quantitative information used by the closure theorem. -/
+structure GhostSlopeTapeExtraction (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) where
+  core : ProbComp ((Evidence F × GhostFrameSt F M) × ℕ)
+  evalDist_eq :
+    𝒟[ghostFrameRun mclose A] = 𝒟[materializeSlopeTape core]
+  slope_count_le : ∀ z ∈ support core, z.2 ≤ qb.qSig
+  slope_probes_le : ∀ z ∈ support core,
+    z.1.2.audit.slopeProbes.length ≤ qb.qNf
+
+/-! ### The canonical slope-free core
+
+This handler performs the same ideal-oracle work as `skelFrameImpl`, but a
+fresh slope-cache miss only stores the placeholder and increments a counter.
+It performs no slope draw and never changes `honestSlopes`; those values are
+materialized in one independent tape after the run. -/
+
+/-- State of the canonical slope-free core. -/
+structure SlopeCoreSt (F M : Type) where
+  ghost : GhostFrameSt F M
+  count : ℕ
+
+/-- Initial slope-free core state. -/
+def SlopeCoreSt.init (F M : Type) : SlopeCoreSt F M :=
+  ⟨GhostFrameSt.init F M, 0⟩
+
+/-- Deterministic cache-shape update used in place of a fresh slope draw. -/
+def slopeCoreTouch (gs : ℕ → Option F) (i : ℕ) :
+    (ℕ → Option F) × ℕ :=
+  match gs i with
+  | some _ => (gs, 0)
+  | none => (Function.update gs i (some (0 : F)), 1)
+
+/-- FRAME handler with every honest-slope draw erased and counted. -/
+def slopeCoreFrameImpl (mclose : M) :
+    QueryImpl.Stateful unifSpec (frameSpec F M) (SlopeCoreSt F M)
+  | .spend m => StateT.mk fun s =>
+      if s.ghost.ideal.closed then pure (none, s)
+      else do
+        let p ← emitIdealSignal m s.ghost.ideal
+        let q := slopeCoreTouch s.ghost.ghostSlope s.ghost.ideal.idx
+        pure (some p.1, ⟨⟨p.2, q.1, s.ghost.audit⟩, s.count + q.2⟩)
+  | .close => StateT.mk fun s =>
+      if s.ghost.ideal.closed then pure (none, s)
+      else do
+        let p ← emitIdealSignal mclose s.ghost.ideal
+        let q := slopeCoreTouch s.ghost.ghostSlope s.ghost.ideal.idx
+        pure (some p.1,
+          ⟨⟨{ p.2 with closed := true }, q.1, s.ghost.audit⟩,
+            s.count + q.2⟩)
+  | .nfAt i => StateT.mk fun s => do
+      let p ← lazyRO s.ghost.ideal.honestNf i
+      let q := slopeCoreTouch s.ghost.ghostSlope i
+      pure (p.1,
+        ⟨⟨{ s.ghost.ideal with honestNf := p.2 }, q.1, s.ghost.audit⟩,
+          s.count + q.2⟩)
+  | .roA kq i => StateT.mk fun s => do
+      let p ← lazyRO s.ghost.ideal.roA (kq, i)
+      pure (p.1, ⟨⟨{ s.ghost.ideal with roA := p.2 }, s.ghost.ghostSlope,
+        { s.ghost.audit with roAProbes := kq :: s.ghost.audit.roAProbes }⟩,
+        s.count⟩)
+  | .roX m => StateT.mk fun s => do
+      let p ← lazyROX s.ghost.ideal.roX m
+      pure (p.1, ⟨⟨{ s.ghost.ideal with roX := p.2 }, s.ghost.ghostSlope,
+        s.ghost.audit⟩, s.count⟩)
+  | .roNf aq => StateT.mk fun s => do
+      let p ← lazyRO s.ghost.ideal.roNf aq
+      pure (p.1, ⟨⟨{ s.ghost.ideal with roNf := p.2 }, s.ghost.ghostSlope,
+        { s.ghost.audit with slopeProbes := aq :: s.ghost.audit.slopeProbes }⟩,
+        s.count⟩)
+  | .roE kq e => StateT.mk fun s => do
+      let p ← lazyRO s.ghost.ideal.roE (kq, e)
+      pure (p.1, ⟨⟨{ s.ghost.ideal with roE := p.2 }, s.ghost.ghostSlope,
+        { s.ghost.audit with roEProbes := kq :: s.ghost.audit.roEProbes }⟩,
+        s.count⟩)
+  | .roId kq => StateT.mk fun s => do
+      let p ← lazyRO s.ghost.ideal.roId kq
+      pure (p.1, ⟨⟨{ s.ghost.ideal with roId := p.2 }, s.ghost.ghostSlope,
+        { s.ghost.audit with roIdProbes := kq :: s.ghost.audit.roIdProbes }⟩,
+        s.count⟩)
+
+/-- Canonical core generator used by the extraction theorem. -/
+def slopeCoreRun (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) :
+    ProbComp ((Evidence F × GhostFrameSt F M) × ℕ) := do
+  let cm ← ($ᵗ F)
+  let z ← (simulateQ (slopeCoreFrameImpl mclose) (A cm)).run
+    (SlopeCoreSt.init F M)
+  pure ((z.1, z.2.ghost), z.2.count)
+
+/-- Tape extraction gives the adaptive slope-preimage bound.  Although the
+probe list and tape length may both depend on the core transcript, neither can
+depend on the subsequently sampled tape. -/
+theorem ghostFrameRun_slope_hit_bound_of_tape (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (h : GhostSlopeTapeExtraction mclose A qb) :
+    Pr[fun z => SlopeHit z.2.audit | ghostFrameRun mclose A]
+      ≤ ((qb.qNf * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  refine le_trans (le_of_eq (probEvent_congr' (fun _ _ => Iff.rfl)
+    h.evalDist_eq)) ?_
+  unfold materializeSlopeTape
+  refine probEvent_bind_le_of_forall_le fun z hz => ?_
+  rw [show (fun vs : List F =>
+      (pure (z.1.1, z.1.2.withSlopes vs) :
+        ProbComp (Evidence F × GhostFrameSt F M))) =
+      pure ∘ (fun vs => (z.1.1, z.1.2.withSlopes vs)) from rfl,
+    probEvent_bind_pure_comp]
+  change Pr[fun vs : List F => ∃ q ∈ z.1.2.audit.slopeProbes, q ∈ vs |
+      drawList ($ᵗ F) z.2] ≤ _
+  refine (probEvent_drawList_exists_mem_le z.1.2.audit.slopeProbes z.2).trans ?_
+  refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+  simpa [Nat.mul_comm] using
+    Nat.mul_le_mul (h.slope_probes_le z hz) (h.slope_count_le z hz)
+
+/-- Tape extraction gives the honest-slope birthday bound. -/
+theorem ghostFrameRun_slope_collision_bound_of_tape (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (h : GhostSlopeTapeExtraction mclose A qb) :
+    Pr[fun z => SlopeCollision z.2.audit | ghostFrameRun mclose A]
+      ≤ ((qb.qSig * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  refine le_trans (le_of_eq (probEvent_congr' (fun _ _ => Iff.rfl)
+    h.evalDist_eq)) ?_
+  unfold materializeSlopeTape
+  refine probEvent_bind_le_of_forall_le fun z hz => ?_
+  rw [show (fun vs : List F =>
+      (pure (z.1.1, z.1.2.withSlopes vs) :
+        ProbComp (Evidence F × GhostFrameSt F M))) =
+      pure ∘ (fun vs => (z.1.1, z.1.2.withSlopes vs)) from rfl,
+    probEvent_bind_pure_comp]
+  change Pr[fun vs : List F => ¬ vs.Nodup | drawList ($ᵗ F) z.2] ≤ _
+  refine (probEvent_drawList_not_nodup_le z.2).trans ?_
+  refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+  exact Nat.mul_le_mul (h.slope_count_le z hz) (h.slope_count_le z hz)
+
+/-- The extraction certificate discharges the complete slope-dependent socket
+consumed by `ghostFrameRun_leak_bad_bound`. -/
+theorem ghostSlopeBadBounds_of_tape (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (h : GhostSlopeTapeExtraction mclose A qb) :
+    GhostSlopeBadBounds mclose A qb where
+  slope_hit := by
+    unfold ghostDeferredRun
+    change Pr[fun z : (Evidence F × GhostFrameSt F M) × F =>
+      SlopeHit z.1.2.audit | _] ≤ _
+    calc
+      _ = Pr[fun z : Evidence F × GhostFrameSt F M => SlopeHit z.2.audit |
+          ghostFrameRun mclose A] :=
+        probEvent_bind_pair_uniform_fst (F := F) (ghostFrameRun mclose A)
+          (fun z => SlopeHit z.2.audit)
+      _ ≤ _ := ghostFrameRun_slope_hit_bound_of_tape mclose A qb h
+  honest_collision := by
+    unfold ghostDeferredRun
+    change Pr[fun z : (Evidence F × GhostFrameSt F M) × F =>
+      SlopeCollision z.1.2.audit | _] ≤ _
+    calc
+      _ = Pr[fun z : Evidence F × GhostFrameSt F M => SlopeCollision z.2.audit |
+          ghostFrameRun mclose A] :=
+        probEvent_bind_pair_uniform_fst (F := F) (ghostFrameRun mclose A)
+          (fun z => SlopeCollision z.2.audit)
+      _ ≤ _ := ghostFrameRun_slope_collision_bound_of_tape mclose A qb h
+
 end Zkpc.Games
 
 #print axioms Zkpc.Games.probEvent_drawList_mem_le
@@ -651,3 +834,6 @@ end Zkpc.Games
 #print axioms Zkpc.Games.skelFrameImpl_erase_step
 #print axioms Zkpc.Games.skelFrameImpl_run_erase
 #print axioms Zkpc.Games.probEvent_audit_ghost_eq_skel
+#print axioms Zkpc.Games.ghostFrameRun_slope_hit_bound_of_tape
+#print axioms Zkpc.Games.ghostFrameRun_slope_collision_bound_of_tape
+#print axioms Zkpc.Games.ghostSlopeBadBounds_of_tape
