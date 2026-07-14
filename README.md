@@ -1,5 +1,11 @@
 # zk-payments-confetti
 
+[![CI](https://github.com/dmarzzz/zk-payments-confetti/actions/workflows/ci.yml/badge.svg)](https://github.com/dmarzzz/zk-payments-confetti/actions/workflows/ci.yml)
+![Lean](https://img.shields.io/badge/Lean-4.30.0-blue)
+![sorry](https://img.shields.io/badge/sorry-0-brightgreen)
+![axioms](https://img.shields.io/badge/axioms-propext%20%7C%20choice%20%7C%20quot-brightgreen)
+![setting](https://img.shields.io/badge/setting-post--quantum-8A2BE2)
+
 Machine-checked security for **zk payment channels**: write the missing
 literature, formalize the protocol, verify it in Lean 4.
 
@@ -12,6 +18,48 @@ literature, formalize the protocol, verify it in Lean 4.
 > the protocol design in `PROTOCOL.md` is an external contribution
 > recorded verbatim, and the largest proof campaign (PR #2) is
 > `lalalune`'s.
+
+## The protocol at a glance
+
+Alice pays Bob per request. Bob cannot link two payments to the same
+sender or channel; he only ever learns "someone paid me δ". One
+mechanism, a hash chain of nullifiers, provides both duplicate detection
+and cheat detection.
+
+```mermaid
+sequenceDiagram
+    participant A as Alice (payer)
+    participant B as Bob (recipient)
+    participant L as Channel contract
+    A->>L: Open: deposit D, name Bob, commit(N1)
+    loop each payment, off-chain
+        A->>B: reveal N(i+1) + ZK proof [extends genesis or a Bob-signed state, balance+delta <= D] + commit(new balance), commit(N(i+2))
+        B-->>A: countersign (refuse if nullifier already seen)
+    end
+    A->>L: Close on some state: open its committed next-nullifier N
+    alt a message already revealed N (stale close)
+        B->>L: challenge with that message
+        L->>B: Alice forfeits everything
+    else no collision
+        L->>L: split stands
+    end
+```
+
+Why Bob never loses money:
+
+```mermaid
+flowchart LR
+    C["Alice closes state i"] --> Q{"did any payment reveal
+state i's committed
+next-nullifier?"}
+    Q -- "yes = state i was extended" --> F["Bob challenges:
+entire deposit to Bob"]
+    Q -- no --> S["split stands: Bob gets
+exactly his balance"]
+    T["Alice never closes"] --> F2["timeout: Bob
+requests close; 7 days
+later, deposit to Bob"]
+```
 
 ## Read this, in order
 

@@ -1,0 +1,34 @@
+name: Proof contribution
+description: You proved (or want to claim) a ROADMAP obligation.
+title: "[proof] "
+labels: ["proof"]
+body:
+  - type: input
+    id: obligation
+    attributes:
+      label: ROADMAP obligation
+      placeholder: "e.g. Phase 1 item 2: collision soundness, de-idealized"
+    validations:
+      required: true
+  - type: textarea
+    id: theorems
+    attributes:
+      label: Theorem names and files
+      placeholder: |
+        Zkpc/Chain/Collision.lean : stale_close_detectable_ro
+    validations:
+      required: true
+  - type: textarea
+    id: audit
+    attributes:
+      label: Axiom audit output
+      description: "`make audit THM=<name>` — must show only propext, Classical.choice, Quot.sound."
+    validations:
+      required: true
+  - type: input
+    id: attestation
+    attributes:
+      label: Build attestation
+      description: SHA of a recorded fresh-clone `make build` (greps are not evidence; see CONTRIBUTING.md).
+    validations:
+      required: true

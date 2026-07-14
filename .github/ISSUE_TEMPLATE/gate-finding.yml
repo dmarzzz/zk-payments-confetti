@@ -1,0 +1,38 @@
+name: Gate finding (definition attack)
+description: A counterexample or hole in PROTOCOL.md, the Spec-v2 draft, or a security-game statement. Definitions are the risk surface; this is the highest-value contribution.
+title: "[gate] "
+labels: ["definitions", "gate-v2"]
+body:
+  - type: dropdown
+    id: target
+    attributes:
+      label: Target
+      options:
+        - PROTOCOL.md (design of record)
+        - Spec-v2 draft / G1-G5
+        - A security-game statement in Zkpc/
+        - Historical rev-11 spec (research/raw/Spec.md)
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Blocking requires a concrete counterexample.
+      options:
+        - blocking (concrete counterexample below)
+        - major
+        - minor / wording
+    validations:
+      required: true
+  - type: textarea
+    id: counterexample
+    attributes:
+      label: The attack / counterexample
+      description: Walk the adversary schedule. Numerical witnesses welcome. A blocking finding without a concrete counterexample will be triaged down.
+    validations:
+      required: true
+  - type: textarea
+    id: repair
+    attributes:
+      label: Proposed repair (optional)
