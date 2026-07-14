@@ -7,7 +7,7 @@ One page. If you are an executor (human or agent) starting from zero, this is en
 We formalize the **protocol layer** of a zk payment channel over an **idealized ledger** and **idealized cryptography**. Concretely:
 
 - The ledger is a Lean value (a state the transition function updates), not a blockchain. Its guarantees (transactions land, timeouts fire) are part of the model, stated in `research/raw/Spec.md` §threat-model.
-- Cryptographic primitives never appear as real algorithms. Each named assumption is registered in `Zkpc/Assumptions.lean` with a docstring naming the standard property it encodes (proof-system knowledge soundness, zk simulation, PRF/hash collision resistance, EUF-CMA signatures, blind-signature unforgeability + blindness). In the current tree every one of them is **discharged by construction** in the idealized model — knowledge soundness as transition guards, zero knowledge as proof-free or simulator-equal views, hashes as lazily sampled random oracles — so the file declares **no Lean `axiom` at all**; the registry exists so that if a future proof genuinely needs one, it has exactly one audited place to live.
+- Cryptographic primitives never appear as real algorithms. Each named assumption is registered in `lean/Zkpc/Assumptions.lean` with a docstring naming the standard property it encodes (proof-system knowledge soundness, zk simulation, PRF/hash collision resistance, EUF-CMA signatures, blind-signature unforgeability + blindness). In the current tree every one of them is **discharged by construction** in the idealized model — knowledge soundness as transition guards, zero knowledge as proof-free or simulator-equal views, hashes as lazily sampled random oracles — so the file declares **no Lean `axiom` at all**; the registry exists so that if a future proof genuinely needs one, it has exactly one audited place to live.
 - We do **not** verify circuits, the SNARK, or any implementation. Anyone claiming otherwise about this repo is misreading it.
 
 ## The trust surface
@@ -15,7 +15,7 @@ We formalize the **protocol layer** of a zk payment channel over an **idealized 
 The statements, not the proofs. If `lake build` is green with zero proof
 escape hatches and the axiom audit shows only the intended foundations, the
 kernel has checked the proofs; the remaining judgment is whether the
-**definitions** (in `Zkpc/Spec/`) and **theorem docstrings** say what we
+**definitions** (in `lean/Zkpc/Spec/`) and **theorem docstrings** say what we
 meant. Source checkpoint `2fe8354` has that technical evidence: fresh cache
 restore (8,283 files), all 3,595 root jobs on Lean 4.30.0, exact endpoint
 axiom capture using only standard Lean axioms, and clean source/diff scans.
@@ -24,12 +24,12 @@ That does not replace the pending human gates. The later synchronized
 visual QA. That is why:
 
 - Every theorem carries a docstring restating it in English. Keep them faithful; the human gates review docstrings + `research/raw/Spec.md`, nothing else.
-- Changes to `Zkpc/Spec/` (algorithm signatures, security games) re-open the corresponding human gate. Do not "adjust the definition slightly" to make a proof go through without flagging it — definition drift toward provability is this experiment's named failure mode.
+- Changes to `lean/Zkpc/Spec/` (algorithm signatures, security games) re-open the corresponding human gate. Do not "adjust the definition slightly" to make a proof go through without flagging it — definition drift toward provability is this experiment's named failure mode.
 
 ## Rules (CI enforces the first three)
 
 1. **Zero `sorry`**, everywhere, at every commit that lands on main.
-2. **`axiom` only in `Zkpc/Assumptions.lean`.** If a proof needs a new assumption, add it there with a docstring naming the standard property, and note it in the PR — the axiom audit (K2) enumerates these.
+2. **`axiom` only in `lean/Zkpc/Assumptions.lean`.** If a proof needs a new assumption, add it there with a docstring naming the standard property, and note it in the PR — the axiom audit (K2) enumerates these.
 3. **No `admit`, no `native_decide`.**
 4. Game framework additions on top of VCV-io stay under ~1000 lines total. Resist generality; this repo proves seven theorems, it does not build a library.
 
@@ -38,19 +38,19 @@ visual QA. That is why:
 1. Find its statement in `research/raw/Spec.md` (T1–T7). The Lean statement must be a faithful transcription; when in doubt, transcribe more literally.
 2. Put the statement in the module named in the theorem-to-file map (paper §7 / `ROADMAP.md`), with the English docstring.
 3. Prove it. Prefer induction over the transition relation for safety theorems; prefer explicit bijections/simulators for indistinguishability arguments.
-4. `lake build` locally; CI replays it.
+4. `make build` locally (the Lean project lives in `lean/`); CI replays it.
 
 ## Layout
 
 | Path | Content |
 |---|---|
 | `research/raw/Spec.md` | English spec: the object, T1–T7, threat model. The trust surface. |
-| `Zkpc/Assumptions.lean` | The assumption registry (currently declares no `axiom`; nothing else may declare one). |
-| `Zkpc/Spec/` | Algorithm signatures (gate-reviewed). |
-| `Zkpc/Core/` | State model, transitions, flat-ticket instantiation, T1/T2/T3/T5, executable refinement, composition. |
-| `Zkpc/Games/` | Game framework over VCV-io, the security games, T4/T7 and the FRAME campaign. |
-| `Zkpc/Fleet/`, `Zkpc/Refund/` | The fleet bound (T6, recovery) and the refund variant (safety, cascade, fleet). |
-| `Zkpc/Crypto/`, `Zkpc/Network/`, `Zkpc/Chain/` | Wire-protocol reference layers, the multi-recipient network layer, and the nullifier-chain instantiation. |
+| `lean/Zkpc/Assumptions.lean` | The assumption registry (currently declares no `axiom`; nothing else may declare one). |
+| `lean/Zkpc/Spec/` | Algorithm signatures (gate-reviewed). |
+| `lean/Zkpc/Core/` | State model, transitions, flat-ticket instantiation, T1/T2/T3/T5, executable refinement, composition. |
+| `lean/Zkpc/Games/` | Game framework over VCV-io, the security games, T4/T7 and the FRAME campaign. |
+| `lean/Zkpc/Fleet/`, `lean/Zkpc/Refund/` | The fleet bound (T6, recovery) and the refund variant (safety, cascade, fleet). |
+| `lean/Zkpc/Crypto/`, `lean/Zkpc/Network/`, `lean/Zkpc/Chain/` | Wire-protocol reference layers, the multi-recipient network layer, and the nullifier-chain instantiation. |
 | `tla/` | TLA+ model and its TLC configs. |
 
 For T7, keep the quantifiers precise. `FrameQueryBounds A` carries the five
@@ -90,7 +90,8 @@ conflated with source checkpoint `2fe8354`.
   `|F| > 5`). State certificates at the level the game samples the
   secret: averaged.
 - **Recorded-build attestation.** A "builds green" claim requires a
-  fresh-clone root build (`lake exe cache get` + full `lake build`) at a
+  fresh-clone root build (`make build`, i.e. `lake exe cache get` + full
+  `lake build` in `lean/`) at a
   named SHA, recorded in-repo. Token greps are not evidence: the T7 stack
   audit (`research/raw/t7-stack-audit-2026-07-10.md`, F1) records
   non-compiling proof code committed twice while greps passed. CI builds

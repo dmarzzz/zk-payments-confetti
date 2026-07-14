@@ -74,10 +74,10 @@ later, deposit to Bob"]
 3. **[`ROADMAP.md`](ROADMAP.md)** — what to prove next: the five open
    definitional issues (G1–G5) that block the campaign, the ranked
    theorem obligations, and which existing machinery seeds each one.
-4. **`Zkpc/`** — the Lean. `lake exe cache get && lake build`
-   kernel-checks everything (toolchain pinned; see
+4. **`lean/Zkpc/`** — the Lean. `make build` kernel-checks everything
+   (equivalently `cd lean && lake exe cache get && lake build`; see
    [`CONTRIBUTING.md`](CONTRIBUTING.md) for the rules: zero `sorry`, no
-   axioms outside `Zkpc/Assumptions.lean`, secret-averaged certificates
+   axioms outside `lean/Zkpc/Assumptions.lean`, secret-averaged certificates
    only).
 
 Everything else — the adversarial definition-review record ("gates"),
@@ -97,7 +97,7 @@ reports — lives under [`research/`](research/):
 | `STATUS.md` | Current proof + attestation state. |
 | `ROADMAP.md` | The worklist: Spec-v2 gate rounds, then the ranked obligations. |
 | `CONTRIBUTING.md` | Prover's guide: model boundary, rules, conventions. |
-| `Zkpc/`, `tla/` | The Lean formalization and the TLA+ model. |
+| `lean/Zkpc/`, `tla/` | The Lean formalization and the TLA+ model. |
 | `research/processed/` | Distilled: gate decisions, method, field report. |
 | `research/raw/` | Unabridged: gate logs, audits, rev-11 spec, process docs. |
 | `research/paper/` | The systematization draft (rev-11-scoped; restructure pending). |

@@ -40,24 +40,24 @@ with a worked template in the tree. Anyone extending the verification is
 writing one of these:
 
 - **Safety invariants over a transition system** (induction on a
-  reachability predicate). Templates: `Zkpc/Core/T1.lean` (old object),
-  `Zkpc/Chain/State.lean` (new protocol).
+  reachability predicate). Templates: `lean/Zkpc/Core/T1.lean` (old object),
+  `lean/Zkpc/Chain/State.lean` (new protocol).
 - **Game-based perfect indistinguishability by random-oracle coupling**
   (reduce advantage to one per-challenge distributional equality, then a
   measure-preserving bijection on the oracle cache). Templates:
-  `Zkpc/Games/{Coupling,FlatInstance,T4}.lean`; the intended engine for
+  `lean/Zkpc/Games/{Coupling,FlatInstance,T4}.lean`; the intended engine for
   the new protocol's per-request anonymity theorem.
 - **Constructive distinguishers and must-win adversaries** (build one
   explicit adversary, compute its advantage exactly). Template:
-  `Zkpc/Games/Calibration.lean`. This is also the anti-vacuity
+  `lean/Zkpc/Games/Calibration.lean`. This is also the anti-vacuity
   discipline: every game ships with schemes it must catch and schemes it
   must pass.
 - **Reductions, game hopping, and query charging** (bound advantage by a
   chain of hops with named bad events and charged oracle queries).
-  Templates: `Zkpc/Games/T7.lean` plus the FRAME campaign
-  (`Zkpc/Games/Frame*.lean`), whose secret-averaged deferred-sampling
+  Templates: `lean/Zkpc/Games/T7.lean` plus the FRAME campaign
+  (`lean/Zkpc/Games/Frame*.lean`), whose secret-averaged deferred-sampling
   apparatus is what the new protocol's non-frameability bound needs.
-- **Field and algebra lemmas.** Template: `Zkpc/Games/RLN.lean`
+- **Field and algebra lemmas.** Template: `lean/Zkpc/Games/RLN.lean`
   (historical; the new protocol has no RLN layer).
 
 ## Where humans are still required

@@ -15,7 +15,7 @@ body:
     attributes:
       label: Theorem names and files
       placeholder: |
-        Zkpc/Chain/Collision.lean : stale_close_detectable_ro
+        lean/Zkpc/Chain/Collision.lean : stale_close_detectable_ro
     validations:
       required: true
   - type: textarea

@@ -1,7 +1,7 @@
 # Zkpc/ — module map
 
-`lake exe cache get && lake build` from the repo root kernel-checks
-everything (or `make build`). Rules in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
+`make build` from the repo root kernel-checks everything
+(equivalently `cd lean && lake exe cache get && lake build`). Rules in [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
 
 ## New protocol (`PROTOCOL.md`) — the live target
 

@@ -47,8 +47,8 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
 ## Phase 1+ — theorem obligations (ranked)
 
 1. **Safety core on the new transition machine.** Seed: merge
-   `Zkpc/Chain/State.lean` with the netting/forfeit skeleton of
-   `Zkpc/Refund/State.lean`. Prove conservation, no-overspend
+   `lean/Zkpc/Chain/State.lean` with the netting/forfeit skeleton of
+   `lean/Zkpc/Refund/State.lean`. Prove conservation, no-overspend
    (`Σδ ≤ D` via STARK knowledge-soundness through the
    genesis-or-Bob-signed disjunction, chain contiguity, PQ-EUF-CMA, G1
    binding), no-overpay-recovery, honest-close-exact — with
@@ -59,8 +59,8 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
 2. **Collision-challenge soundness, de-idealized, both directions.**
    Stale-close-always-challengeable and honest-close-never-challengeable
    with (a) a lazy random-oracle chain model (adapt
-   `Zkpc/Crypto/FSRom.lean`) and a *proven* `n²/|N|` collision bound
-   (currently docstring-only in `Zkpc/Chain/Collision.lean`), (b)
+   `lean/Zkpc/Crypto/FSRom.lean`) and a *proven* `n²/|N|` collision bound
+   (currently docstring-only in `lean/Zkpc/Chain/Collision.lean`), (b)
    commitment binding as an assumption rather than by construction, (c)
    challenge-evidence validity as defined in Spec-v2.
 3. **Challenge non-frameability (the T7 successor).** No q-query
@@ -82,7 +82,7 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    hidden-balance necessity lemma), must-fail clear/bit-identical
    signatures, must-fail linkable nullifiers, must-pass the real scheme;
    plus challenge-fires witnesses (`T4Fires` port). The existing
-   `Zkpc/Chain/Anonymity.lean` (two payments, same δ, no oracles) is the
+   `lean/Zkpc/Chain/Anonymity.lean` (two payments, same δ, no oracles) is the
    warm-up, not this.
 5. **Close-window liveness.** The two-timer structure (90-day absolute,
    7-day on-request), the G3 challenge window, and AWOL-forfeit under weak
@@ -112,8 +112,8 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
 
 | Existing material | Role in v2 |
 |---|---|
-| `Zkpc/Chain/*` | Primary seed (obligations 1, 2, 4). Carries three disclosed fiats to discharge; see module docstrings. |
-| `Zkpc/Games/Framework.lean`, T7 generic lemmas (`frame_inner_bound`, `frame_blind_bound`) | Keep verbatim. |
+| `lean/Zkpc/Chain/*` | Primary seed (obligations 1, 2, 4). Carries three disclosed fiats to discharge; see module docstrings. |
+| `lean/Zkpc/Games/Framework.lean`, T7 generic lemmas (`frame_inner_bound`, `frame_blind_bound`) | Keep verbatim. |
 | FRAME deferred-sampling stack (`FrameDeferred*`, `FrameDSCount*`, `FrameGoodSlice*`, `FrameComplete`) | The query-charging engine for obligation 3. |
 | `Unlink`/`Coupling`/`FlatInstance`/`T4`/`T4Fires`/`Calibration` | The anonymity engine for obligation 4 (rework against the chain view). |
 | `Refund/State.lean` netting + forfeit skeleton, `Core/T5.lean` clock lemmas | Seeds for obligations 1 and 5. |
@@ -137,10 +137,11 @@ result here. Tracked: [#15](https://github.com/dmarzzz/zk-payments-confetti/issu
 ## Ground rules for a contribution (unchanged)
 
 - Toolchain pinned: `leanprover/lean4:v4.30.0`, mathlib v4.30.0, VCV-io at
-  `8f5dc4f`. `lake exe cache get` then `lake build`; cap parallelism with
+  `8f5dc4f`. `make build` from the repo root (the Lean project lives in
+  `lean/`); cap parallelism with
   `LEAN_NUM_THREADS=N`.
 - Zero `sorry`, zero `admit`, zero `native_decide`, no `axiom` outside
-  `Zkpc/Assumptions.lean`. CI greps for all four on every push, including
+  `lean/Zkpc/Assumptions.lean`. CI greps for all four on every push, including
   comments.
 - Every theorem carries an English docstring restating it and citing its
   spec clause (Spec-v2 once frozen; `PROTOCOL.md` sections until then).
