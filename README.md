@@ -19,7 +19,8 @@ instance. This repo builds both halves of what is missing:
    `paper/` (the systematization at paper altitude).
 
 2. **The verification.** A Lean 4 formalization of that definition over an
-   idealized ledger, with cryptography axiomatized in one file. The
+   idealized ledger, with cryptography represented by explicit ideal
+   reference constructions. The
    headline is spend unlinkability proved with advantage exactly zero, to
    our knowledge the first machine-checked spend-unlinkability result for
    any payment-channel or credit construction. Alongside it: no-overspend,
@@ -48,51 +49,83 @@ shapes:
   calibration battery and the exculpability breaks. Template:
   `Zkpc/Games/Calibration.lean`.
 - **Reductions and game hopping** (bound advantage by a chain of hops with
-  a named bad event). This is the hardest shape and where the largest open
-  work sits. Partial template: `Zkpc/Games/T7.lean`.
+  a named bad event). This is the hardest shape. Template:
+  `Zkpc/Games/T7.lean`, with the FRAME campaign files
+  (`Zkpc/Games/Frame{Factor,Assembly,Transfer}.lean`) as the worked
+  large-scale example.
 - **Field and algebra lemmas** (the RLN line arithmetic). Template:
   `Zkpc/Games/RLN.lean`.
 
-## Proofs that still need writing
+## Proof status and remaining scope
 
-`OPEN-PROOFS.md` is the worklist. It lists every proved theorem with its
-Lean name and file, the five classes with their templates, and the open
-obligations ranked by value. The short version of what is open:
+`OPEN-PROOFS.md` is now a proof inventory and extension worklist. The main
+change in this release is the completed, corrected T7 route. For every
+adversary `A` carrying `qb : FrameQueryBounds A`, the public theorem
+`T7_frame_query_bound_unconditional` bounds the secret-averaged FRAME win
+probability by
 
-- the unconditional form of the exculpability bound (T7), currently proved
-  under a stated good-event hypothesis; discharging it is the hardest and
-  highest-value open proof;
-- the zero-knowledge bridge that carries the perfect unlinkability result
-  from the idealized view to the real wire protocol;
-- the remaining per-instance obligations for the refund variant;
-- extending the refund safety layer from a single channel to the fleet;
-- a small challenge-fires lemma that hardens the headline's non-vacuity by
-  construction (a good first task).
+```text
+(qb.total + 1) / |F|,
+where qb.total = q_A + q_E + q_Id + q_Nf·q_sig + q_sig².
+```
 
-If you are pointing a swarm at this, start from `OPEN-PROOFS.md`, read the
-template file for the class you are taking, and read the relevant `Spec.md`
-clause and `research_knowledge/gates.md` entry so you are proving against
-the intended definition rather than around it.
+This endpoint has no residual coupling or counting hypotheses. The proof
+chain is split across the adaptive good-slice induction
+(`frameGoodSliceTransfer_of_tape` in
+`Zkpc/Games/FrameGoodSliceTapeInduction.lean`), the deferred bad-mass count
+(`dsBadMassLe_of_queryBounds` in
+`Zkpc/Games/FrameDSCountInduction.lean`), their assembly in
+`Zkpc/Games/FrameComplete.lean`, and the scheme-facing constructor
+`T7Certificate.ofQueryBounds` in `Zkpc/Composition/EndToEnd.lean`.
 
-## Why the definitions can be trusted before the proofs are read
+The older pointwise-in-secret deferred-sampling certificate is not part of
+this claim. It is formally refuted by `frameDeferredSampling_refuted` in
+`Zkpc/Games/FrameDeferred.lean`; the security game itself samples the secret,
+so the corrected theorem works at exactly that secret-averaged level.
+
+The source-level claim above was validated at checkpoint `abb878f`: a fresh
+checkout restored 8,283 cached files, the Lean 4.30.0 root build completed
+all 3,595 jobs, the exact T7/composition/scaling/refund endpoint axiom capture
+used only standard Lean axioms, and the source scans plus diff hygiene checks
+were clean. This checkpoint does not by itself validate the later final
+documentation/PDF head; that exact SHA will be recorded in the PR and issues
+after the PDF is regenerated and visually inspected.
+
+The finite endpoint also does not by itself prove asymptotic negligibility
+for every PPT adversary or give a reduction for a deployed hash function.
+The Fiat--Shamir results are for the stated ideal lazy-ROM reference model;
+concrete-hash, DDH/IND-CPA refund encryption, shared-key multi-query EUF-CMA,
+and adaptive multi-session threshold/network reductions remain separate
+research extensions.
+
+If you are extending the project, start from `OPEN-PROOFS.md`, the template
+for the relevant proof class, the corresponding `Spec.md` clause, and the
+gate record in `research_knowledge/gates.md`.
+
+## Separating definition review from proof checking
 
 The whole design rests on an evaluation asymmetry. Agent-produced research
 usually dies at review because checking it costs as much as producing it.
 Machine-checked proofs invert that: if `lake build` passes with no `sorry`
 and the axiom audit is clean, the proofs are correct, and the only thing
-left for human judgment is whether the theorem statements say what was
-meant. The trust surface shrinks from everything to one page, `Spec.md`.
+left for human judgment is whether the theorem statements and model say
+what was meant. That judgment surface is concentrated in `Spec.md` and the
+security-game definitions; `Spec.md` is a substantial revision-controlled
+document, not literally a one-page artifact.
 
-That page was hardened accordingly. It went through eleven rounds of
-adversarial definition review (the full record, with every counterexample,
-is `research_knowledge/gates.md`), the security games through three more,
-an independent statement audit, an axiom audit, a vacuity review, and a
-simulated external-cryptographer review that strengthened the unlinkability
-game rather than narrowing it. The field has already shown the one failure
-mode that survives this setup: A2L's privacy model passed peer review in
-2021 and was shown a year later to admit insecure instantiations. Wrong
-definition, correct proof. That is precisely where the review effort was
-concentrated here.
+The definitions were hardened by eleven rounds of adversarial agent review
+(the full record, with every counterexample, is
+`research_knowledge/gates.md`), the security games by five more agent rounds,
+plus agent-run statement, axiom, vacuity, and simulated
+external-cryptographer reviews. Those exercises strengthened the
+unlinkability game rather than narrowing it. They are evidence, but they do
+**not** satisfy the executor contract's independent-human acceptance gate:
+B1, B3, and K1 still require a human who did not write the statements to
+review and sign off, and K4 still requires a real outside cryptographer rather
+than the recorded simulated-external exercise. The field has already shown
+why that distinction matters: A2L's privacy model passed peer review in 2021
+and was shown a year later to admit insecure instantiations. Wrong definition,
+correct proof. That is precisely where the remaining human review belongs.
 
 One unplanned result is worth flagging for anyone assessing the method: a
 TLA+ model checker independently found the deepest definitional hole (a
@@ -102,26 +135,50 @@ on the same defect and the same fix.
 
 ## Status
 
-The definition is frozen (`Spec.md`, revision 11, gate-signed). The core
-theorems, the unlinkability headline, the fleet and exculpability bounds,
-the calibration pair, and the refund safety layer are proved and
-kernel-checked; the axiom audit shows only the three standard Lean axioms
-(`research_knowledge/k2-axiom-audit.md`). The open obligations in
-`OPEN-PROOFS.md` are the remaining work. Nothing in this repo is verified
-until the kernel says so, and this README does not claim otherwise.
+The definition is at agent-reviewed revision 11; the required independent
+human sign-off is still pending. The source tree contains the core safety
+theorems, perfect unlinkability and its challenge-fires witness, fleet and
+refund results, ideal-model ZK bridges,
+executable refinements, network reference constructions, the nullifier-chain
+instantiation, and the completed secret-averaged T7 endpoint described above.
+`Zkpc/Composition/EndToEnd.lean` consumes T7 through
+`T7Certificate.ofQueryBounds` and exposes flat and refund end-to-end
+constructors with no additional T7 transfer/counting certificate. Those
+constructors still require their operational trace, key/time, and completion
+premises; “unconditional” in their Lean names refers only to discharging the
+T7 certificate from `FrameQueryBounds`.
+
+The precise T7 claim is finite and query-bounded: for every `A` with
+`qb : FrameQueryBounds A`, `frameWinProb` is at most
+`(qb.total + 1) / |F|`. It is not a pointwise-in-secret statement, an
+asymptotic PPT theorem, or a deployed-cryptography claim; it is the
+mechanized finite counterpart to, not a proof of, `Spec.md`'s literal
+PPT/negligibility clause. The Lean source and final endpoint axioms are
+validated at `abb878f`; the synchronized 12-page PDF was regenerated and
+verified page by page. The exact release SHA is recorded externally after
+the release commit exists.
+
+`Zkpc/Games/FrameAsymptotic.lean` provides only a conditional scaling lift:
+its first theorem transfers an explicit negligibility hypothesis for the
+displayed query/field-size ratio, while its corollary derives that hypothesis
+from an explicit polynomial numerator bound together with negligible inverse
+field size. Both require per-parameter query certificates. Neither defines
+PPT adversaries, derives query bounds or field growth from PPT, or reduces a
+deployed primitive.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
 | `Spec.md` | The definition and the seven theorem statements. The trust surface. |
-| `OPEN-PROOFS.md` | The proof worklist: proved theorems, the five classes with templates, open obligations. |
+| `OPEN-PROOFS.md` | Proof inventory, completed theorem chains, reusable templates, research extensions, and release gates. |
 | `Zkpc/` | The Lean formalization (`lake build` kernel-checks it). |
+| `Zkpc/Chain/` | Instantiation C: the nullifier-chain channel (state machine, collision bound, anonymity, executable refinement). |
 | `paper/` | The systematization, the placement table, the theorem-to-file map, the ethresear.ch post form. |
 | `RESEARCH.md` | The verified field report: six literature angles, ten open problems. |
-| `BRIEF.md` | The executor contract: model boundary, theorem targets, milestones, gates. |
-| `DELIVERY.md` | What got proved, in two paragraphs, plus the package manifest. |
-| `research_knowledge/` | The gate record, the audits (K1 statement, K2 axiom, K3 vacuity, K4 external), the VCV-io prover-choice survey, the TLA+ findings, the experiment outcome. |
+| `BRIEF.md` | The original executor contract: model boundary, theorem targets, milestones, gates (kept as provenance; `Spec.md` cites it). |
+| `PROVING.md` | One-page contributor guide: model boundary, rules, how to add a theorem. |
+| `research_knowledge/` | The gate record, the audits (K1 statement, K2 axiom, K3 vacuity, simulated K4 exercise, T7 stack), the VCV-io prover-choice survey, the TLA+ findings, the experiment outcome. |
 | `tla/` | The TLA+ model and its model-checking configs. |
 
 ## Provenance
@@ -131,4 +188,6 @@ Born from the payment-design question in the reputation-gated egress post
 github.com/dmarzzz/reputation-gated-onion-egress) and a conversation about
 whether zk payment channel literature should exist. The research sweep, the
 brief, the definitions, and the proofs were produced agentically; the
-definitions were reviewed adversarially, which is the entire design.
+definitions were reviewed adversarially by independent agents. The separate
+human acceptance and real outside K4 review required by `BRIEF.md` remain to
+be logged.

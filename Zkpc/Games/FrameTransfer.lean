@@ -1,0 +1,573 @@
+import Zkpc.Games.FrameAssembly
+
+/-!
+# The real-side bad-mass route to the k-averaged T7 certificate (Spec.md §7 T7)
+
+`Zkpc/Games/FrameAssembly.lean` reduced the unconditional T7 endpoint to
+three named residuals: `FrameGoodSliceTransfer`, `FrameBadMassTransfer`,
+and `GhostSlopeBadBounds`. This file records a **statement-level warning**
+about `FrameBadMassTransfer` and lands the safer alternative assembly that
+bypasses it.
+
+## Why `FrameBadMassTransfer` is second-order delicate
+
+`FrameBadMassTransfer` asks for real-bad ≤ ghost-bad, k-averaged. It is
+**not per-transcript dominated**. Off the bad event, the real run is
+re-parameterizable by its answer transcript: each consumed honest signal
+contributes `y = k + a·x` with a single-use hidden slope, so conditioned on
+a fixed answer transcript the consumed slopes are the *deterministic
+`k`-roots* `a_i = (y_i − k)/x_i`, correlated through the one deferred `k`,
+whereas the ghost slopes are independent uniforms. Example: two consumed
+signals and one `H_nf` probe `q`, no direct secret probes. Conditioned on a
+generic transcript the real leakage event is `k ∈ {y₁ − q·x₁, y₂ − q·x₂,
+(y₁x₂ − y₂x₁)/(x₂ − x₁)}` — exactly `3/|F|` — while the ghost leakage mass
+is `Pr[q = a'₁ ∨ q = a'₂ ∨ a'₁ = a'₂] = 3/|F| − 2/|F|²`, *strictly
+smaller*. The k-averaged inequality can therefore only hold (if it holds)
+by exact cancellation against transcripts with coincident roots; no
+per-step or per-transcript coupling argument can close it, and any attempt
+must carry exact second-order bookkeeping.
+
+## The union-bound-clean alternative
+
+By contrast, the *direct* real-side bound
+`Pr[FrameLeakBad] ≤ qb.total/|F|` is first-order clean under the same
+re-parameterization: every branch of the leakage event pins the deferred
+uniform `k` to at most one root (or an unconsumed fresh slope to at most
+one value) per budget pair — `qA + qE + qId` direct-probe roots,
+`qNf · qSig` slope-probe roots, `qSig²` collision roots — so plain union
+bounds suffice, exactly as in the ghost lane's tape argument. The
+definition `FrameRealBadMassLe` names that obligation, and the assembly
+below shows it (together with the good-slice transfer) suffices for the
+complete corrected endpoint, with **no** ghost-side bad-mass comparison at
+all. The endpoint therefore has two independent routes:
+
+* route A (`FrameAssembly`): `FrameGoodSliceTransfer` +
+  `FrameBadMassTransfer` + `GhostSlopeBadBounds`;
+* route B (this file): `FrameGoodSliceTransfer` + `FrameRealBadMassLe`.
+-/
+
+open OracleSpec OracleComp
+
+namespace Zkpc.Games
+
+variable {F : Type} [Field F] [DecidableEq F] [SampleableType F]
+variable {M : Type} [DecidableEq M]
+
+section RealBadRoute
+
+variable [Fintype F]
+
+/-! ## Algebraic roots for the direct real-side route -/
+
+/-- The unique secret whose reconstructed line slope at `(x,y)` equals the
+candidate slope `q`. -/
+def slopeHitRoot (x y q : F) : F := y - q * x
+
+/-- A candidate slope hits the reconstructed slope exactly at its singleton
+secret root. -/
+theorem reconstructedSlope_eq_iff_secret_eq_root
+    (x y q k : F) (hx : x ≠ 0) :
+    (y - k) / x = q ↔ k = slopeHitRoot x y q := by
+  rw [div_eq_iff hx]
+  unfold slopeHitRoot
+  constructor <;> intro h
+  · linear_combination -h
+  · linear_combination -h
+
+/-- The unique secret at which two reconstructed slopes collide, when their
+nonzero line abscissas differ. -/
+def slopeCollisionRoot (x₁ y₁ x₂ y₂ : F) : F :=
+  (y₂ * x₁ - y₁ * x₂) / (x₁ - x₂)
+
+/-- Two reconstructed slopes at distinct nonzero abscissas collide exactly
+at one secret root. -/
+theorem reconstructedSlopes_eq_iff_secret_eq_collisionRoot
+    (x₁ y₁ x₂ y₂ k : F) (hx₁ : x₁ ≠ 0) (hx₂ : x₂ ≠ 0)
+    (hne : x₁ ≠ x₂) :
+    (y₁ - k) / x₁ = (y₂ - k) / x₂ ↔
+      k = slopeCollisionRoot x₁ y₁ x₂ y₂ := by
+  rw [div_eq_div_iff hx₁ hx₂]
+  unfold slopeCollisionRoot
+  have hsub : x₁ - x₂ ≠ 0 := sub_ne_zero.mpr hne
+  constructor <;> intro h
+  · rw [eq_div_iff hsub]
+    linear_combination h
+  · rw [eq_div_iff hsub] at h
+    linear_combination h
+
+/-- Public line coordinates retained by the deferred real-side transcript. -/
+structure DeferredLine (F : Type) where
+  x : F
+  y : F
+
+/-- Extend the deferred public-line transcript with a returned honest signal.
+Only spend and legacy-close operations can return line coordinates. -/
+def recordDeferredLine : (op : FrameOp F M) →
+    (frameSpec F M).Range op →
+    List (DeferredLine F) → List (DeferredLine F)
+  | .spend _, some signal, lines => ⟨signal.x, signal.y⟩ :: lines
+  | .close, some signal, lines => ⟨signal.x, signal.y⟩ :: lines
+  | _, _, lines => lines
+
+/-- Real audited state decorated with the public lines returned to the
+adversary. The decoration is write-only. -/
+structure LineAuditedFrameSt (F M : Type) where
+  audited : AuditedFrameSt F M
+  lines : List (DeferredLine F)
+
+/-- Empty public-line decoration over an arbitrary audited state. -/
+def LineAuditedFrameSt.init (s : AuditedFrameSt F M) : LineAuditedFrameSt F M :=
+  ⟨s, []⟩
+
+/-- Audited real handler with an observational public-line transcript. -/
+def lineAuditedFrameImpl (k : F) (mclose : M) :
+    QueryImpl.Stateful unifSpec (frameSpec F M) (LineAuditedFrameSt F M) :=
+  fun op => StateT.mk fun s =>
+    ((auditedFrameImpl k mclose) op).run s.audited >>= fun p =>
+      pure (p.1, ⟨p.2, recordDeferredLine op p.1 s.lines⟩)
+
+/-- Recording a public line grows the transcript by at most one and only on
+a signal-classified operation. -/
+theorem recordDeferredLine_length_le (op : FrameOp F M)
+    (answer : (frameSpec F M).Range op) (lines : List (DeferredLine F)) :
+    (recordDeferredLine op answer lines).length ≤
+      lines.length + if isSignalQuery op then 1 else 0 := by
+  cases op <;> simp [recordDeferredLine, isSignalQuery] <;>
+    cases answer <;> simp [recordDeferredLine]
+
+/-- One decorated query projects exactly to the ordinary audited query. -/
+theorem lineAuditedFrameImpl_project_step (k : F) (mclose : M)
+    (op : FrameOp F M) (s : LineAuditedFrameSt F M) :
+    Prod.map id LineAuditedFrameSt.audited <$>
+        ((lineAuditedFrameImpl k mclose) op).run s =
+      ((auditedFrameImpl k mclose) op).run s.audited := by
+  simp [lineAuditedFrameImpl, StateT.run_mk]
+
+/-- Exact adaptive-run projection of the public-line ornament. -/
+theorem lineAuditedFrameImpl_run_project (k : F) (mclose : M)
+    {α : Type} (oa : OracleComp (frameSpec F M) α)
+    (s : LineAuditedFrameSt F M) :
+    Prod.map id LineAuditedFrameSt.audited <$>
+        (simulateQ (lineAuditedFrameImpl k mclose) oa).run s =
+      (simulateQ (auditedFrameImpl k mclose) oa).run s.audited := by
+  refine OracleComp.map_run_simulateQ_eq_of_query_map_eq
+    (impl₁ := lineAuditedFrameImpl k mclose)
+    (impl₂ := auditedFrameImpl k mclose)
+    (proj := fun st : LineAuditedFrameSt F M => st.audited) ?_ oa s
+  intro op st
+  exact lineAuditedFrameImpl_project_step k mclose op st
+
+/-- Every supported decorated step grows the public-line transcript according
+to the signal-query budget. -/
+theorem lineAuditedFrameImpl_lines_step (k : F) (mclose : M)
+    (op : FrameOp F M) (s : LineAuditedFrameSt F M)
+    (z : (frameSpec F M).Range op × LineAuditedFrameSt F M)
+    (hz : z ∈ support (((lineAuditedFrameImpl k mclose) op).run s)) :
+    z.2.lines.length ≤ s.lines.length +
+      if isSignalQuery op then 1 else 0 := by
+  unfold lineAuditedFrameImpl at hz
+  simp only [StateT.run_mk] at hz
+  obtain ⟨p, hp, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  rw [support_pure, Set.mem_singleton_iff] at hz
+  subst hz
+  exact recordDeferredLine_length_le op p.1 s.lines
+
+/-- A query-bounded decorated run returns at most `qSig` public lines. -/
+theorem lineAuditedFrameImpl_run_lines_bound (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F)
+    (s : LineAuditedFrameSt F M)
+    (z : Evidence F × LineAuditedFrameSt F M)
+    (hz : z ∈ support ((simulateQ (lineAuditedFrameImpl k mclose) (A cm)).run s)) :
+    z.2.lines.length ≤ s.lines.length + qb.qSig :=
+  support_measure_le_of_isQueryBoundP
+    (lineAuditedFrameImpl k mclose) (fun u => u.lines.length) isSignalQuery
+    (fun t u y hy => lineAuditedFrameImpl_lines_step k mclose t u y hy)
+    (A cm) (qb.signal_bound cm) s z hz
+
+/-- Initial line-audited state after programming the public identity
+commitment. -/
+def lineAuditedFrameInitial (k cm : F) : LineAuditedFrameSt F M :=
+  LineAuditedFrameSt.init
+    ⟨{ FrameSt.init F M with
+        roId := Function.update (FrameSt.init F M).roId k (some cm) },
+      FrameAudit.init⟩
+
+/-- Complete real run retaining the public line transcript. -/
+def lineAuditedFrameRun (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) (k : F) :
+    ProbComp (Evidence F × LineAuditedFrameSt F M) := do
+  let cm ← ($ᵗ F)
+  (simulateQ (lineAuditedFrameImpl k mclose) (A cm)).run
+    (lineAuditedFrameInitial k cm)
+
+/-- Erasing the public-line ornament recovers the ordinary audited real run
+exactly. -/
+theorem lineAuditedFrameRun_project (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) (k : F) :
+    Prod.map id LineAuditedFrameSt.audited <$>
+        lineAuditedFrameRun mclose A k = auditedFrameRun mclose A k := by
+  unfold lineAuditedFrameRun auditedFrameRun
+  rw [map_bind]
+  refine bind_congr fun cm => ?_
+  exact lineAuditedFrameImpl_run_project k mclose (A cm)
+    (lineAuditedFrameInitial k cm)
+
+/-- Every supported complete line-audited run records at most `qSig` public
+lines. -/
+theorem lineAuditedFrameRun_lines_bound (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (k : F)
+    (z : Evidence F × LineAuditedFrameSt F M)
+    (hz : z ∈ support (lineAuditedFrameRun mclose A k)) :
+    z.2.lines.length ≤ qb.qSig := by
+  unfold lineAuditedFrameRun at hz
+  obtain ⟨cm, -, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  have h := lineAuditedFrameImpl_run_lines_bound k mclose A qb cm
+    (lineAuditedFrameInitial k cm) z hz
+  simpa [lineAuditedFrameInitial, LineAuditedFrameSt.init] using h
+
+/-- All singleton roots generated by candidate slopes against consumed public
+lines. Multiplicity is retained for direct budget accounting. -/
+def slopeHitRoots (probes : List F) (lines : List (DeferredLine F)) : List F :=
+  lines.flatMap fun line => probes.map fun q => slopeHitRoot line.x line.y q
+
+/-- All ordered-pair collision roots. Pairs with equal abscissas are harmless
+padding here; the semantic implication uses the distinct-abscissa kernel. -/
+def slopeCollisionRoots (lines : List (DeferredLine F)) : List F :=
+  lines.flatMap fun left =>
+    lines.map fun right => slopeCollisionRoot left.x left.y right.x right.y
+
+/-- The slope-hit root list has exactly one entry per line/probe pair. -/
+theorem slopeHitRoots_length (probes : List F)
+    (lines : List (DeferredLine F)) :
+    (slopeHitRoots probes lines).length = lines.length * probes.length := by
+  induction lines with
+  | nil => simp [slopeHitRoots]
+  | cons line lines ih =>
+      simp [slopeHitRoots, Nat.add_mul, Nat.add_comm]
+
+/-- The padded collision-root list has exactly the square number of entries. -/
+theorem slopeCollisionRoots_length (lines : List (DeferredLine F)) :
+    (slopeCollisionRoots lines).length = lines.length * lines.length := by
+  unfold slopeCollisionRoots
+  simp [List.length_flatMap]
+
+/-- Complete fixed-transcript root candidate list for the direct real-side
+union bound. -/
+def frameRealRootCandidates (direct probes : List F)
+    (lines : List (DeferredLine F)) : List F :=
+  direct ++ slopeHitRoots probes lines ++ slopeCollisionRoots lines
+
+/-- Exact first-order root count before substituting query budgets. -/
+theorem frameRealRootCandidates_length (direct probes : List F)
+    (lines : List (DeferredLine F)) :
+    (frameRealRootCandidates direct probes lines).length =
+      direct.length + lines.length * probes.length + lines.length * lines.length := by
+  simp [frameRealRootCandidates, slopeHitRoots_length,
+    slopeCollisionRoots_length, Nat.add_assoc]
+
+/-- Query-budget substitution for the complete fixed-transcript root list. -/
+theorem frameRealRootCandidates_length_le (direct probes : List F)
+    (lines : List (DeferredLine F)) (qDirect qNf qSig : ℕ)
+    (hdirect : direct.length ≤ qDirect) (hprobes : probes.length ≤ qNf)
+    (hlines : lines.length ≤ qSig) :
+    (frameRealRootCandidates direct probes lines).length ≤
+      qDirect + qNf * qSig + qSig * qSig := by
+  rw [frameRealRootCandidates_length]
+  have hhit : lines.length * probes.length ≤ qNf * qSig := by
+    simpa [Nat.mul_comm] using Nat.mul_le_mul hlines hprobes
+  have hcollision : lines.length * lines.length ≤ qSig * qSig :=
+    Nat.mul_le_mul hlines hlines
+  omega
+
+/-- A deferred uniform secret lands in the fixed real root list with exactly
+the target first-order budget. -/
+theorem probEvent_uniform_mem_frameRealRootCandidates_le
+    (direct probes : List F) (lines : List (DeferredLine F))
+    (qDirect qNf qSig : ℕ)
+    (hdirect : direct.length ≤ qDirect) (hprobes : probes.length ≤ qNf)
+    (hlines : lines.length ≤ qSig) :
+    Pr[(fun k : F => k ∈ frameRealRootCandidates direct probes lines) | ($ᵗ F)]
+      ≤ ((qDirect + qNf * qSig + qSig * qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  refine (probEvent_uniform_mem_list_le
+    (frameRealRootCandidates direct probes lines)).trans ?_
+  refine mul_le_mul_right' (Nat.cast_le.2 ?_) _
+  exact frameRealRootCandidates_length_le direct probes lines
+    qDirect qNf qSig hdirect hprobes hlines
+
+/-- Two predicate-targeted query bounds combine into a bound for their union.
+The predicates may overlap; an overlapping query spends both source budgets,
+which is conservatively dominated by spending one unit from their sum. -/
+theorem isQueryBoundP_or {ι α : Type} {spec : OracleSpec ι}
+    (oa : OracleComp spec α) (p q : ι → Prop)
+    [DecidablePred p] [DecidablePred q] (n m : ℕ)
+    (hp : OracleComp.IsQueryBoundP oa p n)
+    (hq : OracleComp.IsQueryBoundP oa q m) :
+    OracleComp.IsQueryBoundP oa (fun t => p t ∨ q t) (n + m) := by
+  induction oa using OracleComp.inductionOn generalizing n m with
+  | pure x => trivial
+  | query_bind t k ih =>
+      rw [isQueryBoundP_query_bind_iff] at hp hq ⊢
+      constructor
+      · by_cases h : p t ∨ q t
+        · right
+          rcases h with h | h
+          · rcases hp.1 with hnp | hn
+            · exact (hnp h).elim
+            · omega
+          · rcases hq.1 with hnq | hm
+            · exact (hnq h).elim
+            · omega
+        · exact Or.inl h
+      · intro u
+        have hrest := ih u _ _ (hp.2 u) (hq.2 u)
+        refine hrest.mono ?_
+        have hpPos : p t → 0 < n := fun h => hp.1.resolve_left (not_not_intro h)
+        have hqPos : q t → 0 < m := fun h => hq.1.resolve_left (not_not_intro h)
+        by_cases hpt : p t
+        · have hn := hpPos hpt
+          by_cases hqt : q t
+          · have hm := hqPos hqt
+            simp [hpt, hqt]
+            omega
+          · simp [hpt, hqt]
+            omega
+        · by_cases hqt : q t
+          · have hm := hqPos hqt
+            simp [hpt, hqt]
+            omega
+          · simp [hpt, hqt]
+
+/-- The three direct-secret query budgets combine into the aggregate audit
+classifier used by `FrameAudit.secretProbes`. -/
+theorem frameQueryBounds_secret_bound
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F) :
+    OracleComp.IsQueryBoundP (A cm)
+      (fun t => decide ((isDirectRoAQuery t = true ∨
+        isDirectRoEQuery t = true) ∨ isDirectRoIdQuery t = true) = true)
+      (qb.qA + qb.qE + qb.qId) := by
+  have hAE := isQueryBoundP_or (A cm)
+    (fun t => isDirectRoAQuery t = true)
+    (fun t => isDirectRoEQuery t = true) qb.qA qb.qE
+    (qb.roA_bound cm) (qb.roE_bound cm)
+  have hAEI := isQueryBoundP_or (A cm)
+    (fun t => isDirectRoAQuery t = true ∨ isDirectRoEQuery t = true)
+    (fun t => isDirectRoIdQuery t = true) (qb.qA + qb.qE) qb.qId
+    hAE (qb.roId_bound cm)
+  simpa only [decide_eq_true_eq, Nat.add_assoc] using hAEI
+
+/-- Structural audit bounds for a fixed-secret, fixed-commitment audited run.
+These are the support invariants consumed by each real bad-mass component
+induction. -/
+theorem auditedFrameImpl_run_audit_bounds (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (cm : F)
+    (z : Evidence F × AuditedFrameSt F M)
+    (hz : z ∈ support ((simulateQ (auditedFrameImpl k mclose) (A cm)).run
+      ⟨{ FrameSt.init F M with
+          roId := Function.update (FrameSt.init F M).roId k (some cm) },
+        FrameAudit.init⟩)) :
+    z.2.audit.secretProbes.length ≤ qb.qA + qb.qE + qb.qId ∧
+    z.2.audit.slopeProbes.length ≤ qb.qNf ∧
+    z.2.audit.honestSlopes.length ≤ qb.qSig := by
+  let s0 : AuditedFrameSt F M :=
+    ⟨{ FrameSt.init F M with
+        roId := Function.update (FrameSt.init F M).roId k (some cm) },
+      FrameAudit.init⟩
+  have hsecret := support_measure_le_of_isQueryBoundP
+    (auditedFrameImpl k mclose) (fun s => s.audit.secretProbes.length)
+    (fun t => (isDirectRoAQuery t = true ∨ isDirectRoEQuery t = true) ∨
+      isDirectRoIdQuery t = true)
+    (fun t s y hy => by
+      change y.2.audit.secretProbes.length ≤
+        s.audit.secretProbes.length +
+          if decide ((isDirectRoAQuery t = true ∨ isDirectRoEQuery t = true) ∨
+            isDirectRoIdQuery t = true) = true then 1 else 0
+      rw [auditedFrameImpl_support_audit k mclose t s y hy]
+      have ha := auditAfter_secret_length_le k t s.base y.2.base s.audit
+      cases t <;> simpa [isSecretProbe, isDirectRoAQuery, isDirectRoEQuery,
+        isDirectRoIdQuery] using ha)
+    (A cm) (frameQueryBounds_secret_bound A qb cm) s0 z hz
+  have hslope := support_measure_le_of_isQueryBoundP
+    (auditedFrameImpl k mclose) (fun s => s.audit.slopeProbes.length)
+    isSlopeProbe
+    (fun t s y hy => by
+      change y.2.audit.slopeProbes.length ≤
+        s.audit.slopeProbes.length + if isSlopeProbe t then 1 else 0
+      rw [auditedFrameImpl_support_audit k mclose t s y hy]
+      exact auditAfter_slope_length_le k t s.base y.2.base s.audit)
+    (A cm) (by simpa [isSlopeProbe, isDirectRoNfQuery] using qb.roNf_bound cm)
+    s0 z hz
+  have hhonest := support_measure_le_of_isQueryBoundP
+    (auditedFrameImpl k mclose) (fun s => s.audit.honestSlopes.length)
+    isHonestSignalOp
+    (fun t s y hy => by
+      change y.2.audit.honestSlopes.length ≤
+        s.audit.honestSlopes.length + if isHonestSignalOp t then 1 else 0
+      rw [auditedFrameImpl_support_audit k mclose t s y hy]
+      exact auditAfter_honest_length_le k t s.base y.2.base s.audit)
+    (A cm) (by simpa [isHonestSignalOp, isSignalQuery] using qb.signal_bound cm)
+    s0 z hz
+  constructor
+  · simpa [s0, FrameAudit.init] using hsecret
+  · constructor
+    · simpa [s0, FrameAudit.init] using hslope
+    · simpa [s0, FrameAudit.init] using hhonest
+
+/-- The same structural audit bounds after the public commitment is sampled
+inside the complete real run. -/
+theorem auditedFrameRun_audit_bounds (k : F) (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (z : Evidence F × AuditedFrameSt F M)
+    (hz : z ∈ support (auditedFrameRun mclose A k)) :
+    z.2.audit.secretProbes.length ≤ qb.qA + qb.qE + qb.qId ∧
+    z.2.audit.slopeProbes.length ≤ qb.qNf ∧
+    z.2.audit.honestSlopes.length ≤ qb.qSig := by
+  unfold auditedFrameRun at hz
+  obtain ⟨cm, -, hz⟩ := (mem_support_bind_iff _ _ _).mp hz
+  exact auditedFrameImpl_run_audit_bounds k mclose A qb cm z hz
+
+/-- Structural audit bounds over the complete secret-averaged real joint
+experiment. -/
+theorem auditedFrameJoint_audit_bounds (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (w : F × (Evidence F × AuditedFrameSt F M))
+    (hw : w ∈ support (auditedFrameJoint mclose A)) :
+    w.2.2.audit.secretProbes.length ≤ qb.qA + qb.qE + qb.qId ∧
+    w.2.2.audit.slopeProbes.length ≤ qb.qNf ∧
+    w.2.2.audit.honestSlopes.length ≤ qb.qSig := by
+  unfold auditedFrameJoint at hw
+  obtain ⟨k, -, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+  obtain ⟨z, hz, hw⟩ := (mem_support_bind_iff _ _ _).mp hw
+  rw [support_pure, Set.mem_singleton_iff] at hw
+  subst hw
+  exact auditedFrameRun_audit_bounds k mclose A qb z hz
+
+/-- **Direct real-side bad-mass obligation (named residual).** Over the
+audited joint FRAME experiment — honest secret first, exactly as the real
+game draws it — the audited leakage event has probability at most
+`qb.total/|F|`. Unlike `FrameBadMassTransfer`, this is a first-order
+union-bound target under the answer-transcript re-parameterization of the
+real run (each leakage branch pins the secret or one fresh slope to a
+single root per budget pair). -/
+def FrameRealBadMassLe (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) : Prop :=
+  Pr[= true | auditedFrameJoint mclose A >>= fun w =>
+      pure (decide (FrameLeakBad w.1 w.2.2.audit))]
+    ≤ (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+
+/-- The three first-order components of the real audited leakage event.  This
+is the exact real-side analogue of `GhostSlopeBadBounds`, with the direct
+secret channel included because the real run draws `k` first. -/
+structure FrameRealBadComponents (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) : Prop where
+  direct_secret :
+    Pr[fun w => w.1 ∈ w.2.2.audit.secretProbes | auditedFrameJoint mclose A]
+      ≤ ((qb.qA + qb.qE + qb.qId : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹
+  slope_hit :
+    Pr[fun w => ∃ slope ∈ w.2.2.audit.slopeProbes,
+        slope ∈ w.2.2.audit.honestSlopes | auditedFrameJoint mclose A]
+      ≤ ((qb.qNf * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹
+  honest_collision :
+    Pr[fun w => ¬ w.2.2.audit.honestSlopes.Nodup | auditedFrameJoint mclose A]
+      ≤ ((qb.qSig * qb.qSig : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹
+
+/-- Union-bound closure of the direct real-side bad mass.  All probability
+arithmetic is discharged here; the handler induction only has to construct
+the three component fields. -/
+theorem frameRealBadMassLe_of_components (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (h : FrameRealBadComponents mclose A qb) :
+    FrameRealBadMassLe mclose A qb := by
+  unfold FrameRealBadMassLe
+  rw [probOutput_bind_decide_eq_probEvent]
+  let direct : F × (Evidence F × AuditedFrameSt F M) → Prop :=
+    fun w => w.1 ∈ w.2.2.audit.secretProbes
+  let slopeHit : F × (Evidence F × AuditedFrameSt F M) → Prop :=
+    fun w => ∃ slope ∈ w.2.2.audit.slopeProbes,
+      slope ∈ w.2.2.audit.honestSlopes
+  let collision : F × (Evidence F × AuditedFrameSt F M) → Prop :=
+    fun w => ¬ w.2.2.audit.honestSlopes.Nodup
+  change Pr[fun w => direct w ∨ slopeHit w ∨ collision w |
+      auditedFrameJoint mclose A] ≤ _
+  refine le_trans
+    ((probEvent_or_le (auditedFrameJoint mclose A) direct
+      (fun w => slopeHit w ∨ collision w)).trans
+        (add_le_add le_rfl
+          (probEvent_or_le (auditedFrameJoint mclose A) slopeHit collision))) ?_
+  refine (add_le_add h.direct_secret
+    (add_le_add h.slope_hit h.honest_collision)).trans ?_
+  simp only [FrameQueryBounds.total, Nat.cast_add, Nat.cast_mul, add_mul]
+  simp only [add_assoc]
+  exact le_refl _
+
+/-- **Assembly of the corrected T7 certificate, real-side bad route**
+(Spec.md §7 T7). The good-slice transfer plus the direct real-side
+bad-mass bound construct the k-averaged deferred-sampling certificate,
+bypassing both the ghost bad-mass comparison (`FrameBadMassTransfer`) and
+the ghost slope socket (`GhostSlopeBadBounds`) entirely. -/
+noncomputable def frameDeferredSamplingAvg_of_goodSlice_and_realBad
+    (mclose : M) (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (hgood : FrameGoodSliceTransfer mclose A)
+    (hreal : FrameRealBadMassLe mclose A qb) :
+    FrameDeferredSamplingAvg mclose A qb where
+  idealEvidence := ghostFrameEvidence mclose A
+  close_avg := by
+    rw [frameRealSlashGame_eq_auditedJoint mclose A]
+    refine le_trans (probOutput_bind_decide_le_split (auditedFrameJoint mclose A)
+      (fun w => Slashes w.1 w.2.1) (fun w => FrameLeakBad w.1 w.2.2.audit)) ?_
+    exact add_le_add
+      (le_trans hgood
+        (le_of_eq (ghostFrameRun_win_eq_certificate_form mclose A)))
+      hreal
+
+/-- **The corrected FRAME bound, real-side bad route** (Spec.md §7 T7).
+For every query-bounded adversary, the good-slice transfer and the direct
+real-side bad-mass bound yield the complete corrected exculpability bound
+`(qb.total + 1)/|F|`. Together with route A of `FrameAssembly`, the
+unconditional T7 endpoint holds as soon as *either*
+`FrameBadMassTransfer + GhostSlopeBadBounds` *or* `FrameRealBadMassLe`
+is discharged alongside `FrameGoodSliceTransfer`. -/
+theorem T7_frame_query_bound_of_goodSlice_and_realBad (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A)
+    (hgood : FrameGoodSliceTransfer mclose A)
+    (hreal : FrameRealBadMassLe mclose A qb) :
+    frameWinProb mclose A
+      ≤ ((qb.total + 1 : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ :=
+  T7_frame_query_bound_avg mclose A qb
+    (frameDeferredSamplingAvg_of_goodSlice_and_realBad mclose A qb hgood hreal)
+
+end RealBadRoute
+
+end Zkpc.Games
+
+-- Kernel audit: only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
+#print axioms Zkpc.Games.T7_frame_query_bound_of_goodSlice_and_realBad
+#print axioms Zkpc.Games.frameRealBadMassLe_of_components
+#print axioms Zkpc.Games.isQueryBoundP_or
+#print axioms Zkpc.Games.frameQueryBounds_secret_bound
+#print axioms Zkpc.Games.auditedFrameImpl_run_audit_bounds
+#print axioms Zkpc.Games.auditedFrameRun_audit_bounds
+#print axioms Zkpc.Games.auditedFrameJoint_audit_bounds
+#print axioms Zkpc.Games.reconstructedSlope_eq_iff_secret_eq_root
+#print axioms Zkpc.Games.reconstructedSlopes_eq_iff_secret_eq_collisionRoot
+#print axioms Zkpc.Games.frameRealRootCandidates_length_le
+#print axioms Zkpc.Games.probEvent_uniform_mem_frameRealRootCandidates_le
+#print axioms Zkpc.Games.lineAuditedFrameImpl_project_step
+#print axioms Zkpc.Games.lineAuditedFrameImpl_run_project
+#print axioms Zkpc.Games.lineAuditedFrameImpl_run_lines_bound
+#print axioms Zkpc.Games.lineAuditedFrameRun_project
+#print axioms Zkpc.Games.lineAuditedFrameRun_lines_bound

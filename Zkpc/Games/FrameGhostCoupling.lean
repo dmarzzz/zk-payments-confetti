@@ -1,0 +1,214 @@
+import Zkpc.Games.FrameCoupling
+import Zkpc.Games.FrameGhostBounds
+import Zkpc.Games.FrameGhostCoverage
+
+/-!
+# Real/ghost FRAME coupling relation
+
+The audited real handler and the secret-independent ghost handler record the
+same semantic leakage transcript in different shapes: the real audit combines
+all direct-secret probes in one list, while the ghost audit keeps the three
+channels separate.  `RealGhostCoupled` is the run invariant needed by the
+off-bad simulation.  It relates the canonical secret-erased state, every
+materialized hidden slope, and membership in all three bad-event lists.
+
+This file establishes the programmed initial relation and, crucially, proves
+that the real and ghost bad predicates are equivalent under the relation.
+Thus later stepwise coupling may reason about one monotone bad flag without a
+second probability loss.
+-/
+
+open OracleSpec OracleComp
+
+namespace Zkpc.Games
+
+variable {F : Type} [Field F] [DecidableEq F] [SampleableType F]
+variable {M : Type} [DecidableEq M]
+
+/-- Coupling invariant between the secret-dependent audited real state and
+the secret-independent ghost state.  List order is intentionally abstracted
+to membership: the real audit interleaves three direct-secret channels whereas
+the ghost audit stores them separately, and the leakage predicate only tests
+membership. -/
+structure RealGhostCoupled (k : F) (r : AuditedFrameSt F M)
+    (g : GhostFrameSt F M) : Prop where
+  ideal : idealizeFrame k r = g.ideal
+  hiddenSlope : ∀ i, r.base.roA (k, i) = g.ghostSlope i
+  secretProbes : ∀ q, q ∈ r.audit.secretProbes ↔ q ∈ g.audit.secretProbes
+  slopeProbes : ∀ q, q ∈ r.audit.slopeProbes ↔ q ∈ g.audit.slopeProbes
+  honestSlopes : ∀ q, q ∈ r.audit.honestSlopes ↔ q ∈ g.audit.honestSlopes
+  honestNodup : r.audit.honestSlopes.Nodup ↔ g.audit.honestSlopes.Nodup
+
+/-- Programming `H_id(k)=cm` on the real side is erased by canonical
+idealization, so it couples to the empty ghost state. -/
+theorem realGhostCoupled_initial (k cm : F) :
+    RealGhostCoupled k
+      (⟨{ FrameSt.init F M with
+          roId := Function.update (FrameSt.init F M).roId k (some cm) },
+        FrameAudit.init⟩ : AuditedFrameSt F M)
+      (GhostFrameSt.init F M) := by
+  constructor
+  · exact idealizeFrame_initial k cm
+  · intro i
+    rfl
+  · intro q
+    simp [FrameAudit.init, GhostFrameSt.init, GhostAudit.init,
+      GhostAudit.secretProbes]
+  · intro q
+    simp [FrameAudit.init, GhostFrameSt.init, GhostAudit.init]
+  · intro q
+    simp [FrameAudit.init, GhostFrameSt.init, GhostAudit.init]
+  · simp [FrameAudit.init, GhostFrameSt.init, GhostAudit.init]
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- Under the coupling invariant, the real and deferred-secret ghost leakage
+events are definitionally the same three semantic cases: direct secret hit,
+slope-preimage hit, or honest-slope collision. -/
+theorem frameLeakBad_iff_ghostLeakBad {k : F} {r : AuditedFrameSt F M}
+    {g : GhostFrameSt F M} (h : RealGhostCoupled k r g) :
+    FrameLeakBad k r.audit ↔ GhostLeakBad k g.audit := by
+  unfold FrameLeakBad GhostLeakBad
+  constructor
+  · rintro (hk | ⟨s, hsP, hsH⟩ | hdup)
+    · exact Or.inl ((h.secretProbes k).1 hk)
+    · exact Or.inr (Or.inl ⟨s, (h.slopeProbes s).1 hsP,
+        (h.honestSlopes s).1 hsH⟩)
+    · exact Or.inr (Or.inr (fun hg => hdup (h.honestNodup.2 hg)))
+  · rintro (hk | ⟨s, hsP, hsH⟩ | hdup)
+    · exact Or.inl ((h.secretProbes k).2 hk)
+    · exact Or.inr (Or.inl ⟨s, (h.slopeProbes s).2 hsP,
+        (h.honestSlopes s).2 hsH⟩)
+    · exact Or.inr (Or.inr (fun hr => hdup (h.honestNodup.1 hr)))
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- Goodness is likewise shared exactly; no union-bound or conditioning loss
+is incurred when switching between the real and ghost transcript. -/
+theorem not_frameLeakBad_iff_not_ghostLeakBad {k : F}
+    {r : AuditedFrameSt F M} {g : GhostFrameSt F M}
+    (h : RealGhostCoupled k r g) :
+    (¬ FrameLeakBad k r.audit) ↔ (¬ GhostLeakBad k g.audit) :=
+  not_congr (frameLeakBad_iff_ghostLeakBad h)
+
+/-- The state component of the real/ghost invariant immediately supplies the
+existing real/ideal cache relation, so all exact public-step lemmas from
+`FrameIdeal` are reusable without reproving cache algebra. -/
+theorem RealGhostCoupled.frameCoupled {k : F} {r : AuditedFrameSt F M}
+    {g : GhostFrameSt F M} (h : RealGhostCoupled k r g) :
+    FrameCoupled k r g.ideal := by
+  rw [← h.ideal]
+  exact frameCoupled_idealize k r
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- Ghost-slope completeness transfers to the audited real state.  This is
+the prerequisite consumed by the materialized-`nfAt` and fresh-nullifier
+coupling lemmas. -/
+theorem RealGhostCoupled.frameAuditComplete {k : F}
+    {r : AuditedFrameSt F M} {g : GhostFrameSt F M}
+    (h : RealGhostCoupled k r g) (hg : GhostSlopesComplete g) :
+    FrameAuditComplete k r := by
+  intro i a ha
+  have hga : g.ghostSlope i = some a := by
+    rw [← h.hiddenSlope i]
+    exact ha
+  exact (h.honestSlopes a).2 (hg i a hga)
+
+omit [Field F] [SampleableType F] [DecidableEq M] in
+/-- Public-nullifier coverage transfers from the ghost run to the audited
+real state. A populated real entry is either at an already recorded honest
+slope, or survives canonical masking into the ghost public cache and was
+therefore an explicit adversarial slope probe. -/
+theorem RealGhostCoupled.roNfCovered {k : F} {r : AuditedFrameSt F M}
+    {g : GhostFrameSt F M} (h : RealGhostCoupled k r g)
+    (hg : GhostRoNfCovered g) : RoNfCovered r := by
+  intro aq v hr
+  by_cases ha : aq ∈ r.audit.honestSlopes
+  · exact Or.inr ha
+  · have hi : (idealizeFrame k r).roNf aq = some v := by
+      simp [idealizeFrame, ha, hr]
+    have hgi : g.ideal.roNf aq = some v := by
+      rw [← h.ideal]
+      exact hi
+    exact Or.inl ((h.slopeProbes aq).2 (hg aq v hgi))
+
+/-- All public FRAME operations have exactly the same answer and
+secret-erased-state distribution in the real and ghost worlds while the
+coupling stays good. Direct secret probes are excluded, and `roNf` is
+excluded exactly when it hits a recorded honest slope; those are precisely
+branches of the shared bad event. -/
+theorem realGhost_public_step_erase_evalDist_eq (k : F) (mclose : M)
+    (op : FrameOp F M) (r : AuditedFrameSt F M) (g : GhostFrameSt F M)
+    (h : RealGhostCoupled k r g)
+    (hop : match op with
+      | .roX _ => True
+      | .roA kq _ => kq ≠ k
+      | .roNf aq => aq ∉ r.audit.honestSlopes
+      | .roE kq _ => kq ≠ k
+      | .roId kq => kq ≠ k
+      | _ => False)
+    (hc : FrameAuditComplete k r) :
+    𝒟[Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) op).run r] =
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+        ((ghostFrameImpl mclose) op).run g] := by
+  have hghost (op : FrameOp F M) :
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+          ((ghostFrameImpl mclose) op).run g] =
+        𝒟[((idealFrameImpl mclose) op).run (idealizeFrame k r)] := by
+    rw [ghostFrameImpl_erase_step]
+    rw [h.ideal]
+  cases op with
+  | spend m => exact False.elim hop
+  | close => exact False.elim hop
+  | nfAt i => exact False.elim hop
+  | roX m =>
+      rw [idealize_roX_step]
+      exact (hghost (.roX m)).symm
+  | roA kq i =>
+      rw [idealize_roA_step k mclose kq i r hop]
+      exact (hghost (.roA kq i)).symm
+  | roNf aq =>
+      rw [idealize_roNf_step k mclose aq r hc hop]
+      exact (hghost (.roNf aq)).symm
+  | roE kq e =>
+      rw [idealize_roE_step k mclose kq e r hop]
+      exact (hghost (.roE kq e)).symm
+  | roId kq =>
+      rw [idealize_roId_step k mclose kq r hop]
+      exact (hghost (.roId kq)).symm
+
+/-- A materialized `nfAt` query also has exactly matching answer and erased
+state distributions. Both the cached-nullifier and fresh-nullifier branches
+are covered; only materializing a brand-new hidden slope remains in the
+quantitative lane. -/
+theorem realGhost_nfAt_materialized_erase_evalDist_eq (k : F) (mclose : M)
+    (i : ℕ) (a : F) (r : AuditedFrameSt F M) (g : GhostFrameSt F M)
+    (h : RealGhostCoupled k r g) (ha : r.base.roA (k, i) = some a)
+    (hc : FrameAuditComplete k r) (hinj : HiddenSlopeInj k r) :
+    𝒟[Prod.map id (idealizeFrame k) <$>
+        ((auditedFrameImpl k mclose) (.nfAt i)).run r] =
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+        ((ghostFrameImpl mclose) (.nfAt i)).run g] := by
+  have hghost :
+      𝒟[Prod.map id GhostFrameSt.ideal <$>
+          ((ghostFrameImpl mclose) (.nfAt i)).run g] =
+        𝒟[((idealFrameImpl mclose) (.nfAt i)).run (idealizeFrame k r)] := by
+    rw [ghostFrameImpl_erase_step]
+    rw [h.ideal]
+  cases hnf : r.base.roNf a with
+  | some nf =>
+      rw [idealize_nfAt_step_cached k mclose i r ha hnf]
+      exact hghost.symm
+  | none =>
+      rw [idealize_nfAt_step_freshNf k mclose i r ha hnf hc hinj]
+      exact hghost.symm
+
+end Zkpc.Games
+
+#print axioms Zkpc.Games.realGhostCoupled_initial
+#print axioms Zkpc.Games.frameLeakBad_iff_ghostLeakBad
+#print axioms Zkpc.Games.not_frameLeakBad_iff_not_ghostLeakBad
+#print axioms Zkpc.Games.RealGhostCoupled.frameCoupled
+#print axioms Zkpc.Games.RealGhostCoupled.frameAuditComplete
+#print axioms Zkpc.Games.RealGhostCoupled.roNfCovered
+#print axioms Zkpc.Games.realGhost_public_step_erase_evalDist_eq
+#print axioms Zkpc.Games.realGhost_nfAt_materialized_erase_evalDist_eq

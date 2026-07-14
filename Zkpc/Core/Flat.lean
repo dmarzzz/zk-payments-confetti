@@ -48,18 +48,12 @@ D5 executor guidance — guard versions implemented, deltas listed):
    specifies.
 5. *`Receipt := Unit`.* Instantiation A has no refund receipts (§3:
    "no refunds"); `redeem` always returns `none` for the receipt slot.
-6. *MC20 close-dispute and the rev-8 void branch are NOT in the abstract
-   tuple.* `Zkpc/Spec/Object.lean` (task B2, gate-locked, off-limits to
-   this task) predates MC20: its algorithm tuple has no entry point for
-   the close-window unused-claim dispute (`Step.closeDispute`) nor for
-   settlement-time voiding (`Step.settleVoid`); its `payerClose`
-   docstring still describes the pre-MC20 close-as-final-spend (close
-   signal at the next unused index), and its `dispute` covers only the
-   conflicting-signal-pair `Dispute`. The machine models all of MC20;
-   the abstract object cannot yet express it. **Flagged for the
-   coordinator: Object.lean needs a B2 gate re-open to add the MC20
-   close-dispute algorithm and fix the `payerClose` docstring — not
-   edited here.**
+6. *MC20 close-dispute and the rev-8 void branch are ledger-internal.*
+   `Zkpc/Spec/Object.lean` deliberately keeps these automatic window
+   semantics outside the user-callable algorithm tuple and names their
+   concrete realization as `Step.closeDispute`, `Step.settleClose`, and
+   `Step.settleVoid`. `payerClose` opens the window; the transition system
+   executes and verifies its lifecycle.
 7. *`Dispute`'s claims window.* `dispute` records the slash and its time
    (opening the MC4 priority window); the window's claim mechanics are
    the `hwin`-guarded `sweep` (post-slash sweeps only inside `τ`,
@@ -198,8 +192,8 @@ noncomputable def flatScheme (F : Type) [Field F] [DecidableEq F]
   -- existing signals on one `(k, i)` with different messages, the line
   -- algebra recovering `k` for an open, unslashed channel — and slash,
   -- recording the window-open time (`Step.slash`'s five guards).
-  -- `none` on invalid evidence. (The MC20 close-dispute and rev-8 void
-  -- have no abstract entry point — GATE-NOTE 6.)
+  -- `none` on invalid evidence. MC20 close-dispute and rev-8 void are
+  -- ledger-internal transitions, as recorded in GATE-NOTE 6.
   dispute := fun _pp ev ledger =>
     match ev with
     | (k, i, m, m') =>

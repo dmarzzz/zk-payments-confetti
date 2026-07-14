@@ -1,33 +1,167 @@
-# Zkpc.Games — game layer status (E2–E4, B3; rev-9 batch after K1/K4 audits; B3 round 2 signed off)
+# Zkpc.Games — game layer status
 
-**Build**: `lake build +Zkpc.Games.Framework +Zkpc.Games.Unlink +Zkpc.Games.Frame` — green, zero `sorry`/`axiom`/`admit`/`native_decide`; `#print axioms` on every proved theorem shows only `propext`/`Classical.choice`/`Quot.sound`.
+This document separates the current game-layer boundary from the historical
+rev-9 design record. Current source status is **subject to final release
+validation**; no build SHA or completed release audit is claimed here.
 
-## What compiles
+## Current release surface
 
-- `Framework.lean` (E2–E4, unchanged since round 1): `guessGap` (= Spec.md's `|Pr[b'=b] − 1/2|`; bridges: `guessGap_eq` via `ProbComp.boolBiasAdvantage_eq_two_mul_abs_sub_half`, `boolBiasAdvantage_hiddenBitExp` via `ProbComp.boolBiasAdvantage_eq_boolDistAdvantage_uniformBool_branch`); `World`, `hiddenBitExp`, `hiddenBitAdvantage`; E3 smoke theorems (proved): `hiddenBitAdvantage_const`, `hiddenBitAdvantage_eq_zero_of_distEquiv`; `ChalAdversary`; E4: `botSpec` + `withEvict`.
-- `Unlink.lean` (B3/T4, **session form rev-9**): `UnlinkScheme` (`GenesisInput`, `openCh : GenesisInput → …`, `capableFor : ℕ → PSt → Bool`), `UnlinkOp`/`unlinkSpec`, `GSt`, `unlinkImpl`, `epochFresh`, `challengeCapable … q`, `spendBatch`, `challengeResp` (vector challenge), `UnlinkAdversary` (`phase0` genesis stage + `main : ChalAdversary … (List S.M) (Option (List S.View))`), `unlinkGame`, `unlinkAdvantage`, `zkBridgeObligation` (M1), **`closeViewSimulatable` (O4, new stated Prop)**.
-- `Frame.lean` (B3/T7): `Signal`, `lazyRO`, `FrameSt` (**5 RO caches**, incl. `roId`), `emitSignal` (`y = rlnY k a x`), `FrameOp`/`frameSpec` (`spend`/`close`-legacy/`nfAt`/`roA`/`roX`/`roNf`/`roE`/**`roId`**), `frameImpl`, `Evidence`, `recoverSlope`/`recoverSecret`, `Slashes`, `recoverSecret_line` (proved via `rln_recover_k`), `frameGame` (**adversary receives `cm` at game start**), `frameWinProb`. Tied to `RLN.lean` (G4).
+### T4: perfect unlinkability in the reference models
 
-## Rev-9 batch (this round; B3 round 3 verifies exactly these)
+- `T4.lean` exposes `T4_flat_unlinkability`: every adversary has advantage
+  exactly zero against the proof-free flat instance.
+- `T4Fires.lean` supplies `challengeResp_flat_fires` and
+  `challengeResp_flat_never_bot`, making the challenge path non-vacuous for
+  positive budgets.
+- `FullTicketInstance.lean` connects masked proof-bearing reference views to
+  the proof-free game.
+- `SigmaInstance.lean` exposes the interactive Sigma and ideal lazy-ROM
+  Fiat--Shamir instances and their zero-loss reference-model bridges.
+- `BInstances.lean` discharges the refund-instance batch, genesis/receipt,
+  capability, rerandomization, and close-view obligations.
 
-1. **Session challenge (K4 Concern 1)**: the challenge is now a vector `m*₁..m*_q : List S.M`, `q ≥ 1` adversary-chosen. Freshness unchanged; capability is `capableFor q` on both candidates (A: `(j+q)·C ≤ D`; B: `(j+q)·C_max ≤ D + R`); on success `spendBatch` emits `P_b`'s next `q` tickets **atomically at `e*`** (no oracle interleaving ⇒ shared `nf_{e*}` structurally); response `Option (List S.View)`. Verified cores preserved: `b`-first sampling, ⊥ decided by both-candidate checks (`b`-independent), structural termination (`ChalAdversary` pure guess). GATE-NOTE: empty vector answered ⊥ (spec types `q ≥ 1`); Mi3 obligation extended: `capableFor q ⇒` all `q` batch spends succeed.
-2. **O4 (K4 Concern 2)**: `closeViewSimulatable (S) (Cm) (cm : PSt → Cm) (count : PSt → ℕ) : Prop` — ∃ simulator with `𝒟[close output] = 𝒟[sim (cm st) (count st) e]` for all states (an instance may weaken to game-reachable states, recorded at its gate entry). The instance supplies the `cm`/`count` summary since the abstract interface does not expose them. Cross-referenced from `CloseView`'s docstring. Rationale (MC15): the game ends at the challenge, so close content is outside its view; the obligation pins the close leak to exactly `(cm, count)` — MC15's residue — and excludes e.g. a close publishing *used* nullifiers.
-3. **FRAME cm exposure (K1 finding D1)**: fifth lazy RO `roId` (`H_id`); `frameGame` materializes `cm := roId(k)` through the shared cache and passes it as the adversary's input (`A : F → OracleComp …`); direct `roId` queries let the adversary test preimages — same `q/|F|` ROM mass as the `roA` channel (docstrings on `FrameOp.roId` and the game).
+These theorems concern the specified ideal reference layers. A reduction for
+a deployed hash function or concrete production proof system is not claimed.
 
-## Oracle surfaces
+### T7: completed secret-averaged query bound
 
-- **UNLINK**: phase 0 (no oracles): genesis inputs. Pre-challenge: `spend (u m) : Option View` · `retry u : Option View` · `serve (u ρ) : PUnit` · `close u : Option CloseView` · `tick : PUnit`. Challenge: `!empty && fresh && capableFor q`, response `Option (List View)` (⊥ in-band), then pure `guess` only.
-- **FRAME**: input `cm : F`; `spend m : Option (Signal F)` · `close : Option (Signal F)` (legacy surplus) · `nfAt i : F` · `roA (k i) : F` · `roX m : F` · `roNf a : F` · `roE (k e) : F` · `roId k : F`. Shared caches (ROM-consistent, incl. the game-start `cm`). Win = `Slashes k ev`.
+For every
 
-## GATE-NOTE / GATE-OBLIGATION register (rev-9)
+```text
+A : F → OracleComp (frameSpec F M) (Evidence F)
+qb : FrameQueryBounds A,
+```
 
-**Obligations (per-instance proof debts):** (O1/M1) discharge `zkBridgeObligation` full-ticket → proof-free with the instance's `εZK`; (O2/Mi3, session form) `capableFor q ⇒` the whole `q`-batch succeeds (or bound the branch); (O3) B instances: `serve` absorbs invalid receipts as no-ops; `openCh` absorbs malformed genesis as never-capable state; **(O4, new)** discharge `closeViewSimulatable` — close output simulatable from `(cm, spend count)` alone.
+the public endpoint
 
-**UNLINK notes:** session challenge is atomic at `e*` (shared `nf_{e*}` structural); empty challenge vector ⇒ ⊥ (`q ≥ 1` per spec, `b`-independent); epochs = adversary `tick` counter (§6 scheduler); retry ≠ new signal (no freshness update) and answered post-close; close's `lastSig` update = conservative no-op (MC20: no close signal); capability's "open ∧ unslashed" vacuous here (Mi2: no circularity — excul lemma precedes T4); `Open` folded to `openCh(GenesisInput)`+`OpenView`; spend-at-closed ⇒ ⊥; corrupt payers unmodeled (zero-cost maximality).
+```text
+T7_frame_query_bound_unconditional mclose A qb
+```
 
-**FRAME notes:** adversary holds `cm` from game start (rev-9/K1-D1; `roId` preimage confirmation = `q/|F|` mass, same as `roA` channel); no solvency gate on `Ospend` (more power); win predicate omits nf-consistency/membership (more power); corrupt members via direct RO access; N−1 view = all oracle outputs; MC2 re-send omitted (deterministic replay); `close` = legacy surplus, `nfAt` = MC20 reveal superset; no epoch clock — `roE` present with simulation note; inherited RLN `x = 0` caveat (`roX` hits 0 w.p. `1/|F|`, `y = k` there — T7's negligible mass absorbs it).
+bounds `frameWinProb mclose A` by
 
-## What the T4/T7 prover will need
+```text
+(qb.total + 1) / |F|,
+qb.total = q_A + q_E + q_Id + q_Nf·q_sig + q_sig².
+```
 
-- T4: instantiate `UnlinkScheme` per variant (A, B-static, B-rerand) twice each (full-ticket + proof-free), discharge `zkBridgeObligation` and `closeViewSimulatable`; bound the proof-free game via `hiddenBitAdvantage_eq_zero_of_distEquiv`/`DistEquiv.of_step` (HeapBasic template) or `ProbComp.boolBiasAdvantage_bind_uniformBool_eq_boolDistAdvantage` (shared-prefix bridge); the session form means the two-world coupling must cover the whole `q`-batch (extend the per-query case split over `spendBatch` by induction on the vector); the B-static calibration attack must be a constructive `UnlinkAdversary` term (it survives the session form — `q = 1` remains available to it).
-- T7: `rln_single_point_hiding` + `rln_evidence_sound` (RLN.lean) + ROM argument: the view fixes ≤ 1 point per line unless the adversary queries `roA`/`roE`/`roId` at `k` (= computes `k`; the `cm` input adds only the `roId` confirmation channel, same mass); `nfAt`/`roNf` values are line-point-free; `x = 0` and RO collisions go to the negligible mass.
+`frameGame` samples the secret uniformly, so this is a secret-averaged
+probability. The endpoint has no residual coupling or counting hypotheses;
+the adversary supplies the five structural certificates in
+`FrameQueryBounds`.
+
+The pointwise-in-secret `FrameDeferredSampling` certificate is intentionally
+not used. `frameDeferredSampling_refuted` proves that its single
+secret-independent-generator shape is unsatisfiable for a two-probe
+adversary whenever `|F| > 5`. `FrameDeferredSamplingAvg` is the corrected
+socket and matches the probability sampled by the game.
+
+### T7 file map
+
+- `Frame.lean` defines the five-oracle FRAME game and `frameWinProb`.
+- `T7.lean` defines `FrameQueryBounds`, its aggregate `total`, the conditional
+  endpoints, and the calibration games.
+- `FrameDeferred.lean` contains the pointwise refutation, the averaged socket,
+  and `T7_frame_query_bound_avg`.
+- `FrameAudit.lean`, `FrameIdeal.lean`, and `FrameCoupling.lean` establish the
+  audited real/ideal state relations and operation-level coupling substrate.
+- `FrameGhost*.lean`, `FrameBadMass.lean`, and `FrameFactor.lean` provide the
+  secret-free comparison model, budget kernels, and probability
+  factorization.
+- `FrameRealBad.lean`, `FrameRealBadTransfer.lean`, and
+  `FrameRealBadStep.lean` define the deferred-slope execution and transport
+  its bad-mass count to the audited real game.
+- `FrameGoodSliceTape.lean` and `FrameGoodSliceTapeInduction.lean` implement
+  the pending-slope tape argument and expose
+  `frameGoodSliceTransfer_of_tape`.
+- `FrameDSCountInduction.lean` implements the adaptive seeded-shadow count
+  and exposes `dsBadMassLe_of_queryBounds`.
+- `FrameTransfer.lean` combines good-slice and real-bad route B into a
+  `FrameDeferredSamplingAvg` certificate.
+- `FrameComplete.lean` exposes `frameDeferredSamplingAvg_holds` and the final
+  `T7_frame_query_bound_unconditional` theorem.
+- `Zkpc/Composition/EndToEnd.lean` consumes that theorem through
+  `T7Certificate.ofQueryBounds` and the T7-residual-free flat/refund
+  composition endpoints. Those endpoints still require the operational
+  trace and completion premises in their signatures.
+
+The load-bearing final chain is:
+
+```text
+frameGoodSliceTransfer_of_tape
+dsBadMassLe_of_queryBounds
+  → frameRealBadMassLe_of_dsCount
+  → frameDeferredSamplingAvg_holds
+  → T7_frame_query_bound_unconditional
+  → T7Certificate.ofQueryBounds.
+```
+
+### Release-validation boundary
+
+File presence and focused elaboration are not a release audit. The final
+claim must be checked from a clean checkout with a cold dependency fetch,
+full root build, repository token scan, headline axiom printouts, and diff
+check. Until then, describe the endpoint as implemented in source and subject
+to final release validation.
+
+The base endpoint is finite and query-bounded. It does not itself formalize a
+security-parameter family, PPT adversary class, asymptotic negligibility, or
+a concrete deployed-hash assumption. It is the finite mechanized counterpart
+to, not a proof of, `Spec.md`'s literal PPT/negligibility T7 clause.
+
+`FrameAsymptotic.lean` is a conditional lift, not a PPT reduction. It assumes
+per-parameter `FrameQueryBounds` and either negligibility of the displayed
+query/field-size ratio, or an explicit polynomial numerator bound together
+with negligible inverse field size. It supplies no PPT classifier and no
+PPT-to-query-bound theorem. Its release status is covered by the same pending
+clean-build and axiom-audit boundary above.
+
+---
+
+## Historical record: rev-9 game definitions
+
+This section is retained only as design history. It predates the T4 instance
+suite and the completed T7 stack. Its game definitions remain relevant, but
+its proof forecast and obligation status are superseded by the current
+section above.
+
+### Historical UNLINK surface
+
+The rev-9 UNLINK game introduced a session challenge:
+
+- phase 0 chooses genesis inputs;
+- before the challenge the adversary may spend, retry, serve, close, and
+  advance the epoch;
+- the challenge is a nonempty adversary-selected vector, checked for
+  freshness and capability on both candidates before the hidden branch is
+  used; and
+- the post-challenge continuation produces a pure guess.
+
+The historical per-instance obligations were the proof-bearing ZK bridge,
+batch totality, refund genesis/receipt absorption, and close-view
+simulatability. The current flat, Sigma/FS, full-ticket, and refund instance
+files provide the corresponding reference-model endpoints.
+
+### Historical FRAME surface
+
+The rev-9 FRAME game fixed the current public interface:
+
+- the adversary receives `cm = H_id(k)` at game start;
+- operations are `spend`, legacy `close`, `nfAt`, `roA`, `roX`, `roNf`,
+  `roE`, and `roId`;
+- all oracle calls share lazy-ROM caches; and
+- the win predicate is `Slashes k ev`.
+
+Direct `roA`, `roE`, and `roId` probes can test the secret; `roNf` probes can
+hit honest slopes; and multiple honest signals can collide. Those are exactly
+the terms now charged by `FrameQueryBounds.total`. The nonzero-digest handler
+rule excludes the degenerate `x = 0, y = k` honest signal.
+
+### Historical correction to the original proof forecast
+
+The original forecast expected a pointwise handler comparison. The
+two-`roId` counterexample showed that this certificate shape cannot hold.
+The completed proof instead reasons over the uniform secret already sampled
+by `frameGame`, defers pinned slopes with a tape, and counts adaptive roots in
+a seeded shadow execution. Old references to open good-slice or
+`DSBadMassLe` lanes are historical work notes, not current obligations.

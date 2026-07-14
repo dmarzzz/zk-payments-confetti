@@ -7,17 +7,18 @@ itself, so it cannot be jointly simulatable; rev-11 scopes the claim to
 true-count closes and records the receipt-withholding one-session
 linkage residue as an honest limit (MC15, T4), plus scopes MC18's slash
 rule (F10-m1). Prior: Round 9 verified the session-form challenge
-end-to-end (the K4 construction now loses; ⊥ stays b-independent via the
+end-to-end (the simulated-K4 construction now loses; ⊥ stays b-independent via the
 non-adaptive vector and symmetric capable-for-$q$) and found one major:
 the new slash taxonomy exposed that the $k$-gated MC4/R3-2 settlement
 machinery cannot run for fund-slashes — rev-10 states the A
 checkpoint-dispute remainder rule (pool-retained, no bounty) and scopes
 B's per-nullifier claims to identity-slashes with fund-slashes settling
 by forfeit; plus the F9-m1 joint-transcript sharpening of the CloseView
-obligation and the F9-m2 multiplicity-tag calibration point. Rev-8 was
-SIGNED OFF at gate B1 (round 8); rev-9/10
-are scoped, gate-tracked amendments from the K4 external review
-(simulated outside cryptographer attacking the definitions): the T4
+obligation and the F9-m2 multiplicity-tag calibration point. Rev-8 passed
+B1 agent review (round 8); revision 11 later passed the final agent review.
+Required non-author human B1/B3/K1 acceptance remains pending, and K4 was a
+simulated-external agent exercise rather than a real outside review. Rev-9/10
+are scoped, gate-tracked amendments from that simulated K4 exercise: the T4
 challenge upgraded from single-spend to **session form** (the $q=1$ game
 certified only first-spend-per-epoch unlinkability — a definitional
 hole for the fleet's real usage), the **CloseView-simulatability
@@ -30,7 +31,7 @@ receipt withholding (→ receipt-bearing checkpoint disputes with an
 upgrade sub-window; $j{=}0$ closes receipt-free) and the sweep bar
 one-directional (→ two-sided, with on-ledger disproof at settlement) —
 both repaired in this revision. Earlier gate history, six
-rounds so far, every round by a fresh reviewer who did not write the text:
+rounds so far, every round by a fresh agent reviewer who did not write the text:
 rev-1, three-lens panel, 3× REVISE — T6 false via cross-gateway replay
 (→ MC14), UNLINK unsatisfiable (→ MC15), merge evidence missing (→ MC17),
 receipt splicing (→ MC7 tags); rev-2 verified plus two new blockings — B
@@ -54,6 +55,15 @@ are ambiguous or the panel found them broken as transcribed, the resolution
 is recorded in §8 (Modeling choices) and the reviewer is asked to check each
 one; entries marked **[repair]** change protocol behavior rather than merely
 disambiguate.
+
+Technical source validation is separate from those acceptance gates. At
+checkpoint `abb878f`, a fresh checkout restored 8,283 cached files and the
+Lean 4.30.0 root build completed all 3,595 jobs; exact T7, composition,
+conditional-scaling, and refund-reference endpoint axiom capture used only
+standard Lean axioms, and the source/diff scans were clean. This does not
+substitute for the pending human reviews or a real K4 outside review. The
+later synchronized 12-page PDF completed a clean rebuild and page-by-page
+visual QA; its exact artifact commit is recorded in the PR and issues.
 
 Contents: §1 notation, §2 the algorithm tuple, §3 flat-ticket instantiation,
 §4 refund-bearing instantiation, §5 model boundary, §6 adversary conventions,
@@ -169,8 +179,8 @@ the payee's revenue settles per channel at close time (see §2 Close and
 §4).
 
 **$Setup(1^\lambda, params) \to pp$.**
-Run once, honestly (trusted setup is axiomatized, §5). Outputs public
-parameters: the NIZK common reference string, hash descriptions, the field,
+Run once, honestly (trusted setup is an idealized model assumption, §5).
+Outputs public parameters: the NIZK common reference string, hash descriptions, the field,
 the constants of §1, the **gateway roster** (the $N$ sweep-authorized payee
 identities), and (instantiation B only) the payee's signature keypair
 $(vk_S, sk_S)$ and the re-randomizable encryption public key $pk_E$ (MC7) —
@@ -570,9 +580,12 @@ signature keypair $(vk_S, sk_S)$.
 ## 5. Model boundary
 
 We formalize the **protocol layer** over an idealized ledger and idealized
-cryptography. Everything below enters as named assumptions in
-`Assumptions.lean`, each annotated with the standard property it encodes.
-We do **not** verify circuits: the NIZK relation $\mathcal{R}_{spend}$ is
+cryptography. Everything below is part of the specification-level primitive
+boundary and has a named entry in `Assumptions.lean`. The current Lean
+reference development realizes the ideal counterparts by model guards,
+sampling, and proved lemmas and declares no project-specific Lean axiom; it
+does not supply the production computational reductions named below. We do
+**not** verify circuits: the NIZK relation $\mathcal{R}_{spend}$ is
 the mathematical statement written in §3/§4, and the fidelity of any circuit
 to that statement is out of scope. Anyone claiming this repo verifies SNARKs
 is misreading it.
@@ -586,8 +599,8 @@ submit arbitrary transactions and observe the full log, but cannot violate
 the above.
 
 **Cryptographic assumptions** (one per primitive; theorems cite which they
-use; the Lean formalization works in the random-oracle model and each
-assumption below names the Lean declaration that carries it):
+use; the Lean formalization works in the random-oracle/reference model and
+the registry records each boundary explicitly):
 
 1. **NIZK knowledge soundness.** From any accepted proof, an extractor
    obtains a witness in $\mathcal{R}_{spend}$. Used by: T1, T2, T3, T6, T7.
@@ -625,11 +638,16 @@ assumption below names the Lean declaration that carries it):
    presence must not be silently load-bearing; the axiom audit (task K2)
    checks this.
 
-Axioms are stated reduction-shaped where they bound adversaries (for every
-PPT $\mathcal{A}$ there is a bound), and T4's Lean statement must be a
-*reduction to* assumptions 2/3/5, never a per-scheme "advantage is
-negligible" axiom — that would assume the theorem (K2 checks this
-specifically).
+Assumption interfaces that bound adversaries are reduction-shaped (for every
+PPT $\mathcal{A}$ there is a bound), and T4's Lean statement must reduce to
+interfaces 2/3/5 rather than postulate a per-scheme "advantage is negligible"
+axiom — that would assume the theorem. The current reference development
+realizes these interfaces as model guards, ideal sampling, and proved lemmas;
+it declares no project-specific Lean axioms. K2 source validation at
+`abb878f` audited that boundary, including the added ElGamal algebra and the
+narrow independent-key receipt-MAC endpoints. It does **not** establish a
+deployed-hash reduction, DDH/IND-CPA security, shared-key multi-query
+EUF-CMA, or adaptive threshold-signature security.
 
 **Explicitly out of scope** (the theorems say nothing about these):
 circuit correctness; network-level timing, latency, token-count, and content
@@ -865,8 +883,8 @@ batch at the same time. **Pre-challenge oracles** (unrestricted):
 - $\mathcal{O}close(u)$: directs $P_u$ to close (its close is a public
   ledger event $\mathcal{A}$ sees, revealing $cm_u$ and its spend count).
 
-**Challenge and termination (session form, rev-9 — from the K4 external
-review).** $\mathcal{A}$ outputs a message **vector**
+**Challenge and termination (session form, rev-9 — from the simulated K4
+agent review).** $\mathcal{A}$ outputs a message **vector**
 $\vec{m}^* = (m^*_1, \ldots, m^*_q)$, $q \ge 1$ of its choice, at some
 time; let $e^*$ be the current epoch. The game checks **at challenge
 time** that neither candidate has emitted any signal during $e^*$ (rev-2
@@ -885,7 +903,7 @@ $q$ indices, all within $e^*$ (sharing the session pseudonym
 $nf_{e^*}$), and $\mathcal{A}$ receives the batch. **The game then
 ends**: $\mathcal{A}$ outputs its guess $b'$ immediately; no oracle
 answers after the challenge (or after $\bot$). Why the session form: the
-K4 external review showed the single-spend challenge ($q = 1$) certifies
+The simulated K4 agent review showed the single-spend challenge ($q = 1$) certifies
 only *first-spend-per-epoch* unlinkability — a scheme leaking a
 persistent cross-epoch tag only on second-and-later spends within an
 epoch passed the $q=1$ game while being lifetime-linkable for any member
@@ -922,7 +940,7 @@ cover** (same epistemic status as MC6's within-epoch linkage) — a member
 that closes immediately after a spend correlates its count with observed
 traffic. The paper's honest-limits section must carry this.
 
-**Calibration battery (rev-9, K4 Concern 5: one bit of separation is
+**Calibration battery (rev-9, simulated K4 Concern 5: one bit of separation is
 thin evidence; the battery adds must-catch and must-win points).** Beyond
 the B-static/B-rerand pair below, the H-phase formalization must also
 exhibit: a **must-catch A-index-leak variant** (tickets carry the index
@@ -933,7 +951,7 @@ epochs — winnable via cross-epoch matching); and FRAME's battery gains
 $a$ reused across indices, concrete adversaries must win FRAME with
 probability 1 — the anti-vacuity notes' breaks, made constructive); and a
 **must-catch multiplicity-tag variant** (rev-10 F9-m2: a persistent tag
-leaked only on second-and-later spends within an epoch — the K4
+leaked only on second-and-later spends within an epoch — the simulated K4
 construction that motivated the session form; a $q = 2$ session
 distinguisher must win against it, constructively witnessing that the
 session challenge closes Concern 1).
@@ -1142,7 +1160,7 @@ $Dispute(pp, ev^*, \mathcal{L})$ slashes the honest member's $cm$ is
 $\le negl(\lambda)$, under `single_signal_hiding` and collision resistance.
 The algebraic core: a valid slash requires two distinct points on the line
 $Y = k + H_a(k, i) X$ for some index $i$; $\mathcal{A}$ holds at most one
-honest point per index (spends and the close signal alike); one point
+honest point per index (from a spend; MC20 close emits no line point); one point
 $(x, k + a x)$ with pseudorandom $a$ determines nothing about $k$
 (`single_signal_hiding`); producing a second point is equivalent to
 computing $k$ (or $a$), which breaks the assumption. This is what makes the
@@ -1161,6 +1179,17 @@ $a$ reused across indices, one observed spend hands $\mathcal{A}$ the secret
 and the frame succeeds with probability 1; the game detects both breaks. The
 adversary class is the protocol's actual threat model — the fleet's own
 operators — not a strawman.
+
+**Mechanization status.** The source-validated public Lean theorem is the
+finite, uniform-secret-averaged bound
+$(q_A+q_E+q_{Id}+q_{Nf}q_{sig}+q_{sig}^2+1)/|F|$ for an adversary carrying
+the five `FrameQueryBounds` certificates. `FrameAsymptotic.lean` gives two
+conditional lifts: one assumes negligibility of that explicit ratio, and its
+corollary uses a polynomial numerator bound plus negligible inverse field
+size. Neither defines PPT, derives query bounds or field growth from PPT, or
+reduces deployed primitives. Thus the literal PPT/negligibility statement
+above remains the specification target; it is not being reported as the
+machine-checked endpoint.
 
 ---
 
@@ -1280,7 +1309,7 @@ item.**
 - **MC14 — Gateway-bound messages. [repair]** $m = (G, \hat{m})$; `Redeem`
   rejects other gateways' tickets (§1, §2). Without it, bit-identical
   cross-gateway replay extracts $\approx (N{-}1)\cdot D$ with no slash ever
-  (rev-1 blocking counterexample, all three reviewers independently or on
+  (rev-1 blocking counterexample, all three agent reviewers independently or on
   review concurring), and T6's bound is false. The egress post's production
   note ("bind the proof's message field to the target") is the same move
   one layer down; this repair is its payment-layer form.
@@ -1295,7 +1324,7 @@ item.**
   what-is-NOT-claimed and owed an honest-limits paragraph in the paper.
   A's close additionally reveals the unused nullifiers themselves; these
   are PRF-fresh values never used anywhere, so they carry no linkage
-  beyond the count. **CloseView-simulatability obligation (rev-9, K4
+  beyond the count. **CloseView-simulatability obligation (rev-9, simulated K4
   Concern 2; sharpened rev-10 F9-m1):** because the game terminates at
   the challenge, close-time content is outside its view — so every
   instantiation owes the stated obligation that its close output is
@@ -1422,13 +1451,13 @@ Rev-2 additions are the repair rows at the bottom.
 | Refund variant: server-signed refund tickets / encrypted running total; static $E(R)$ linkable (omarespejel), re-randomization with proof of equivalence as the patch | RESEARCH.md deep dive 1; BRIEF.md T4 calibration requirement |
 | Abort/evict oracle requirement and its two attack modes (evict to shrink the set; abort mid-sequence to link) | BOLT §1.4 as quoted in RESEARCH.md deep dive 2; BRIEF.md T4 |
 | Anonymity-set accounting (set = capable/completed participants, shrinking under aborts) informing the $\bot$-branch of T4 | RESEARCH.md deep dives 2, 3 |
-| The seven theorem targets, their priority, and the model boundary (idealized ledger, axioms in one file, no circuit verification) | BRIEF.md, Deliverable 2 |
+| The seven theorem targets, their priority, and the original contract's permitted model boundary (idealized ledger, axioms confined to one file, no circuit verification) | BRIEF.md, Deliverable 2 |
 | Exculpability shape: forging a second point on the line requires the secret; $N-1$ collusion | RESEARCH.md open problem 5; BRIEF.md T7 |
 | Priced-divergence shape: extractable value $\le f(\text{lag}, \text{rate}) < D$ | RESEARCH.md open problem 1; BRIEF.md T6; egress post Addendum |
 | Self-slash race and mitigation directions (frequent claims / unclaimed-balance ceiling) informing MC4 | RESEARCH.md deep dive 1 (e), open problem 2, and Application "design imports" |
 | Dual stake $D + S$ (excluded, MC8) | RESEARCH.md deep dive 1 |
-| MC14 gateway-bound messages: payment-layer form of the post's "bind the proof's message field to the target" production note | Egress post, production-notes list; rev-1 gate findings (all three reviewers) |
-| MC15/MC16/MC17 and the MC7 expansion: protocol/game repairs forced by rev-1 counterexamples | `research_knowledge/gates.md` (B1 gate record) |
+| MC14 gateway-bound messages: payment-layer form of the post's "bind the proof's message field to the target" production note | Egress post, production-notes list; rev-1 gate findings (all three agent reviewers) |
+| MC15/MC16/MC17 and the MC7 expansion: protocol/game repairs forced by rev-1 agent-review counterexamples | `research_knowledge/gates.md` (B1 gate record) |
 | MC18 close-time netting for B and MC19 checkpointed window claims: repairs forced by rev-2 counterexamples (NEW-1, NEW-2), refined by rev-3 (R3-1..R3-3) | `research_knowledge/gates.md` (B1 gate record, rounds 2–3) |
 | MC20 verifiable spend count at close (A enumeration + B certified count with $nf_j$ reveal, receipt-bearing disputes, upgrade sub-window, two-sided sweep bar): repairs forced by rev-5/6/7 counterexamples | `research_knowledge/gates.md` (B1 gate record, rounds 5–7) |
 

@@ -1,161 +1,195 @@
-# Open proofs
+# Proof inventory and remaining extensions
 
-This is the worklist for anyone (human or agent swarm) picking up the Lean
-verification. It lists what is already proved, the general classes the
-proofs fall into with a worked template for each class, and the specific
-open obligations ranked by value. Everything here builds on frozen
-definitions: `Spec.md` is the trust surface and was signed off after
-eleven rounds of adversarial review, and the security games under
-`Zkpc/Games/` are signed off too, so a contribution proves theorems
-*against* those definitions rather than changing them. If a proof cannot
-go through as stated, that is a finding about the definition, and it goes
-to the gate record (`research_knowledge/gates.md`), not into a weakened
-statement.
+This file records the current proof boundary. `Spec.md` remains the trust
+surface: contributions prove statements against those definitions, and a
+statement failure is recorded in `research_knowledge/gates.md` rather than
+hidden by weakening the theorem.
 
-## Ground rules for a contribution
+The gate record contains independent-agent review rounds. It does not record
+the non-author human approval required by `BRIEF.md`; B1, B3, and K1 remain
+acceptance gates even though the agent review rounds reached sign-off.
 
-- Toolchain is pinned: `leanprover/lean4:v4.30.0`, mathlib v4.30.0, VCV-io
-  at `8f5dc4f`. `lake exe cache get` then `lake build`. This repo's Lake is
-  5.0.0 and has no `-j` flag; cap parallelism with `LEAN_NUM_THREADS=N`.
-- Zero `sorry`, zero `admit`, zero `native_decide`, and no `axiom` outside
-  `Zkpc/Assumptions.lean` (which itself declares none: the crypto
-  assumptions are discharged by the shape of the idealized model). CI greps
-  for all four on every push, including inside comments, so do not write
-  the bare token words in docstrings.
-- Every theorem carries an English docstring restating it and citing its
-  `Spec.md` clause. The statement is the contract; make it a faithful
-  transcription.
-- Verify with `#print axioms <thm>`: a finished proof depends on only
-  `propext`, `Classical.choice`, `Quot.sound`.
+The implementation inventory below is source-validated at checkpoint
+`abb878f`. From a fresh checkout, `lake exe cache get` restored 8,283 files
+and the Lean 4.30.0 root build completed all 3,595 jobs. Exact endpoint axiom
+capture, the forbidden-token/project-axiom scans, and diff hygiene checks
+were clean. The later documentation/PDF artifact was regenerated to 12 pages
+and checked page by page; its exact commit is recorded in the PR and issues.
 
-## What is already proved
+## Contribution rules
 
-All kernel-checked, axiom-clean (`research_knowledge/k2-axiom-audit.md`).
+- The toolchain is pinned by the repository. Use `lake exe cache get`, then
+  `lake build` from a clean checkout for release validation.
+- Proof source must contain no unfinished proof terms or new trusted
+  declarations. The CI policy is the authoritative token scan.
+- Every theorem should have an English docstring that restates its contract
+  and cites the corresponding `Spec.md` clause.
+- Headline endpoints must be checked with `#print axioms`; the intended trust
+  set is Lean's standard `propext`, `Classical.choice`, and `Quot.sound`.
 
-| Theorem | Lean name | File |
+## T7: completed secret-averaged query bound
+
+For every adversary
+
+```text
+A : F → OracleComp (frameSpec F M) (Evidence F)
+```
+
+carrying `qb : FrameQueryBounds A`, the public endpoint is
+
+```text
+T7_frame_query_bound_unconditional mclose A qb:
+  frameWinProb mclose A ≤ (qb.total + 1) / |F|
+```
+
+where
+
+```text
+qb.total = qb.qA + qb.qE + qb.qId
+         + qb.qNf · qb.qSig + qb.qSig · qb.qSig.
+```
+
+This is the probability of the actual `frameGame`, which samples the secret
+uniformly. It is therefore a secret-averaged statement. It has no residual
+coupling or counting hypotheses beyond the five structural query-bound
+certificates carried by `FrameQueryBounds`.
+
+This finite inequality is the mechanized counterpart to `Spec.md` T7. It is
+not, by itself, a proof of the literal “every PPT adversary has negligible
+probability” clause; that requires the runtime/query and scaling facts
+described under research extensions.
+
+The final theorem chain is:
+
+| Role | Theorem or definition | File |
 |---|---|---|
-| T1 no-overspend | `Core.T1_no_overspend` | `Zkpc/Core/T1.lean` |
-| Exculpability (honest never slashed / disputed) | `Core.honest_never_slashed`, `honest_close_undisputable`, `honest_settleVoid_never` | `Zkpc/Core/T1.lean` |
-| T2 payee balance (exact settlement + collectability) | `Core.T2_paid_exact`, `T2_collectable`, `T2_settles_exactly` | `Zkpc/Core/T2.lean` |
-| T3 payer balance (floor + never slashed) | `Core.T3_payer_balance_security` | `Zkpc/Core/T3.lean` |
-| T5 closure liveness | `Core.T5_payer_close_liveness` | `Zkpc/Core/T5.lean` |
-| T6 priced divergence (both clauses) | `Fleet.T6_priced_divergence`, `T6_slash_within_L`, `epochs_in_window` | `Zkpc/Fleet/{T6,Basic}.lean` |
-| T4 spend unlinkability (advantage = 0, session form) | `Games.T4_flat_unlinkability` | `Zkpc/Games/T4.lean` |
-| T7 exculpability bound (conditional, see below) | `Games.T7_frame_bound` | `Zkpc/Games/T7.lean` |
-| Calibration pair (B-static loses 1/2, B-rerand passes 0) | `Games.unlinkAdvantage_staticDistinguisher_eq_half`, `unlinkAdvantage_bRerand_eq_zero` | `Zkpc/Games/Calibration.lean` |
-| Battery + FRAME must-win breaks | `Games.unlinkAdvantage_{aIndexLeak,nfeReuse,multTagDistinguisher_eq_half}`, `frameWinProb_{YK,aReuse}_eq_one` | `Zkpc/Games/{Calibration,T7}.lean` |
-| RLN algebra | `Games.rln_recover_k`, `rln_single_point_hiding`, `rln_evidence_sound` | `Zkpc/Games/RLN.lean` |
-| Refund safety (T1-B, T3-B, conservation) | `Refund.T1_B_no_overspend`, `T3_B_floor`, `conservation`, `self_slash_race_closed` | `Zkpc/Refund/Safety.lean` |
+| Pointwise boundary | `frameDeferredSampling_refuted` | `Zkpc/Games/FrameDeferred.lean` |
+| Correct averaged socket | `FrameDeferredSamplingAvg`, `T7_frame_query_bound_avg` | `Zkpc/Games/FrameDeferred.lean` |
+| Adaptive good-slice induction | `frameGoodSliceTransfer_of_tape` | `Zkpc/Games/FrameGoodSliceTapeInduction.lean` |
+| Adaptive deferred bad-mass count | `dsBadMassLe_of_queryBounds` | `Zkpc/Games/FrameDSCountInduction.lean` |
+| Real/deferred transport | `frameRealBadMassLe_of_dsCount` | `Zkpc/Games/FrameRealBadStep.lean` |
+| Averaged route-B assembly | `frameDeferredSamplingAvg_of_goodSlice_and_realBad` | `Zkpc/Games/FrameTransfer.lean` |
+| Public game endpoint | `frameDeferredSamplingAvg_holds`, `T7_frame_query_bound_unconditional` | `Zkpc/Games/FrameComplete.lean` |
+| Scheme-facing certificate | `T7Certificate.ofQueryBounds` | `Zkpc/Composition/EndToEnd.lean` |
+| T7-residual-free composition wrappers | `flat_endToEnd_unconditional`, `refund_endToEnd_unconditional` | `Zkpc/Composition/EndToEnd.lean` |
 
-## The five proof classes (with a template each)
+The formerly proposed `FrameDeferredSampling` certificate quantified
+pointwise in the secret while requiring one secret-independent generator.
+That shape is formally refuted by a two-probe adversary whenever `|F| > 5`.
+It is kept as a negative result and is not used by the final theorem. The
+refutation does not refute `frameGame` or the secret-averaged `Spec.md`
+claim.
 
-Every open obligation below is one of these shapes. If you have written
-proofs of one shape before, the template is the file to read first.
+The composition wrappers are “unconditional” only with respect to the T7
+transfer/counting certificate: they construct it from `FrameQueryBounds`.
+They still take the operational trace, honest-key/time, and completion
+premises shown in their theorem signatures.
 
-**Class A: safety invariant over a labelled transition system.** Define a
-conjunctive invariant, prove it holds at `init`, prove each transition
-preserves it, then read the target off it. Induction is on the reachability
-predicate (`Reach` / `FReach`). Template: `Zkpc/Core/T1.lean` (`reach_inv`
-then `T1_no_overspend`). This class covers all of T1, T2, T3, T5, the T6
-counting bound, and the refund safety layer.
+## Current source inventory
 
-**Class B: game-based perfect indistinguishability by RO coupling.** Reduce
-"advantage against every adversary" to a single per-challenge
-distributional-equality obligation, then discharge it by observing the view
-components are fresh-uniform random-oracle samples on slots unqueried in
-both worlds (so swapping the two candidates is a measure-preserving
-bijection on the cache). Template: `Zkpc/Games/Coupling.lean`
-(`unlinkAdvantage_eq_zero_of_challenge_bitfree`) plus
-`Zkpc/Games/FlatInstance.lean` (`challengeResp_flat_bitfree`) and
-`Zkpc/Games/T4.lean`. This is how the headline and B-rerand were proved.
+The following table is an implementation map backed by the `abb878f` source
+validation described above. It is not evidence for production reductions or
+for production reductions or the still-pending human acceptance gates.
 
-**Class C: constructive distinguisher / must-win adversary.** Build one
-explicit adversary and compute its advantage exactly. The trick is reducing
-the concrete run to a closed form: in this codebase `pure_bind`/`map_pure`
-do not fire on raw `OracleComp` terms, so run reductions use
-`rw [<def>, <spend_eq>]; rfl` and defeq `show`, not `simp`. Template:
-`Zkpc/Games/Calibration.lean` (`staticDistinguisher` and
-`unlinkAdvantage_staticDistinguisher_eq_half`) and `Zkpc/Games/T7.lean`
-(`frameWinProb_YK_eq_one`). This is how the calibration battery and the
-FRAME breaks were built.
+| Area | Main endpoints | Files |
+|---|---|---|
+| T1 no-overspend and honest exculpability | `T1_no_overspend`, `honest_never_slashed` | `Zkpc/Core/T1.lean` |
+| T2 payee balance | `T2_paid_exact`, `T2_collectable`, `T2_settles_exactly` | `Zkpc/Core/T2.lean` |
+| T3 payer balance | `T3_payer_balance_security` | `Zkpc/Core/T3.lean` |
+| T5 closure liveness | `T5_payer_close_liveness` | `Zkpc/Core/T5.lean` |
+| T6 priced divergence | `T6_priced_divergence`, `T6_slash_within_L` | `Zkpc/Fleet/T6.lean` |
+| T4 perfect unlinkability | `T4_flat_unlinkability`, `T4_sigmaFlat_unlinkability`, `T4_fsFlat_unlinkability` | `Zkpc/Games/{T4,SigmaInstance}.lean` |
+| T4 non-vacuity | `challengeResp_flat_fires` | `Zkpc/Games/T4Fires.lean` |
+| T7 query-bounded FRAME | `T7_frame_query_bound_unconditional` | `Zkpc/Games/FrameComplete.lean` |
+| Calibration and must-win checks | `unlinkAdvantage_staticDistinguisher_eq_half`, `frameWinProb_YK_eq_one` | `Zkpc/Games/{Calibration,T7}.lean` |
+| RLN algebra | `rln_recover_k`, `rln_single_point_hiding`, `rln_evidence_sound` | `Zkpc/Games/RLN.lean` |
+| Ideal Sigma/FS reference layer | simulation, extraction, and collision-bound endpoints | `Zkpc/Crypto/{LinearSigma,FSRom}.lean` |
+| Conditional T7 scaling | query/field-size negligibility transfers (no PPT classifier) | `Zkpc/Games/FrameAsymptotic.lean` |
+| Refund crypto reference layer | masked-cipher hiding; ElGamal algebra; fixed-pair, deterministic one-query, and independent-key-list MAC bounds | `Zkpc/Crypto/{MaskedEncryption,ElGamal,ReceiptMac}.lean`, `Zkpc/Refund/AuthenticatedFleet.lean` |
+| Refund and fleet safety | finite-fleet accounting, cascade, and recovery endpoints | `Zkpc/Refund/{Safety,Fleet,Cascade}.lean`, `Zkpc/Fleet/Recovery.lean` |
+| Executable refinement | flat, refund, fleet, and network refinement endpoints | `Zkpc/{Core,Refund,Fleet,Network}/` |
+| Portable network reference layer | accounting, credential, and threshold issuance endpoints | `Zkpc/Network/` |
+| Nullifier-chain instantiation | safety, collision, anonymity, and refinement endpoints | `Zkpc/Chain/` |
+| Synchronized composition | flat/refund operational and T4/T7 bundles | `Zkpc/Composition/EndToEnd.lean` |
 
-**Class D: reduction / union-bound / identical-until-bad (game hopping).**
-Bound advantage by a chain of hops whose only gap is a named bad event,
-then bound the bad event. This is the hardest class and where the biggest
-open work sits. Partial template: `Zkpc/Games/T7.lean` (`frame_blind_bound`
-gives the `1/|F|` term). VCV-io's `IdenticalUntilBad.lean` and the SecExp
-hybrid lemmas are the machinery.
+## The five reusable proof shapes
 
-**Class E: field / algebra lemma.** Direct field computation, usually
-`field_simp; ring` or a `Finset` support argument. Template:
-`Zkpc/Games/RLN.lean`.
+1. **Safety invariant over a labelled transition system.** Prove an
+   invariant at `init`, preserve it across each transition, and read the
+   endpoint from reachability. Template: `Zkpc/Core/T1.lean`.
+2. **Perfect indistinguishability by random-oracle coupling.** Reduce the
+   game to a distributional equality and use a cache bijection or fresh
+   uniform sample. Templates: `Zkpc/Games/Coupling.lean` and
+   `Zkpc/Games/FlatInstance.lean`.
+3. **Constructive distinguisher or must-win adversary.** Define the adversary
+   and compute its advantage. Templates: `Zkpc/Games/Calibration.lean` and
+   the calibration section of `Zkpc/Games/T7.lean`.
+4. **Reduction / identical-until-bad / union bound.** Couple executions until
+   a named event and charge every event to an explicit budget. The completed
+   FRAME stack under `Zkpc/Games/Frame*.lean` is the large example.
+5. **Field and finite-support algebra.** Use field identities and finite-list
+   root counting. Template: `Zkpc/Games/RLN.lean`.
 
-## Open obligations, ranked
+## Research extensions not claimed by this release
 
-### 1. T7 unconditional bound (Class D, highest value, hardest)
+These are useful next projects, but they are not hidden hypotheses of the
+finite query-bounded T7 theorem above.
 
-`Zkpc/Games/T7.lean` proves the FRAME slash probability `≤ 1/|F|` **only
-under the hypothesis `hobliv`** (the adversary's evidence distribution is
-independent of the secret, i.e. no random-oracle query hit `k`). `Spec.md`
-T7 asks for the unconditional `negl(λ)` bound. The obligation: discharge
-`hobliv` by a lazy-RO identical-until-bad argument over an unbounded
-interactive adversary, bounding the query terms, so `T7_frame_bound`
-becomes the unconditional `(q_A + q_Id + q_E + 1) / |F|`. This is the
-single most valuable open proof, the "hard 20%" the VCV-io survey
-(`research_knowledge/vcvio-gap.md`) flagged. Start from `frame_blind_bound`
-and VCV-io `IdenticalUntilBad`.
+- **Deployed Fiat--Shamir reduction.** Relate a concrete hash implementation
+  and adversarial query interface to the ideal lazy-ROM reference layer,
+  including its knowledge-soundness/forking loss.
+- **Production refund cryptography.** The tree now includes additive ElGamal
+  correctness/rerandomization algebra and narrow affine-MAC one-query bounds,
+  but still needs a DDH/IND-CPA reduction and shared-key, stateful multi-query
+  receipt authentication. The independent-key list bound is not the Spec-B
+  receipt-signature game.
+- **Adaptive multi-session network security.** Lift the local threshold
+  issuance and recipient-view results to an adaptive executable network game
+  and a production threshold-signature unforgeability reduction.
+- **PPT complexity layer.** `Zkpc/Games/FrameAsymptotic.lean` indexes the
+  finite result by a security parameter and applies the existing
+  negligibility calculus, but it is a conditional scaling wrapper only. Its
+  conclusions assume per-parameter
+  query certificates and either negligibility of the explicit ratio, or a
+  polynomial numerator bound plus negligible inverse field size. It neither
+  classifies adversaries as PPT nor derives query certificates from PPT; a
+  runtime model and that derivation remain research extensions.
+- **Deployed-system composition.** Connect concrete cryptographic
+  implementations and schedulers to the synchronized reference traces.
 
-### 2. The ZK bridge, O1 (Class D, high value)
+## Completed source validation and remaining closeout
 
-`Zkpc.Games.zkBridgeObligation` is stated but not discharged for a concrete
-instance. Prove, for a full-ticket instance `Sfull` carrying the NIZK proof
-`π`, that advantage against its game is at most advantage against the
-proof-free `flatInstance` plus the scheme's zero-knowledge distinguishing
-advantage (Spec.md assumption 2). This is what lets the perfect
-`T4_flat_unlinkability` (proved on the π-free view) speak about the real
-wire protocol. See the disposition in `Zkpc/Games/FlatInstance.lean` and
-`Zkpc/Games/T4.lean`.
+K2/K5 completed at source checkpoint `abb878f`:
 
-### 3. B-instance obligations O2 / O3 / O4 (Class B/C, medium)
+1. fresh dependency/cache restore (8,283 files);
+2. clean root build (3,595 jobs, Lean 4.30.0);
+3. forbidden-token and project-axiom scans;
+4. exact `#print axioms` capture for the complete T7 chain, both
+   flat/refund T7-residual-free wrappers, both conditional scaling theorems,
+   and the ElGamal/receipt-MAC/authenticated-fleet reference endpoints; and
+5. clean diff hygiene checks.
 
-For the refund instantiation: the adversary-issued-genesis discharge
-(`M2` / O3), and the `closeViewSimulatable` discharge for true-count B
-closes (`O4`). Both are stated obligations in the games register
-(`Zkpc/Games/README-games.md`); each is a concrete-instance proof against
-the frozen game.
+The captured endpoints use only a subset of Lean's standard `propext`,
+`Classical.choice`, and `Quot.sound`. The documentation was reconciled and
+the synchronized 12-page PDF rebuilt and visually inspected. Remaining
+acceptance work is the non-author human B1/B3/K1 approvals and a real outside
+K4 review. The agent and simulated-external reviews do not satisfy those
+human gates.
 
-### 4. The challenge-fires lemma (Class B, small, good first task)
+## Historical note: how the final T7 route changed
 
-K3 (`research_knowledge/k3-vacuity-review.md`) recommends adding an in-tree
-lemma `challengeResp (flatInstance …) = pure (some …)` for a satisfying
-configuration, so the headline's non-vacuity (the challenge actually
-produces a real ticket batch) is kernel-checked rather than traced by
-review. Small, self-contained, and it hardens the headline; a good way to
-learn the game plumbing.
+Earlier 2026-07-09/10 checkpoint notes described two open transfer Props and
+later one open deferred-counting lemma. Those were live work notes, not final
+claims. The pointwise deferred certificate was refuted; the proof moved to
+the secret-averaged socket. The landed route uses a pending-slope tape
+induction for the good slice and a seeded adaptive shadow induction for the
+deferred bad mass, then transports that count through the real/deferred
+coupling. The authoritative current endpoints are the theorem chain listed
+above; old lane ownership and “in progress” narratives are historical only.
 
-### 5. Refund cascade and fleet-side settlement (Class A, medium)
+## Definition and rationale references
 
-`Zkpc/Refund/` models one close-dispute round at `N = 1`. Extend it to the
-full upgrade sub-window cascade (`Spec.md` §2, the receipt-withholding
-repair) and to the multi-gateway fleet. Separately, the fleet-side T2
-recovery clauses (identity- vs fund-slash window claims, `Spec.md` MC19)
-exist as prose and an `N = 1` core; lift them to the fleet transition
-system (the `Zkpc/Fleet/` machine is the place).
-
-### 6. Multi-recipient generalisation (research, not just proof)
-
-The named open problem: the object is single-recipient by construction.
-What a multi-recipient generalisation requires is stated in the paper's
-open-problems section and `RESEARCH.md`. This is a definition-design task
-first, then a proof task, and it would re-open the gate.
-
-## Where the definitions and their rationale live
-
-- `Spec.md`: the object, the games, the seven theorems, and the modeling
-  choices (MC1..MC20), each tied to a counterexample that forced it.
-- `research_knowledge/gates.md`: the eleven-round review record, so you can
-  see why every clause is the way it is before you try to prove around it.
-- `Zkpc/Games/README-games.md`: the obligation register (O1..O4) and
-  prover guidance specific to the game layer.
-- `paper/`: the systematization and the theorem-to-file map at paper
-  altitude.
+- `Spec.md`: object, games, theorem statements, and modeling choices.
+- `research_knowledge/gates.md`: adversarial definition-review record.
+- `Zkpc/Games/README-games.md`: current game-layer map and rev-9 history.
+- `paper/`: systematization and theorem-to-file map.

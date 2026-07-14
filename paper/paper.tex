@@ -1,28 +1,37 @@
-\documentclass[10pt]{article}
+\documentclass[9pt]{extarticle}
 
-\usepackage[margin=1in]{geometry}
+\usepackage[margin=0.75in]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{array}
 \usepackage{microtype}
-\usepackage[shortlabels]{enumitem}
-\setlist{nosep,leftmargin=*}
-\usepackage{titlesec}
-\titlespacing*{\section}{0pt}{1.1em}{0.5em}
-\titlespacing*{\subsection}{0pt}{0.9em}{0.4em}
-\titlespacing*{\paragraph}{0pt}{0.6em}{1em}
 \usepackage[hidelinks]{hyperref}
 \urlstyle{same}
+\linespread{0.97}
+
+% Keep the release PDF compact without depending on non-basic TeX packages.
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{0pt}%
+  {1.1ex plus .3ex minus .2ex}{.5ex}{\normalfont\Large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{0pt}%
+  {.9ex plus .2ex minus .2ex}{.4ex}{\normalfont\large\bfseries}}
+\renewcommand\paragraph{\@startsection{paragraph}{4}{0pt}%
+  {.6ex plus .2ex minus .1ex}{-1em}{\normalfont\normalsize\bfseries}}
+\def\@listi{\leftmargin\leftmargini
+  \topsep 2pt \parsep 0pt \itemsep 0pt \partopsep 0pt}
+\let\@listI\@listi
+\makeatother
 
 \emergencystretch=1.5em
-\newcommand{\decl}[1]{\texttt{#1}}
+\newcommand{\decl}[1]{\nolinkurl{#1}}
+\newcommand{\file}[1]{\path{#1}}
 \newcommand{\Cmax}{C_{\max}}
 
 \title{zk Payment Channels: a Definition, and the First\\
 Machine-Checked Unlinkability Results for a Credit Construction}
 \author{dmarz\thanks{Repository: \url{https://github.com/dmarzzz/zk-payments-confetti}. The definitions in this paper were produced and stress-tested under an agent-assisted workflow whose review protocol and full gate record are documented in the repository README.}}
-\date{July 2026 --- draft}
+\date{July 2026}
 
 \begin{document}
 \maketitle
@@ -47,11 +56,33 @@ knowledge the first machine-checked unlinkability result for any
 payment-channel or credit construction. No-overspend, both balance-security
 theorems, closure liveness, a priced-divergence bound for an
 eventually-consistent multi-gateway deployment, the exculpability (framing)
-bound (under a stated random-oracle good-event hypothesis, with the query
-tail deferred), and the refund variant's safety and conservation theorems
-are machine-checked with zero \texttt{sorry} and no axiom beyond Lean's
-three standard ones. The definition went through eleven rounds of
-independent adversarial review, producing concrete counterexamples against
+bound (under a stated random-oracle good-event hypothesis, and without that
+hypothesis as the concrete secret-averaged bound
+$(q_A+q_E+q_{Id}+q_{Nf}q_{sig}+q_{sig}^2+1)/|F|$ for adversaries carrying
+the five structural query certificates), and the refund variant's safety and
+conservation theorems --- now including the full failed-upgrade cascade and
+finite-fleet aggregation --- are machine-checked with zero \texttt{sorry}
+and the source declares no project-specific axioms. The release K2 capture
+for the final T7, composition, scaling, and refund reference endpoints
+reports only Lean's standard axioms; a fresh pinned checkout completed the
+3,595-job root build. The model-to-real bridges
+are no longer stated obligations: proof-bearing wire instances (a
+masked-proof encoding, an interactive Sigma protocol, and a
+lazy-random-oracle Fiat--Shamir compilation with explicit programming and
+fork-collision bounds) each discharge the zero-knowledge bridge with zero
+loss; an executable ledger refines every relational transition; a
+multi-recipient portable-deposit accounting layer with a threshold-issuance
+reference construction closes the definitional half of the named open
+problem; and one-trace composition theorems deliver the channel and wire
+guarantee bundles, while synchronized flat/refund product endpoints combine
+trace-derived operational guarantees with separate T4 and finite-query T7
+game claims. A third,
+post-quantum instantiation --- Buterin's unidirectional nullifier-chain
+channel --- is placed in the design space and its core is machine-checked
+too: balance safety, both directions of the collision-based stale-close
+mechanism, refund liveness, and per-request anonymity at advantage exactly
+zero. The definition went through eleven rounds of
+independent agent adversarial review, producing concrete counterexamples against
 ten successive revisions; the repairs those
 counterexamples forced --- gateway-bound messages, close-time netting,
 verifiable spend counts at close --- are, we argue, design requirements for
@@ -116,13 +147,15 @@ refund-bearing variant covering variable-cost metering --- with the
 safety, liveness, fleet, and \emph{privacy} theorems for the flat-ticket
 instantiation kernel-checked in Lean~4 over VCV-io~\cite{vcvio2026}: the
 spend-unlinkability advantage is proved exactly zero and the framing
-probability at most $1/|F|$, alongside a built-in calibration pair that
-separates the broken and fixed refund designs.
+probability, for every adversary carrying \decl{FrameQueryBounds}, is at
+most $(qb.total+1)/|F|$ averaged over the uniform secret. This is a
+finite-query theorem, not the full asymptotic PPT/negligibility statement.
+A built-in calibration pair separates the broken and fixed refund designs.
 \S\ref{sec:results} states exactly what is proved and what is not.
 \end{enumerate}
 
 One methodological remark belongs up front. The definition in
-\S\ref{sec:object} is revision eleven. Eleven independent review rounds
+\S\ref{sec:object} is revision eleven. Eleven independent agent-review rounds
 against earlier revisions produced concrete counterexamples against ten
 successive revisions --- protocols and adversary schedules, not quibbles
 --- and three of the
@@ -131,7 +164,9 @@ refund variant, verifiable spend counts at close) change protocol
 behaviour, not merely its description. We present these as design
 requirements discovered by adversarial definition review, with the
 counterexamples that forced them, because any construction of this shape
-that omits them is broken in the demonstrated way. The full review record,
+that omits them is broken in the demonstrated way. These agent reviews do
+not constitute the independent human sign-off prescribed by the project
+gate; that human gate remains pending. The full review record,
 with every counterexample, is in the repository~\cite{zkpcrepo}.
 
 \paragraph{Honest scope.} The formalization covers the protocol layer over
@@ -176,7 +211,7 @@ $x \neq x'$ are two points on a line: anyone computes
 $a = (y-y')/(x-x')$ and $k = y - a \cdot x$. One signal, at $x \neq 0$, is
 consistent with every candidate secret via a unique coefficient and
 reveals nothing. This asymmetry --- machine-checked as
-\decl{rln\_recover\_k} and \decl{rln\_single\_point\_hiding} --- is the
+\decl{rln_recover_k} and \decl{rln_single_point_hiding} --- is the
 entire double-spend mechanism: reuse of an index is punished by public
 recovery of $k$ and loss of the deposit, and the punishment is claimable
 by anyone, with no watchtower. Tickets additionally carry an epoch
@@ -310,7 +345,8 @@ session pseudonym $nf_{e^*}$), the adversary receives the batch,
 plus the challenge response. Advantage is $|\Pr[b' = b] - \tfrac12|$, with
 $b$ sampled at game start so $\bot$-paths contribute exactly $\tfrac12$.
 The session form --- an adversary-chosen vector rather than a single
-spend --- is itself a repair the external review forced: the single-spend
+spend --- is itself a repair forced by the simulated K4 external-review
+exercise: the single-spend
 game certifies only unlinkability of a member's \emph{first} spend of an
 epoch, and a scheme leaking a persistent cross-epoch tag on second-and-
 later spends would pass it while being lifetime-linkable for any member
@@ -375,8 +411,8 @@ actual threat model --- the fleet's own operators.
 them}\label{sec:repairs}
 
 The specification records twenty modeling choices; three changed protocol
-behaviour and generalize beyond this protocol. Each was found by a
-reviewer who did not write the definition, as a concrete adversary
+behaviour and generalize beyond this protocol. Each was found by an agent
+reviewer that did not write the definition, as a concrete adversary
 schedule against the previous revision.
 
 \paragraph{Replay across payees (gateway-bound messages).} In the first
@@ -393,7 +429,7 @@ hashed message, so cross-gateway reuse of an index \emph{forces} distinct
 $x$ --- a conflicting pair --- and the detection argument becomes sound.
 The general lesson: in any multi-verifier deployment of a nullifier
 scheme, replay across verifiers is value-bearing unless the verifier
-identity is inside the proof's message. Three independent reviewers found
+identity is inside the proof's message. Three independent agent reviewers found
 this; it is the record's canonical wrong-definition-nearly-proved case.
 
 \paragraph{The gap-index close (verifiable spend counts).} Through five
@@ -441,12 +477,16 @@ We formalize the protocol layer over the idealized ledger and idealized
 cryptography, in the random-oracle model. The NIZK relation is the
 mathematical statement above; the fidelity of any circuit to it is out of
 scope --- the repository's own wording is that anyone claiming it verifies
-SNARKs is misreading it. Named assumptions (knowledge soundness, zero
-knowledge, PRF/ROM with domain separation, EUF-CMA receipts,
-re-randomizable encryption, and a separately named
-\decl{single\_signal\_hiding} --- the additive, KDM-flavoured key use in
-$y = k + a \cdot x$ is not implied by standard PRF security) are confined
-to one audited registry file. Explicitly out of scope: circuit
+SNARKs is misreading it. \file{Zkpc/Assumptions.lean} is a data registry,
+not a set of logical assumptions. Knowledge soundness and receipt
+unforgeability are idealized as model guards (the latter supports T1-B,
+T2-B, and T3-B); zero knowledge is discharged by exact simulator equalities
+for the masked, interactive-Sigma, and lazy-ROM Fiat--Shamir wires; and the
+random-oracle model covers the domain-separated
+$H_a,H_e,H_{nf},H_x,H_{id}$ surfaces. Re-randomization privacy and the
+separately named \decl{single_signal_hiding} property are proved by the
+reference layers. Deployed-primitive reductions remain outside the model.
+Explicitly out of scope: circuit
 correctness, network-level timing and content fingerprints, funding-graph
 leakage at $\mathsf{Open}$, a global passive adversary, relationship
 anonymity (the transport layer's property), and the policy stake of the
@@ -568,7 +608,7 @@ VCV-io~\cite{vcvio2026}, which with ArkLib~\cite{arklib} is already
 verifying SNARK components --- the ecosystem this protocol stack would
 eventually rest on.
 
-\section{The two instantiations}\label{sec:constructions}
+\section{The instantiations}\label{sec:constructions}
 
 \paragraph{A: flat-ticket RLN credits.} Deposit $D$, flat price $C$,
 solvency $(i+1) \cdot C \le D$, per-index nullifier, slash on reuse. No
@@ -619,23 +659,79 @@ certified counts and cheap closes, and pay with a live abort lever
 trade-off, presumably because no prior design was pushed through an
 adversarial review that forced both closes to be sound.
 
+\paragraph{C: the unidirectional nullifier-chain channel.} A third
+instantiation, due to Vitalik Buterin (communicated via
+dmarzzz\footnote{\url{https://gist.github.com/dmarzzz/ddcd1302c5f511001f8f46102874a08e};
+archived in the repository as
+\file{research_knowledge/vitalik-nullifier-chain-channel.md}.}), sits
+at a different point in the design space and is markedly simpler; we
+record it here and formalize its core alongside A and B. Alice maintains a
+nullifier chain $N_{i+1} = H(N_i, c)$ under a private seed $c$.
+$\mathsf{Open}$ deposits $D$, names the recipient publicly, and commits
+(hiding) to $N_1$. Each payment reveals the parent state's committed
+next-nullifier and carries a ZK proof that the parent is either the
+on-chain genesis or \emph{some} Bob-countersigned state --- the signature
+verified inside the proof, so \emph{which} state stays hidden --- with
+$\mathit{parent\_balance} + \delta = \mathit{new\_balance} \le D$,
+balances hidden, $\delta$ public; the message commits to the new balance
+and a fresh next nullifier, and Bob countersigns unless he has seen the
+revealed nullifier before. $\mathsf{Close}$ opens the closed state's
+committed next-nullifier on chain; Bob challenges by exhibiting a message
+that revealed the same nullifier --- a collision proves the closed state
+was extended --- and a successful challenge forfeits the whole deposit to
+him. The one mechanism, the nullifier chain, does both jobs: duplicate
+detection during payments and stale-close detection at close, uniformly
+down to the genesis-refund case.
+
+The comparison is instructive in both directions. The design is
+unidirectional, per-pair, and interactive (every payment needs a
+countersignature --- B's abort lever, not A's abort-immunity), and its
+base form leaks $D$ and the final split at the channel boundaries;
+recipient anonymity, deposit privacy, and close privacy are add-ons (an
+ephemeral per-channel key, or shielded-pool-integrated opens and closes),
+and it inherits the recipient-boundness of \S\ref{sec:limits} unchanged.
+In exchange it deletes machinery this paper spent sections on: no epochs,
+no rate-limiting algebra, no fleet, no refund cascade --- and, most
+notably for \S\ref{sec:limits}, \emph{no identity-slash}. Its penalties
+are fund-forfeit only, so the retroactive deanonymization that FRAME must
+price in the RLN design (a published $k$ unlocks the member's entire
+request history) has no analogue here: a cheating Alice loses money, not
+her lifetime privacy, and the FRAME-shaped question collapses to the
+collision soundness of the challenge --- an honest Alice's latest-state
+close opens a nullifier no message ever revealed. The anonymity claim is
+also differently scoped: per-request unlinkability toward the recipient
+(Bob cannot link two payments to a sender or channel), where T4 is
+population unlinkability toward a payee across members --- hidden balances
+are what make it hold (a visible cumulative balance would let Bob rejoin
+the chain from his own $\delta$ records, which high-entropy $\delta$ makes
+easier, not harder). The construction is also natively post-quantum
+(hashes and STARK-friendly signatures; no curves), which none of A/B's
+reference wires are. Its Lean formalization (\file{Zkpc/Chain/}) follows
+the same split this paper uses everywhere --- safety and stale-close
+collision detection as Class-A invariants, per-request anonymity as a
+Class-B coupling, with the STARK and signature scheme idealized at the
+same boundary as A and B's proofs --- and is machine-checked
+(\S\ref{sec:results}).
+
+
 \section{Results: what is machine-checked}\label{sec:results}
 
 Everything in this section refers to Lean declarations in the
-repository~\cite{zkpcrepo}, building with zero \texttt{sorry} under CI
-that also forbids \texttt{axiom} outside the assumptions registry and
-forbids \texttt{admit}/\texttt{native\_decide}. The development in fact
-contains \emph{no \texttt{axiom} declarations at all}: each named
-assumption is discharged by construction in the idealized model (knowledge
-soundness as transition guards --- an accepted ticket \emph{is} its
-extracted witness; zero knowledge as proof-free adversary views; hashes as
-lazily sampled random oracles), so \texttt{\#print axioms} on every
-theorem shows only Lean's
-\texttt{propext}/\texttt{Quot.sound}/\texttt{Classical.choice}. This was
-audited declaration by declaration (K2): the unlinkability, framing,
-calibration, and refund theorems each reduce to exactly those three
-standard Lean axioms and nothing more. The trust surface is the
-definitions, which is where the review effort went.
+repository~\cite{zkpcrepo}. CI is configured to build them and reject
+\texttt{sorry}, project-specific \texttt{axiom} declarations,
+\texttt{admit}, and \texttt{native\_decide}. The source currently declares
+no project axioms. The assumption registry is audit data: knowledge
+soundness and receipt EUF-CMA are model guards; the latter is the idealized
+boundary used by T1-B, T2-B, and T3-B. Zero knowledge is realized by proved
+exact transcript simulations for the masked, interactive-Sigma, and
+lazy-ROM Fiat--Shamir wires. The ROM surface includes the domain-separated
+$H_a,H_e,H_{nf},H_x,H_{id}$ interfaces, and the reference layers prove
+re-randomization privacy and \decl{single_signal_hiding}. The completed
+release K2 capture covers the final T7 route, both composition wrappers,
+both conditional scaling theorems, and the scoped refund reference
+endpoints; every result uses only Lean's \texttt{propext}/
+\texttt{Quot.sound}/\texttt{Classical.choice}. The trust surface is the idealized definitions and the
+statements, which is where review belongs.
 
 The model boundary bears repeating before the list: idealized ledger,
 random-oracle model, no circuits. These are theorems about the protocol
@@ -643,64 +739,64 @@ layer.
 
 \paragraph{Machine-checked theorems (flat-ticket instantiation).}
 \begin{itemize}
-\item \textbf{T1} --- \decl{T1\_no\_overspend}
-  (\texttt{Zkpc/Core/T1.lean}): accepted value per secret never exceeds
+\item \textbf{T1} --- \decl{T1_no_overspend}
+  (\file{Zkpc/Core/T1.lean}): accepted value per secret never exceeds
   $D$, single honest payee, arbitrary payer coalition.
 \item \textbf{Exculpability lemma, symbolic form} ---
-  \decl{honest\_never\_slashed} (\texttt{Zkpc/Core/T1.lean}): a
+  \decl{honest_never_slashed} (\file{Zkpc/Core/T1.lean}): a
   protocol-following payer is never slashed in any reachable state; the
-  invariant carrier is \decl{reach\_inv}.
-\item \textbf{T2} --- \texttt{Zkpc/Core/T2.lean}: unconditional upper
-  bound \decl{T2\_upper} / \decl{T2\_paid\_exact} (ledger dedup plus
+  invariant carrier is \decl{reach_inv}.
+\item \textbf{T2} --- \file{Zkpc/Core/T2.lean}: unconditional upper
+  bound \decl{T2_upper} / \decl{T2_paid_exact} (ledger dedup plus
   per-ticket price cap the payee's revenue), collectability
-  \decl{T2\_collectable} (from any reachable state a finite sweep sequence
+  \decl{T2_collectable} (from any reachable state a finite sweep sequence
   settles every accepted-unswept ticket whose window is open, with no
-  payer cooperation), and \decl{T2\_settles\_exactly}.
-\item \textbf{T3} --- \decl{T3\_settled\_amount},
-  \decl{T3\_payer\_balance\_security} (\texttt{Zkpc/Core/T3.lean}): the
+  payer cooperation), and \decl{T2_settles_exactly}.
+\item \textbf{T3} --- \decl{T3_settled_amount},
+  \decl{T3_payer_balance_security} (\file{Zkpc/Core/T3.lean}): the
   settled amount satisfies $paid + j \cdot C = D$ exactly (stronger than
   the specification's floor), plus no-framing via the exculpability
   lemma.
-\item \textbf{T5} --- \decl{T5\_payer\_close\_liveness}, with persistence
-  \decl{settleClose\_stable} and progress \decl{tick\_progress}
-  (\texttt{Zkpc/Core/T5.lean}): settlement is enabled from window expiry,
+\item \textbf{T5} --- \decl{T5_payer_close_liveness}, with persistence
+  \decl{settleClose_stable} and progress \decl{tick_progress}
+  (\file{Zkpc/Core/T5.lean}): settlement is enabled from window expiry,
   stays enabled under every adversarial action, and a settling
   continuation exists from every reachable state; the payee half is T2's
   collectability.
-\item \textbf{T6} --- \decl{T6\_priced\_divergence},
-  \decl{T6\_accept\_count}, \decl{T6\_slash\_within\_L}
-  (\texttt{Zkpc/Fleet/T6.lean}), on the counting lemmas
-  \decl{card\_le\_solvency\_of\_conflictFree} and
-  \decl{card\_le\_rate\_window} and the epoch-straddle lemma
-  \decl{epochs\_in\_window} (\texttt{Zkpc/Fleet/Basic.lean}): accepted
+\item \textbf{T6} --- \decl{T6_priced_divergence},
+  \decl{T6_accept_count}, \decl{T6_slash_within_L}
+  (\file{Zkpc/Fleet/T6.lean}), on the counting lemmas
+  \decl{card_le_solvency_of_conflictFree} and
+  \decl{card_le_rate_window} and the epoch-straddle lemma
+  \decl{epochs_in_window} (\file{Zkpc/Fleet/Basic.lean}): accepted
   value $\le \lfloor D/C \rfloor \cdot C + N b (\lceil L/T_e \rceil + 1)
   C$ and fleet-wide slash within $L$. The formalization surfaced two
   boundary facts the prose missed: the ticket-count form is false at
   $C = 0$ (a zero-price fleet accepts unboundedly many non-conflicting
   tickets), and $T_e > 0$ is load-bearing.
-\item \textbf{RLN algebra} --- \texttt{Zkpc/Games/RLN.lean}:
-  \decl{rln\_recover\_a}, \decl{rln\_recover\_k} (two points reveal the
+\item \textbf{RLN algebra} --- \file{Zkpc/Games/RLN.lean}:
+  \decl{rln_recover_a}, \decl{rln_recover_k} (two points reveal the
   secret --- $\mathsf{Dispute}$'s completeness),
-  \decl{rln\_single\_point\_hiding} (one point at $x \neq 0$ is consistent
+  \decl{rln_single_point_hiding} (one point at $x \neq 0$ is consistent
   with every candidate secret via a unique coefficient --- the
-  information-theoretic core of \decl{single\_signal\_hiding}),
-  \decl{rln\_evidence\_complete}, \decl{rln\_evidence\_sound} (the
+  information-theoretic core of \decl{single_signal_hiding}),
+  \decl{rln_evidence_complete}, \decl{rln_evidence_sound} (the
   ledger's slash predicate is satisfiable only by a genuine two-point
-  exposure), and \decl{rln\_x\_zero\_degenerate} (the $x = 0$
+  exposure), and \decl{rln_x_zero_degenerate} (the $x = 0$
   counterexample that forced the domain-separation requirement).
 \end{itemize}
 
 \paragraph{Machine-checked privacy theorems (the headline).} The two
 privacy games are defined over the advantage framework of
-\texttt{Zkpc/Games/Framework.lean} (\decl{guessGap}, the
+\file{Zkpc/Games/Framework.lean} (\decl{guessGap}, the
 $|\Pr[b'=b] - \tfrac12|$ form; the challenge-terminated adversary shape
 \decl{ChalAdversary}, whose post-challenge oracle silence holds by type;
 the abort/evict wrapper \decl{withEvict}), and both are proved.
 \begin{itemize}
 \item \textbf{T4 --- spend unlinkability, exactly zero advantage} ---
-  \decl{T4\_flat\_unlinkability} (\texttt{Zkpc/Games/T4.lean}), over the
+  \decl{T4_flat_unlinkability} (\file{Zkpc/Games/T4.lean}), over the
   session-form game \decl{unlinkGame}/\decl{unlinkAdvantage}
-  (\texttt{Zkpc/Games/Unlink.lean}): for the flat-ticket ideal
+  (\file{Zkpc/Games/Unlink.lean}): for the flat-ticket ideal
   instantiation, \emph{every} UNLINK adversary at \emph{every} deposit
   budget has advantage $= 0$ --- information-theoretically perfect
   unlinkability of a member's whole epoch session, against a payee with
@@ -708,54 +804,228 @@ the abort/evict wrapper \decl{withEvict}), and both are proved.
   our knowledge this is the first machine-checked spend-unlinkability
   result for any payment-channel or credit construction. The two honest
   residues (within-session $nf_{e^*}$ linkage, MC6; the spend count at
-  close, MC15) are pinned, not hidden: \decl{flat\_closeViewSimulatable}
+  close, MC15) are pinned, not hidden: \decl{flat_closeViewSimulatable}
   proves the close view is simulatable from $(cm, \text{count})$ alone, so
   the leak is exactly the count and no more.
 \item \textbf{T7 --- exculpability (framing) bound} ---
-  \decl{T7\_frame\_bound} (\texttt{Zkpc/Games/T7.lean}), over
+  \decl{T7_frame_bound} (\file{Zkpc/Games/T7.lean}), over
   \decl{frameGame}/\decl{frameWinProb} and the win predicate
-  \decl{Slashes} (deliberately stronger than $\mathsf{Dispute}$): under
-  the stated random-oracle good-event hypothesis \decl{hobliv} (the
-  adversary's evidence is independent of the secret $k$), the probability
-  that an $N-1$-gateway coalition frames an honest member is at most
-  $1/|F|$ --- the blind-guess floor. Honestly in-place: the $q/|F|$
-  query-term accounting that would discharge \decl{hobliv} for an unbounded
-  interactive adversary is the deferred PPT tail (GATE-NOTE in
-  \texttt{T7.lean}); the kernel guarantees everything up to
-  \decl{hobliv}, and we do not claim the unconditional bound. Two
-  \emph{must-win} calibration adversaries confirm the game has teeth:
-  \decl{frameWinProb\_YK\_eq\_one} (degenerate $y = k$) and
-  \decl{frameWinProb\_aReuse\_eq\_one} ($a$ reused across indices) each
-  frame with probability exactly $1$.
+  \decl{Slashes} (deliberately stronger than $\mathsf{Dispute}$), proves
+  the $1/|F|$ blind-guess floor under the random-oracle good-event
+  hypothesis \decl{hobliv}. The public endpoint
+  \decl{T7_frame_query_bound_unconditional}
+  (\file{Zkpc/Games/FrameComplete.lean}) removes that residual hypothesis:
+  for every adversary carrying \decl{FrameQueryBounds}, the secret-averaged
+  FRAME win probability is at most
+  $(q_A+q_E+q_{Id}+q_{Nf}q_{sig}+q_{sig}^2+1)/|F|$.
+  \decl{T7Certificate.ofQueryBounds} packages it for synchronized flat and
+  refund compositions. The proof combines the adaptive pinned-slope
+  good-slice transfer, seeded-shadow count, and real/deferred step coupling.
+  The stronger pointwise certificate was stress-tested and \emph{refuted}
+  by \decl{frameDeferredSampling_refuted}: a two-probe adversary forces one
+  secret-independent generator to carry almost full mass on each of two
+  disjoint slash events, making \decl{FrameDeferredSampling} unsatisfiable
+  for $|F|>5$. The corrected \decl{FrameDeferredSamplingAvg} socket matches
+  the uniform-secret FRAME experiment and preserves the same finite query
+  bound; the completed proof constructs it from \decl{frameImpl} with no
+  residual coupling or counting hypothesis. This is a concrete finite-query
+  theorem. \file{Zkpc/Games/FrameAsymptotic.lean} supplies two conditional
+  lifts: one assumes the explicit query/field-size ratio is negligible; its
+  corollary assumes a polynomial numerator bound and negligible inverse field
+  cardinality. Neither derives query certificates from PPT, classifies
+  runtime, or reduces deployed hash or signature implementations. Three
+  \emph{must-win} calibration adversaries confirm the
+  game has teeth: \decl{frameWinProb_YK_eq_one} (degenerate $y = k$),
+  \decl{frameWinProb_aReuse_eq_one} ($a$ reused across indices), and
+  \decl{frameWinProb_slopeReveal_eq_one} (the formal witness that the
+  slope-preimage channel is real, so the $q_{Nf}\,q_{sig}$ term is
+  required, not conservative slack) each frame with probability exactly
+  $1$.
 \item \textbf{The calibration pair (the built-in definitional test)} ---
-  \decl{unlinkAdvantage\_staticDistinguisher\_eq\_half} (the broken
+  \decl{unlinkAdvantage_staticDistinguisher_eq_half} (the broken
   B-static design: a concrete distinguisher wins at exactly $\tfrac12$)
-  and \decl{unlinkAdvantage\_bRerand\_eq\_zero} (the B-rerand repair: every
-  adversary at exactly $0$), in \texttt{Zkpc/Games/Calibration.lean}. The
+  and \decl{unlinkAdvantage_bRerand_eq_zero} (the B-rerand repair: every
+  adversary at exactly $0$), in \file{Zkpc/Games/Calibration.lean}. The
   \emph{same} game separates the broken variant from the fixed one, which
   is the property a wrong game lacks. The must-catch battery joins it:
-  \decl{unlinkAdvantage\_aIndexLeak} (index-in-clear, A's first
-  calibration point), \decl{unlinkAdvantage\_nfeReuse} ($nf_e$ derived
-  without $e$), and \decl{unlinkAdvantage\_multTagDistinguisher\_eq\_half}
+  \decl{unlinkAdvantage_aIndexLeak} (index-in-clear, A's first
+  calibration point), \decl{unlinkAdvantage_nfeReuse} ($nf_e$ derived
+  without $e$), and \decl{unlinkAdvantage_multTagDistinguisher_eq_half}
   (the multiplicity-tag scheme the session form was introduced to catch,
   won by a $q = 2$ distinguisher) --- each at exactly $\tfrac12$. The
-  algebraic core T7 reduces to (\decl{rln\_single\_point\_hiding},
-  \decl{rln\_evidence\_sound}, \texttt{Zkpc/Games/RLN.lean}) is in the
+  algebraic core T7 reduces to (\decl{rln_single_point_hiding},
+  \decl{rln_evidence_sound}, \file{Zkpc/Games/RLN.lean}) is in the
   flat-ticket list above.
 \end{itemize}
 
-\paragraph{Machine-checked refund-variant safety.} The refund variant
-(instantiation~B), single-channel ($N = 1$), is machine-checked in
-\texttt{Zkpc/Refund/}: \decl{T1\_B\_no\_overspend} (accepted cost
-$\sum_\ell c_\ell \le D$), \decl{T3\_B\_floor} (a cooperatively-settled
+\paragraph{Machine-checked refund-variant safety, cascade, and fleet
+aggregation.} The refund variant (instantiation~B) is machine-checked in
+\file{Zkpc/Refund/}: \decl{T1_B_no_overspend} (accepted cost
+$\sum_\ell c_\ell \le D$), \decl{T3_B_floor} (a cooperatively-settled
 payer recovers exactly $D - \sum_\ell c_\ell$ and is provably not slashed),
 \decl{conservation} (every settled channel splits exactly $D$ between the
 two parties, cooperative close and fund-slash forfeit alike), and
-\decl{self\_slash\_race\_closed} (settlement happens at most once and no
+\decl{self_slash_race_closed} (settlement happens at most once and no
 path strands funds, so the self-slash race cannot leave the payee short).
-The model here is single-channel and models \emph{one} close-dispute round;
-the full failed-upgrade cascade (one count restored per round, converging
-at the true count) is a documented deferral (GATE-NOTE), not claimed.
+The two deferrals the previous revision of this paper carried here are now
+discharged. \file{Zkpc/Refund/Cascade.lean} models the full
+failed-upgrade cascade --- successive withheld-receipt upgrades, one count
+restored per round: upgrade claims never overshoot the certified count
+(\decl{cascade_upgrades_le_understatement}), a terminal cascade has
+settled (\decl{cascade_terminal_settled}), settlement happens at exactly
+the true count with exactly $n - j$ upgrades
+(\decl{cascade_settled_upgrades_eq}), and the final payouts conserve
+$D$ (\decl{cascade_final_payouts}), with an executable driver
+(\decl{execCascade_progress}). \file{Zkpc/Refund/Fleet.lean} lifts the
+single-channel results to interleaved multi-channel reachability and
+aggregates no-overspend, settlement conservation, and the cooperative
+payer floor across any finite fleet (\decl{fleet_no_overspend},
+\decl{fleet_conservation}, \decl{fleet_payer_floor}).
+\file{Zkpc/Fleet/Recovery.lean} formalizes the fleet-side post-slash
+recovery rule (MC19): pre-slash checkpoint eligibility
+(\decl{preSlash_claim_eligible}, \decl{postSlash_claim_ineligible}),
+sweep-before-conflict seniority, remainder-capped payouts
+(\decl{identityRecovery_capped}), exact conservation
+(\decl{identityRecovery_conservation}), full recovery when eligible
+demand fits (\decl{identityRecovery_all_full}), and the distinct
+fund-slash forfeit path (\decl{fundSlashRecovery_full}).
+
+\paragraph{Machine-checked wire-protocol bridges (the O1--O4 obligations,
+discharged).} The gap the previous revision stated as an obligation --- T4
+is proved on a proof-free view, the real wire carries a NIZK --- is now
+closed for three concrete proof-bearing wire encodings, each with a
+kernel-checked \emph{zero-loss} instance of \decl{zkBridgeObligation}
+(\file{Zkpc/Games/FullTicketInstance.lean},
+\file{Zkpc/Games/SigmaInstance.lean}): a \emph{masked-proof wire} (the
+honest prover retains a private witness and emits it under a fresh
+additive one-time mask; \decl{evalDist_spendBatch_maskedProof} proves
+the witness-dependent real transcript equals the simulator distribution
+exactly, giving \decl{T4_maskedProof_unlinkability} and
+\decl{maskedProof_zkBridge}); an \emph{interactive Sigma wire}
+(\file{Zkpc/Crypto/LinearSigma.lean}: verifier completeness, a simulator
+with exact transcript equality \decl{evalDist_real_eq_simulated},
+two-transcript special-soundness extraction \decl{special_soundness};
+\decl{T4_sigmaFlat_unlinkability}, \decl{sigmaFlat_zkBridge}); and a
+\emph{lazy-ROM Fiat--Shamir wire} (\file{Zkpc/Crypto/FSRom.lean}:
+simulator distributions \decl{evalDist_fsProveLazy_eq_simulated} plus
+explicit programming- and fork-collision bounds
+\decl{fsProgramCollisionBound}, \decl{fsForkChallengeCollisionBound};
+\decl{T4_fsFlat_unlinkability}, \decl{fsFlat_zkBridge}). The
+refund-side B-instance obligations are likewise discharged
+(\file{Zkpc/Games/BInstances.lean}): the rerandomized challenge path
+(\decl{bRerand_spendBatch_none_zero}, O2), adversary-issued genesis
+receipts and issuer receipt updates with capability monotonicity
+(\decl{bIdeal_openCh_adversary_genesis},
+\decl{bIdeal_serve_issuer_receipt}, \decl{bIdeal_serve_capable_mono},
+M2/O3), and close-view simulatability for both B-static and B-rerand
+(\decl{bIdeal_closeViewSimulatable}, O4). On the refund cryptography
+itself, \file{Zkpc/Crypto/MaskedEncryption.lean} proves exact
+distributional rerandomization and refund-update privacy for the additive
+masked cipher. \file{Zkpc/Crypto/ElGamal.lean} adds the public-key algebra---
+decryption correctness, homomorphic addition, rerandomization, and refund
+update correctness---but deliberately makes no DDH/IND-CPA claim.
+\file{Zkpc/Crypto/ReceiptMac.lean} proves a $1/|F|$ fixed-pair bound and a
+deterministic one-query bound in a reparametrized transcript game, plus an
+$n/|F|$ union bound for independently keyed instances. The latter has no
+shared signing key or cross-link attacker state and is not the Spec-B receipt
+chain's multi-query EUF-CMA theorem. What remains beyond these reference
+layers is deployment-grade: a concrete hash-implementation reduction for the
+FS layer, a DDH/IND-CPA encryption reduction, and a shared-key multi-query
+signature/MAC reduction (\S\ref{sec:limits}).
+
+\paragraph{Executable refinement.} The relational transition systems the
+theorems quantify over are now refined by executable operations:
+\file{Zkpc/Core/Refinement.lean} proves that executable open, honest
+spend, fresh redeem, payer close, identity dispute, arbitrary sweep lists,
+and the MC20 contract drivers (close dispute, successful settlement,
+settlement-time voiding) return traces of their corresponding \decl{Step}
+constructors (\decl{sweep_refines_trace},
+\decl{refined_steps_reachable});
+\file{Zkpc/Refund/Refinement.lean} and
+\file{Zkpc/Fleet/Refinement.lean} do the same for refund
+accept/close/force-close and fleet tick/admission/slash. States generated
+by running the executable layer therefore inherit T1--T6 and the
+refund/fleet invariants by construction.
+
+\paragraph{The multi-recipient network layer (the named open problem,
+definitional half).} \file{Zkpc/Network/State.lean} defines a
+portable-deposit network --- one deposit funding arbitrarily many
+recipients over a shared global nullifier set with recipient-directed
+settlement --- and proves global deduplication (\decl{global_dedup}),
+network-wide no-overspend (\decl{no_overspend}), exact
+recipient-partitioned payout accounting, unrelated-recipient view
+isolation, and executable refinement.
+\file{Zkpc/Network/Credential.lean} gives the first concrete credential
+adapter --- recipient, global nullifier, value, and payload bound into a
+Fiat--Shamir statement --- with honest issuance verifying, verified fresh
+redemption refining to network admission, cross-recipient nullifier replay
+rejected (\decl{redeem_rejects_global_replay}), and an end-to-end
+payment theorem composing verification, executable redemption, settlement,
+reachability, and shared-deposit no-overspend
+(\decl{credential_payment_end_to_end}).
+\file{Zkpc/Network/Issuance.lean} adds a finite threshold-issuance
+reference: share aggregation correctness, perfectly hiding blind requests
+(\decl{evalDist_blindRequest_uniform},
+\decl{issuerView_message_independent}), fork extraction
+(\decl{ticket_fork_extracts}), and exact recipient-view
+simulation/unlinkability (\decl{recipientView_unlinkable},
+\decl{recipientView_simulatable}).
+
+\paragraph{One-trace composition.} \file{Zkpc/Core/Composition.lean}
+bundles the guarantees that were previously separate endpoints.
+\decl{channel_endToEnd_composition}: on a single reachable channel
+trace, an honest payer with a posted close reaches a settled successor
+state of the \emph{same} trace at which, simultaneously, the close settles
+with the exact payer floor (T5+T3), every member satisfies no-overspend
+(T1), the payee is settled exactly (T2), and the honest closer is
+unslashed (exculpability). \decl{wire_endToEnd_composition}: for the
+verified Fiat--Shamir wire family, perfect T4 unlinkability and the
+zero-loss ZK bridge hold together.
+\file{Zkpc/Composition/EndToEnd.lean} adds synchronized product traces:
+\decl{flat_endToEnd_unconditional} combines the Core--Fleet--Network
+operational guarantees with Fiat--Shamir T4 and
+\decl{T7Certificate.ofQueryBounds}, while
+\decl{refund_endToEnd_unconditional} combines the Refund--Network
+operational guarantees with the re-randomized-refund T4 theorem and the
+same T7 certificate. The operational fields are trace-derived; T4 and T7
+remain scheme-level games, not consequences of the symbolic trace. The T7
+field is the secret-averaged finite-query bound for an adversary carrying
+\decl{FrameQueryBounds}; these composition theorems do not derive that bound
+from a PPT/runtime classifier or add a deployed-hash claim. Their source
+contains no project-specific axiom, and the final release-wide K2 capture
+includes both wrappers.
+
+\paragraph{Machine-checked nullifier-chain channel (instantiation C).}
+The \S\ref{sec:constructions} design is formalized in
+\file{Zkpc/Chain/} with the signature scheme idealized as transition
+guards and the hash chain as a lazily-sampled random oracle
+(collision-freedom carried as an explicit injectivity hypothesis on the
+chain, stated where used). Safety (\texttt{State.lean}, Class A):
+\decl{chain_no_overspend}, \decl{bob_never_loses} (honest close
+pays exactly the closed balance --- \decl{honest_close_exact};
+challenged stale close and Alice-AWOL timeout forfeit the whole deposit),
+\decl{alice_refund_liveness} (a never-countersigned channel refunds
+exactly $D$), \decl{conservation}, and \decl{no_overpay_recovery}.
+The collision mechanism (\texttt{Collision.lean}) is proved in
+\emph{both} directions: \decl{stale_close_detectable} (closing any
+extended state --- the genesis-refund case uniformly included --- opens a
+nullifier some message already revealed, so an honest Bob holds the
+colliding challenge witness) and \decl{honest_close_unchallengeable}
+/ \decl{honest_close_never_slashed} (closing the latest
+countersigned state opens a nullifier no message ever revealed --- the
+design's exculpability, obtained without any FRAME-style probabilistic
+argument), with the exactness lemma \decl{collision_iff_stale}
+justifying the challenge guard. Per-request anonymity
+(\texttt{Anonymity.lean}, Class B):
+\decl{chain_two_payment_anonymity} proves advantage exactly $0$
+for every adversary in the two-payment linkage game
+(same-chain-consecutive vs independent-channels), by coupling both worlds
+to one canonical fresh view --- nullifiers as fresh-uniform oracle slots,
+balance commitments as one-time additive masks. The game's docstring pins
+what is \emph{not} covered: $\delta$-value correlation, timing, and the
+base protocol's boundary leaks ($D$, close amounts, recipient,
+footprint). An executable refinement (\texttt{Chain/Refinement.lean})
+drives the machine.
 
 An earlier review round on the game files produced a fix list --- the
 adversary's view omitting the proof object (which would trivialize the
@@ -765,17 +1035,29 @@ on it was discharged before the proofs landed (\decl{zkBridgeObligation}
 as the stated bridge, adversary-issued genesis, the \decl{nfAt} superset,
 the \decl{roId} commitment surface).
 
-What stands today: every one of the seven security statements is
-machine-checked on the flat-ticket instantiation, the refund variant's
-safety and conservation are machine-checked single-channel, the calibration
-battery confirms the games are not vacuous, and the whole tree is
-axiom-clean (K2). The two model-to-real deferrals are stated where they
-occur: T7's PPT query tail behind \decl{hobliv}, and the refund upgrade
-cascade beyond the single round modeled. The B-instantiation UNLINK result
-is the ideal-model calibration pair; its model-to-real bridges
-(\decl{zkBridgeObligation}, the genesis obligations) are stated
-obligations, discharged per the named assumptions rather than against a
-concrete SNARK/encryption scheme --- circuits are out of the model boundary
+What stands today: six of the seven Spec security statements are
+machine-checked on the flat-ticket instantiation. For T7, the kernel checks
+the concrete secret-averaged finite-query bound for
+\decl{FrameQueryBounds}, not the Spec's full asymptotic PPT/negligibility
+statement. The refund variant's
+safety, conservation, failed-upgrade cascade, and finite-fleet aggregation
+are machine-checked; the O1--O4 model-to-real bridges are discharged with
+zero loss for three concrete wire encodings and the B instantiation; the
+executable layer refines the relational one; the calibration battery
+confirms the games are not vacuous; and the channel and wire guarantees
+compose on one trace. T7's
+secret-averaged handler coupling and adaptive count are discharged at the
+concrete finite-field query bound, while the stronger pointwise certificate
+remains kernel-refuted. \file{FrameAsymptotic.lean} supplies two conditional
+lifts: one assumes the explicit query/field-size ratio is negligible; its
+corollary assumes a polynomial numerator bound and negligible inverse field
+cardinality. Neither derives query certificates from PPT, supplies the
+missing runtime bridge, or derives field growth. The release K2 addendum
+captures both lifts and the complete finite endpoint.
+Remaining formal work includes a PPT-to-query/runtime bridge, the adaptive
+multi-session network composition named in \S\ref{sec:limits}, and
+deployment-grade hash/signature reductions behind the ideal reference
+layers. Circuits remain out of the model boundary
 (\S\ref{sec:boundary}).
 
 \section{Honest limits}\label{sec:limits}
@@ -837,9 +1119,12 @@ every member and total retroactive deanonymization by the fleet's own
 operators. The distinction of \S\ref{sec:object} bounds the damage --- a
 fund-slash (false-claim void, settlement bar, B failed-upgrade forfeit)
 keeps $k$ hidden and links nothing; only the evidence-pair identity-slash
-deanonymizes. Correspondingly, FRAME machine-checks the identity-slash door;
+deanonymizes. (Instantiation C is the design-space counterpoint: its
+penalties are fund-forfeit only, so this entire limit is absent there at
+the cost of interactivity and per-pair channels --- see
+\S\ref{sec:constructions}.) Correspondingly, FRAME machine-checks the identity-slash door;
 A's close-dispute exculpability is covered by the Core exculpability lemma
-(\decl{honest\_never\_slashed}), while B's failed-upgrade exculpability
+(\decl{honest_never_slashed}), while B's failed-upgrade exculpability
 remains a specification-level argument, not machine-checked.
 
 \paragraph{The stale-close residue in B.} Under receipt withholding, an
@@ -897,22 +1182,32 @@ deposit and no more.
 \paragraph{$x \neq 0$.} The signal at digest zero is the secret. The
 deployment must domain-separate $H_x$ away from zero; the formalization
 carries this as an explicit hypothesis, machine-checked in both directions
-(\decl{rln\_single\_point\_hiding} requires it;
-\decl{rln\_x\_zero\_degenerate} shows why).
+(\decl{rln_single_point_hiding} requires it;
+\decl{rln_x_zero_degenerate} shows why).
 
 \paragraph{The named open problem: multi-recipient generalization.}
-Everything here binds value to one logical payee. A member paying $N$
-\emph{independent} payees today needs $N$ deposits, $N$ partitioned
-anonymity sets, and hands each payee BOLT's abort lever --- the three
-costs that made the per-pair shape lose to the fleet shape in our
-application analysis. The generalization would need either portable
-deposits (value that moves between payees without a linking event --- the
-hub line's problem, with the hub's anonymity accounting) or threshold
-issuance over a shared spent structure (the Nym-shaped
+Everything in the channel object binds value to one logical payee. A
+member paying $N$ \emph{independent} payees with per-pair channels needs
+$N$ deposits, $N$ partitioned anonymity sets, and hands each payee BOLT's
+abort lever --- the three costs that made the per-pair shape lose to the
+fleet shape in our application analysis. The generalization needs either
+portable deposits (value that moves between payees without a linking
+event --- the hub line's problem, with the hub's anonymity accounting) or
+threshold issuance over a shared spent structure (the Nym-shaped
 hybrid~\cite{nymzknym}, whose reconciliation guarantees are exactly what
 would need the T6 treatment). PrivateX402~\cite{privatex402} shows what
 giving up costs: one deposit across $N$ recipients, and every recipient
-links every request. We name the problem and do not pretend to solve it.
+links every request. The definitional and accounting half of this problem
+is now formalized (\S\ref{sec:results}): the portable-deposit network
+machine, its credential adapter, and the threshold-issuance reference
+construction prove global deduplication, no-overspend, payout
+partitioning, recipient-view isolation, blind-request hiding, and
+recipient-view unlinkability. What we still do not claim is the
+composition that would make it a \emph{solved} problem: an adaptive
+multi-session network game connecting those per-session distributions to
+the executable admission and settlement trace, and a production
+threshold-signature unforgeability reduction. The problem is now
+half-closed, and we say which half.
 
 Also outside every theorem: static corruption only; no clock skew (a
 skew-tolerant model enlarges the T6 budget by a small constant); and the
@@ -931,7 +1226,7 @@ commit \texttt{8f5dc4f2\ldots}~\cite{vcvio2026}. Build:
 \end{center}
 CI runs the build on the pinned toolchain and additionally fails on:
 \texttt{sorry} anywhere; \texttt{axiom} outside
-\texttt{Zkpc/Assumptions.lean}; \texttt{admit} or \texttt{native\_decide}
+\file{Zkpc/Assumptions.lean}; \texttt{admit} or \texttt{native\_decide}
 anywhere.
 
 \begin{footnotesize}
@@ -947,35 +1242,55 @@ Statement & File & Declarations (cont.) \\
 \endhead
 \bottomrule
 \endfoot
-T1 & \texttt{Zkpc/Core/T1.lean} & \decl{T1\_no\_overspend}, \decl{reach\_inv} \\
-Exculpability (symbolic) & \texttt{Zkpc/Core/T1.lean} & \decl{honest\_never\_slashed} \\
-T2 & \texttt{Zkpc/Core/T2.lean} & \decl{T2\_upper}, \decl{T2\_paid\_exact}, \decl{T2\_swept\_accepted}, \decl{sweepOne\_enabled}, \decl{T2\_collectable}, \decl{T2\_settles\_exactly} \\
-T3 & \texttt{Zkpc/Core/T3.lean} & \decl{payer\_pay\_inv}, \decl{settleClose\_enabled}, \decl{T3\_settled\_amount}, \decl{T3\_payer\_balance\_security} \\
-T5 & \texttt{Zkpc/Core/T5.lean} & \decl{T5\_payer\_close\_liveness}, \decl{settleClose\_stable}, \decl{tick\_progress} \\
-T6 & \texttt{Zkpc/Fleet/T6.lean}, \texttt{Zkpc/Fleet/Basic.lean} & \decl{T6\_priced\_divergence}, \decl{T6\_accept\_count}, \decl{T6\_slash\_within\_L}, \decl{card\_le\_solvency\_of\_conflictFree}, \decl{card\_le\_rate\_window}, \decl{epochs\_in\_window}, \decl{fleet\_inv} \\
-RLN algebra & \texttt{Zkpc/Games/RLN.lean} & \decl{rln\_recover\_a}, \decl{rln\_recover\_k}, \decl{rln\_single\_point\_hiding}, \decl{rln\_x\_zero\_degenerate}, \decl{rln\_evidence\_complete}, \decl{rln\_evidence\_sound} \\
-Game framework & \texttt{Zkpc/Games/Framework.lean} & \decl{guessGap}, \decl{guessGap\_eq}, \decl{hiddenBitAdvantage\_eq\_half\_boolDistAdvantage}, \decl{hiddenBitAdvantage\_const}, \decl{hiddenBitAdvantage\_eq\_zero\_of\_distEquiv}, \decl{ChalAdversary}, \decl{withEvict} \\
-T4 (unlinkability) & \texttt{Zkpc/Games/T4.lean}, \texttt{Zkpc/Games/Unlink.lean} & \decl{T4\_flat\_unlinkability} ($= 0$), \decl{unlinkGame}, \decl{unlinkAdvantage}, \decl{UnlinkScheme}, \decl{flat\_closeViewSimulatable} \\
-T7 (framing) & \texttt{Zkpc/Games/T7.lean}, \texttt{Zkpc/Games/Frame.lean} & \decl{T7\_frame\_bound} ($\le 1/|F|$ under \decl{hobliv}), \decl{frameWinProb\_YK\_eq\_one}, \decl{frameWinProb\_aReuse\_eq\_one}, \decl{frameGame}, \decl{frameWinProb}, \decl{Slashes} \\
-Calibration & \texttt{Zkpc/Games/Calibration.lean} & \decl{unlinkAdvantage\_staticDistinguisher\_eq\_half}, \decl{unlinkAdvantage\_bRerand\_eq\_zero}, \decl{unlinkAdvantage\_aIndexLeak}, \decl{unlinkAdvantage\_nfeReuse}, \decl{unlinkAdvantage\_multTagDistinguisher\_eq\_half} \\
-Refund variant (B, $N{=}1$) & \texttt{Zkpc/Refund/Safety.lean}, \texttt{Zkpc/Refund/State.lean} & \decl{T1\_B\_no\_overspend}, \decl{T3\_B\_floor}, \decl{conservation}, \decl{self\_slash\_race\_closed} \\
-Assumption registry & \texttt{Zkpc/Assumptions.lean} & \decl{Named}, \decl{dischargedBy} (no \texttt{axiom} declarations exist) \\
-State machines & \texttt{Zkpc/Core/State.lean}, \texttt{Zkpc/Core/Flat.lean}, \texttt{Zkpc/Fleet/Basic.lean} & transition systems the above quantify over \\
+T1 & \file{Zkpc/Core/T1.lean} & \decl{T1_no_overspend}, \decl{reach_inv} \\
+Exculpability (symbolic) & \file{Zkpc/Core/T1.lean} & \decl{honest_never_slashed} \\
+T2 & \file{Zkpc/Core/T2.lean} & \decl{T2_upper}, \decl{T2_paid_exact}, \decl{T2_swept_accepted}, \decl{sweepOne_enabled}, \decl{T2_collectable}, \decl{T2_settles_exactly} \\
+T3 & \file{Zkpc/Core/T3.lean} & \decl{payer_pay_inv}, \decl{settleClose_enabled}, \decl{T3_settled_amount}, \decl{T3_payer_balance_security} \\
+T5 & \file{Zkpc/Core/T5.lean} & \decl{T5_payer_close_liveness}, \decl{settleClose_stable}, \decl{tick_progress} \\
+T6 & \file{Zkpc/Fleet/T6.lean}, \file{Zkpc/Fleet/Basic.lean} & \decl{T6_priced_divergence}, \decl{T6_accept_count}, \decl{T6_slash_within_L}, \decl{card_le_solvency_of_conflictFree}, \decl{card_le_rate_window}, \decl{epochs_in_window}, \decl{fleet_inv} \\
+RLN algebra & \file{Zkpc/Games/RLN.lean} & \decl{rln_recover_a}, \decl{rln_recover_k}, \decl{rln_single_point_hiding}, \decl{rln_x_zero_degenerate}, \decl{rln_evidence_complete}, \decl{rln_evidence_sound} \\
+Game framework & \file{Zkpc/Games/Framework.lean} & \decl{guessGap}, \decl{guessGap_eq}, \decl{hiddenBitAdvantage_eq_half_boolDistAdvantage}, \decl{hiddenBitAdvantage_const}, \decl{hiddenBitAdvantage_eq_zero_of_distEquiv}, \decl{ChalAdversary}, \decl{withEvict} \\
+T4 (unlinkability) & \file{Zkpc/Games/T4.lean}, \file{Zkpc/Games/Unlink.lean} & \decl{T4_flat_unlinkability} ($=0$), \decl{unlinkGame}, \decl{unlinkAdvantage}, \decl{UnlinkScheme}, \decl{flat_closeViewSimulatable} \\
+T7 (framing) & \file{Zkpc/Games/T7.lean}, \file{Zkpc/Games/Frame.lean} & \decl{T7_frame_bound} ($\le 1/|F|$ under \decl{hobliv}), \decl{frameWinProb_YK_eq_one}, \decl{frameWinProb_aReuse_eq_one}, \decl{frameWinProb_slopeReveal_eq_one}, \decl{frameGame}, \decl{frameWinProb}, \decl{Slashes} \\
+T7 query-budget composition and scaling & \file{Zkpc/Games/T7.lean}, \file{Zkpc/Games/FrameDeferred.lean}, \file{Zkpc/Games/FrameTransfer.lean}, \file{Zkpc/Games/FrameRealBadStep.lean}, \file{Zkpc/Games/FrameDSCountInduction.lean}, \file{Zkpc/Games/FrameGoodSliceTapeInduction.lean}, \file{Zkpc/Games/FrameComplete.lean}, \file{Zkpc/Games/FrameAsymptotic.lean}, \file{Zkpc/Composition/EndToEnd.lean} & \decl{FrameQueryBounds}, \decl{frameDeferredSampling_refuted}, \decl{FrameDeferredSamplingAvg}, \decl{T7_frame_query_bound_avg}, \decl{frameGoodSliceTransfer_of_tape}, \decl{dsBadMassLe_of_queryBounds}, \decl{frameRealBadMassLe_of_dsCount}, \decl{frameDeferredSamplingAvg_of_goodSlice_and_realBad}, \decl{frameDeferredSamplingAvg_holds}, \decl{T7_frame_query_bound_unconditional}, \decl{T7Certificate.ofAveraged}, \decl{T7Certificate.ofQueryBounds}, \decl{frameWinProb_negligible_of_query_bound}, \decl{frameWinProb_negligible_of_polynomial_query_bound} \\
+Wire ZK bridges (O1) & \file{Zkpc/Games/FullTicketInstance.lean}, \file{Zkpc/Games/SigmaInstance.lean} & \decl{T4_maskedProof_unlinkability}, \decl{maskedProof_zkBridge}, \decl{T4_sigmaFlat_unlinkability}, \decl{sigmaFlat_zkBridge}, \decl{T4_fsFlat_unlinkability}, \decl{fsFlat_zkBridge}, \decl{fullFlat_zkBridge} \\
+Sigma / Fiat--Shamir cores & \file{Zkpc/Crypto/LinearSigma.lean}, \file{Zkpc/Crypto/FSRom.lean} & \decl{completeness}, \decl{evalDist_real_eq_simulated}, \decl{special_soundness}, \decl{evalDist_fsProveLazy_eq_simulated}, \decl{fsProgramCollisionBound}, \decl{fsForkChallengeCollisionBound} \\
+B-instance obligations (O2--O4) & \file{Zkpc/Games/BInstances.lean} & \decl{bRerand_spendBatch_none_zero}, \decl{bIdeal_openCh_adversary_genesis}, \decl{bIdeal_serve_issuer_receipt}, \decl{bIdeal_serve_capable_mono}, \decl{bIdeal_closeViewSimulatable} \\
+Refund crypto references & \file{Zkpc/Crypto/MaskedEncryption.lean}, \file{Zkpc/Crypto/ElGamal.lean}, \file{Zkpc/Crypto/ReceiptMac.lean} & \decl{evalDist_rerandomize_cipher_uniform}, \decl{evalDist_refundUpdate_cipher_uniform}, \decl{decrypt_encrypt}, \decl{add_encrypt}, \decl{rerandomize_encrypt}, \decl{decrypt_refundUpdate}, \decl{mac_forgery_bound}, \decl{adaptive_mac_forgery_bound}, \decl{adaptive_mac_chain_bound} \\
+Refund cascade & \file{Zkpc/Refund/Cascade.lean} & \decl{cascade_upgrades_le_understatement}, \decl{cascade_settled_upgrades_eq}, \decl{cascade_terminal_settled}, \decl{cascade_final_payouts}, \decl{execCascade_progress} \\
+Refund fleet aggregation & \file{Zkpc/Refund/Fleet.lean}, \file{Zkpc/Refund/AuthenticatedFleet.lean} & \decl{fleet_no_overspend}, \decl{fleet_conservation}, \decl{fleet_payer_floor}, \decl{authenticated_fleet_security} (independent-key reference bound only) \\
+Fleet recovery (MC19) & \file{Zkpc/Fleet/Recovery.lean} & \decl{identityRecovery_conservation}, \decl{identityRecovery_capped}, \decl{identityRecovery_all_full}, \decl{preSlash_claim_eligible}, \decl{postSlash_claim_ineligible}, \decl{fundSlashRecovery_full} \\
+Executable refinement & \file{Zkpc/Core/Refinement.lean}, \file{Zkpc/Refund/Refinement.lean}, \file{Zkpc/Fleet/Refinement.lean} & \decl{sweep_refines_trace}, \decl{refined_steps_reachable}, \decl{exec*_refines_step}, \decl{exec_step_reachable} \\
+Multi-recipient network & \file{Zkpc/Network/State.lean}, \file{Zkpc/Network/Credential.lean}, \file{Zkpc/Network/Issuance.lean} & \decl{no_overspend}, \decl{global_dedup}, \decl{redeem_rejects_global_replay}, \decl{credential_payment_end_to_end}, \decl{evalDist_blindRequest_uniform}, \decl{ticket_fork_extracts}, \decl{recipientView_unlinkable} \\
+One-trace composition & \file{Zkpc/Core/Composition.lean}, \file{Zkpc/Composition/EndToEnd.lean} & \decl{channel_endToEnd_composition}, \decl{wire_endToEnd_composition}, \decl{flat_endToEnd_unconditional}, \decl{refund_endToEnd_unconditional} \\
+Nullifier-chain channel (C) & \file{Zkpc/Chain/State.lean}, \file{Zkpc/Chain/Collision.lean}, \file{Zkpc/Chain/Anonymity.lean}, \file{Zkpc/Chain/Refinement.lean} & \decl{chain_no_overspend}, \decl{bob_never_loses}, \decl{honest_close_exact}, \decl{alice_refund_liveness}, \decl{conservation}, \decl{no_overpay_recovery}, \decl{stale_close_detectable}, \decl{honest_close_unchallengeable}, \decl{collision_iff_stale}, \decl{honest_close_never_slashed}, \decl{chain_two_payment_anonymity} \\
+Calibration & \file{Zkpc/Games/Calibration.lean} & \decl{unlinkAdvantage_staticDistinguisher_eq_half}, \decl{unlinkAdvantage_bRerand_eq_zero}, \decl{unlinkAdvantage_aIndexLeak}, \decl{unlinkAdvantage_nfeReuse}, \decl{unlinkAdvantage_multTagDistinguisher_eq_half} \\
+Refund variant (B, $N{=}1$) & \file{Zkpc/Refund/Safety.lean}, \file{Zkpc/Refund/State.lean} & \decl{T1_B_no_overspend}, \decl{T3_B_floor}, \decl{conservation}, \decl{self_slash_race_closed} \\
+Assumption registry & \file{Zkpc/Assumptions.lean} & \decl{Named}, \decl{dischargedBy} (no trusted declarations) \\
+State machines & \file{Zkpc/Core/State.lean}, \file{Zkpc/Core/Flat.lean}, \file{Zkpc/Fleet/Basic.lean} & transition systems the above quantify over \\
 \end{longtable}
 \end{footnotesize}
 
 The specification of record is \texttt{Spec.md} (revision 11); every Lean
-definition is traceable to it, and the full adversarial review record ---
-eleven rounds against the specification, three against the Lean games, plus
-independent statement (K1), axiom (K2), and external-cryptographer (K4)
-audits, with every counterexample --- is
-\texttt{research\_knowledge/gates.md}. TLA+
+definition is traceable to it. The agent adversarial-review record --- eleven
+rounds against the specification, five against the Lean games, plus agent
+K1/K3/K4 exercises and every counterexample --- is
+\texttt{research\_knowledge/gates.md}. It is not independent human sign-off.
+The K2 record contains the completed final
+T7/composition/scaling/refund capture, tied to the source-validation
+checkpoint. TLA+
 models of the flat and fleet state machines, including ablation
 configurations that replay the gateway-binding and merge-evidence
 counterexamples (\texttt{tla/ZkpcFleetNoBind.cfg},
 \texttt{tla/ZkpcFleetNoMergeEv.cfg}), are in \texttt{tla/}.
 
+\begingroup
+\small
+\begingroup
+\small
 \bibliographystyle{plain}
 \bibliography{refs}
+\endgroup
+\endgroup
 
 \end{document}

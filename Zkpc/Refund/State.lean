@@ -43,7 +43,7 @@ representation types alike.
 * **GATE-NOTE (single channel).** Stated for one channel (`N = 1`, Spec.md
   §4). T1-B/T3-B/conservation are per-channel statements; the fleet layer
   (`Zkpc.Fleet`) composes channels and is out of scope for H1/H2/H4.
-* **GATE-NOTE (upgrade sub-window not modeled — one round only).** The
+* **GATE-NOTE (settlement core is one round).** The
   machine models a *single* close round: the honest closer presents its
   latest receipt at the true count `n`. The rev-7/8 receipt-withholding
   **upgrade sub-window cascade** (a stale close disputed, the withheld
@@ -52,7 +52,9 @@ representation types alike.
   `close` action, guarded to be at the certified count. The honest-payer case
   Spec.md T5 bounds at one round, so the single-round model is faithful for
   the honest closer whose floor T3-B protects; the multi-round adversarial
-  cascade against a *stale* close is the deferred follow-up.
+  cascade against a *stale* close is formalized separately in
+  `Zkpc.Refund.Cascade`, including the exact `n-j` upgrade bound and terminal
+  settlement. This state machine remains the final netting step.
 * **GATE-NOTE (force-close forfeit = fund-slash path).** `forceClose` models
   Spec.md MC18's force-close-with-forfeit for a silent/abandoned channel and,
   equivalently, the rev-10 F9-1b fund-slash settlement (a failed upgrade

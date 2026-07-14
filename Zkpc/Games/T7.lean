@@ -29,19 +29,18 @@ the independent `k`-draw past the evidence generation (`evalDist_bind_comm`)
 and bounds the resulting `k`-sum by the single-point mass `1/|F|`
 (`frame_inner_bound`).
 
-GATE-NOTE (PPT scoping of Spec T7, the deferred hard half). Spec T7 states
-`Pr[slash] ≤ negl(λ)` for every **PPT** adversary; the full explicit bound is
-`(q_A + q_Id + q_E + 1)/|F_p|` — the `+1` is the blind guess proved here, and
-each `q_·/|F_p|` is the union-bound mass of the corresponding RO channel's
-queries landing on the hidden `k`. Formalising those query terms is the lazy
-random-oracle *identical-until-bad* accounting over an unbounded interactive
-adversary — the estimated-hard 20% flagged in the E1 survey
-(`research_knowledge/vcvio-gap.md §3`). We ship the blind-guess term rigorously
-and scope the query terms behind the `hobliv` hypothesis (the "no query hit
-`k`" good event), which IS the PPT scoping the deliverable permits: a
-query-bounded adversary that does not correlate its evidence with `k`.
-Discharging `hobliv` unconditionally for a `q`-query-bounded adversary, with
-the residual `(q_A+q_Id+q_E)/|F|` bad-event mass, is the follow-up.
+The concrete theorem is query-bounded rather than asymptotic.  A
+`FrameQueryBounds A` certificate records separate bounds for direct `H_a`,
+`H_e`, `H_id`, and `H_nf` probes and for slope-producing operations.  The
+corrected numerator is
+`q_A + q_E + q_Id + q_Nf*q_sig + q_sig^2 + 1`: `H_nf` probes can hit any
+exposed honest slope, and honest slopes can collide.  The adaptive
+deferred-sampling proof is completed in `FrameComplete.lean`; its theorem
+`T7_frame_query_bound_unconditional` bounds the secret-averaged FRAME win
+probability by `(qb.total + 1)/|F|` with no additional coupling or counting
+hypothesis.  This finite-query theorem does not itself formalize an
+asymptotic PPT/negligibility wrapper or a reduction from deployed hash and
+signature implementations.
 
 ## The rev-11 must-win calibration battery (anti-vacuity)
 
@@ -69,6 +68,70 @@ namespace Zkpc.Games
 variable {F : Type} [Field F] [DecidableEq F] [SampleableType F]
 variable {M : Type} [DecidableEq M]
 
+/-! ## Query-bounded adversaries
+
+The unconditional theorem charges only adversary queries that can test a
+candidate for the honest secret. Honest `spend`/`nfAt` execution uses the same
+random-oracle caches internally, but those handler-side lookups are not guesses
+chosen by the adversary and therefore are deliberately not counted here. -/
+
+/-- Direct adversary queries to `H_a`; these can hit `(k, i)`. -/
+def isDirectRoAQuery : FrameOp F M → Bool
+  | .roA _ _ => true
+  | _ => false
+
+/-- Direct adversary queries to `H_e`; these can hit `(k, e)`. -/
+def isDirectRoEQuery : FrameOp F M → Bool
+  | .roE _ _ => true
+  | _ => false
+
+/-- Direct adversary queries to `H_id`; these can test a preimage of `cm`. -/
+def isDirectRoIdQuery : FrameOp F M → Bool
+  | .roId _ => true
+  | _ => false
+
+/-- Direct `H_nf` probes can test candidate line slopes against nullifiers
+published in honest signals. -/
+def isDirectRoNfQuery : FrameOp F M → Bool
+  | .roNf _ => true
+  | _ => false
+
+/-- Honest slope-producing operations controlled by the adversary. `nfAt`
+also materializes `H_a(k,i)` and may target an index later spent, so it must be
+included alongside successful `spend` and legacy `close`. -/
+def isSignalQuery : FrameOp F M → Bool
+  | .spend _ => true
+  | .close => true
+  | .nfAt _ => true
+  | _ => false
+
+/-- The explicit ROM-query budget required by the unconditional FRAME bound.
+The bounds hold for every possible public commitment input, since `A` is
+applied only after `cm = H_id(k)` has been sampled. Keeping the three channels
+and the signal/nullifier budgets separate exposes every concrete leakage term. -/
+structure FrameQueryBounds
+    (A : F → OracleComp (frameSpec F M) (Evidence F)) where
+  qA : ℕ
+  qE : ℕ
+  qId : ℕ
+  qNf : ℕ
+  qSig : ℕ
+  roA_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isDirectRoAQuery t = true) qA
+  roE_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isDirectRoEQuery t = true) qE
+  roId_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isDirectRoIdQuery t = true) qId
+  roNf_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isDirectRoNfQuery t = true) qNf
+  signal_bound : ∀ cm : F,
+    OracleComp.IsQueryBoundP (A cm) (fun t => isSignalQuery t = true) qSig
+
+/-- Total secret-testing query budget appearing in the T7 numerator. -/
+def FrameQueryBounds.total {A : F → OracleComp (frameSpec F M) (Evidence F)}
+    (qb : FrameQueryBounds A) : ℕ :=
+  qb.qA + qb.qE + qb.qId + qb.qNf * qb.qSig + qb.qSig * qb.qSig
+
 /-! ## The rev-11 must-win calibration battery -/
 
 /-- Degenerate-RLN FRAME game with `y = k` (the line-masking slope absent):
@@ -87,6 +150,19 @@ def frameGameAReuse : ProbComp Bool := do
   let k ← ($ᵗ F)
   let a ← ($ᵗ F)
   pure (decide (Slashes k (⟨0, 1, rlnY k a 1, 0, rlnY k a 0⟩ : Evidence F)))
+
+/-- Calibration in which the published nullifier reveals the line slope
+(`H_nf(a) = a`). From one signal at nonzero `x = 1`, the adversary computes
+`k = y - a*x` and manufactures a second point at `x' = 0`. This witnesses why
+concrete T7 query accounting must charge `H_nf` preimage probes (and their
+multi-target amplification across signals), not only direct `H_a(k,·)` probes. -/
+def frameGameSlopeReveal : ProbComp Bool := do
+  let k ← ($ᵗ F)
+  let a ← ($ᵗ F)
+  let y := rlnY k a 1
+  let recovered := y - a
+  pure (decide (Slashes k
+    (⟨a, 1, y, 0, recovered⟩ : Evidence F)))
 
 /-- **Must-win (rev-11 battery): against `y = k`, FRAME is won with
 probability `1`.** The degenerate signal reveals `k`, and the two-point
@@ -124,6 +200,27 @@ theorem frameWinProb_aReuse_eq_one :
   rw [hgame, probOutput_bind_const, probOutput_bind_const]
   simp
 
+/-- **Must-win slope-reveal calibration.** If the nullifier exposes `a`, one
+honest signal suffices to frame with probability one. -/
+theorem frameWinProb_slopeReveal_eq_one :
+    Pr[= true | frameGameSlopeReveal (F := F)] = 1 := by
+  have hc : ∀ k a : F,
+      decide (Slashes k
+        (⟨a, 1, rlnY k a 1, 0, rlnY k a 1 - a⟩ : Evidence F)) = true := by
+    intro k a
+    simp only [decide_eq_true_eq, Slashes]
+    refine ⟨one_ne_zero, ?_⟩
+    simp only [recoverSecret, recoverSlope, rlnY]
+    field_simp
+    ring
+  have hgame : frameGameSlopeReveal (F := F) =
+      (($ᵗ F) >>= fun _ => ($ᵗ F) >>= fun _ => pure true) := by
+    unfold frameGameSlopeReveal
+    exact bind_congr fun k => bind_congr fun a => by
+      simpa only using congrArg pure (hc k a)
+  rw [hgame, probOutput_bind_const, probOutput_bind_const]
+  simp
+
 /-! ## The FRAME blind-guess bound -/
 
 /-- The honest member's post-`cm` evidence-production process for adversary
@@ -149,6 +246,32 @@ lemma frameGame_eq_evidence (mclose : M)
 section Bound
 
 variable [Fintype F]
+
+/-- **Uniform-secret adaptive first-fire bound.** A strategy making `q`
+adaptive candidate-secret probes hits a uniformly sampled `k : F` with
+probability at most `q / |F|`. Up to the first hit every answer is `false`, so
+the candidate sequence is independent of `k`; VCV-io's hidden-target theorem
+formalizes precisely that argument. This lemma is instantiated once for each
+of the `H_a`, `H_e`, and `H_id` query channels. -/
+theorem uniformSecretProbeBound (q : ℕ) (σ : List Bool → F) :
+    Pr[(fun b : Bool => b = true) |
+        OracleComp.hiddenReadMany ($ᵗ F) q σ]
+      ≤ (q : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
+  exact OracleComp.probEvent_hiddenReadMany_le
+    (fun r : F => (probOutput_uniformSample F r).le) q σ
+
+/-- **Uniform-slope multi-target probe bound.** If `qSig` honest signals
+expose independently uniform hidden slopes and the adversary makes `qNf`
+adaptive candidate-preimage probes, the chance that any probe hits any slope
+is at most `qSig*qNf/|F|`. This is the quantitative kernel for the corrected
+nullifier-query term. -/
+theorem uniformSlopeProbeBound (qNf qSig : ℕ) (σ : List Bool → F) :
+    Pr[(fun b : Bool => b = true) |
+        OracleComp.hiddenReadList ($ᵗ F) qNf σ qSig]
+      ≤ (qSig : ENNReal) *
+          ((qNf : ENNReal) * (Fintype.card F : ENNReal)⁻¹) := by
+  exact OracleComp.probEvent_hiddenReadList_le
+    (fun r : F => (probOutput_uniformSample F r).le) qNf σ qSig
 
 /-- For a *fixed* evidence `ev`, guessing the uniform secret succeeds with
 probability at most `1/|F|`: the win event `Slashes k ev` forces
@@ -198,12 +321,100 @@ lemma frame_blind_bound (gen : ProbComp (Evidence F)) :
         mul_le_mul_right' tsum_probOutput_le_one _
     _ = (Fintype.card F : ENNReal)⁻¹ := one_mul _
 
-/-- **T7 FRAME bound (Spec.md §7 T7, instantiation A).** For every honest
-member and every adversary whose evidence is independent of the secret `k`
-(the RO-oblivious / query-scoped good event, `hobliv`), the probability that
-`Dispute` slashes the honest member is at most `1/|F|` — the blind guess. See
-the module GATE-NOTE for the full PPT bound `(q_A+q_Id+q_E+1)/|F_p|` and the
-deferred identical-until-bad query accounting for the `q_·/|F|` terms. -/
+/-- **Quantitative real-to-ideal FRAME bridge.** Suppose the real evidence
+process for every fixed secret raises the conditional slash probability by at
+most `ε` over a single secret-independent generator `gen`. Then the complete
+FRAME experiment is bounded by the blind-guess term plus `ε`.
+
+This is the assembly socket for the lazy-random-oracle identical-until-bad
+argument: that argument only has to establish `hclose`, with
+`ε = (q_A + q_E + q_Id + q_Nf*q_sig + q_sig^2) / |F|`; this theorem combines it with
+`frame_blind_bound` and supplies the final `+ 1/|F|` term. Unlike
+`T7_frame_bound`, it does not require exact distributional independence. -/
+theorem T7_frame_bound_of_pointwise (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (gen : ProbComp (Evidence F)) (ε : ENNReal)
+    (hclose : ∀ k : F,
+      Pr[= true | frameEvidence mclose A k >>= fun ev =>
+          pure (decide (Slashes k ev))]
+        ≤ Pr[= true | gen >>= fun ev => pure (decide (Slashes k ev))] + ε) :
+    frameWinProb mclose A ≤ (Fintype.card F : ENNReal)⁻¹ + ε := by
+  unfold frameWinProb
+  rw [frameGame_eq_evidence, probOutput_bind_eq_tsum]
+  calc
+    (∑' k : F, Pr[= k | ($ᵗ F)] *
+        Pr[= true | frameEvidence mclose A k >>= fun ev =>
+          pure (decide (Slashes k ev))])
+        ≤ ∑' k : F, Pr[= k | ($ᵗ F)] *
+          (Pr[= true | gen >>= fun ev => pure (decide (Slashes k ev))] + ε) := by
+            exact ENNReal.tsum_le_tsum fun k => mul_le_mul_left' (hclose k) _
+    _ = (∑' k : F, Pr[= k | ($ᵗ F)] *
+          Pr[= true | gen >>= fun ev => pure (decide (Slashes k ev))])
+        + (∑' k : F, Pr[= k | ($ᵗ F)]) * ε := by
+          simp only [mul_add, ENNReal.tsum_add, ENNReal.tsum_mul_right]
+    _ ≤ (Fintype.card F : ENNReal)⁻¹ + 1 * ε := by
+          gcongr
+          · rw [← probOutput_bind_eq_tsum]
+            exact frame_blind_bound gen
+          · exact tsum_probOutput_le_one
+    _ = (Fintype.card F : ENNReal)⁻¹ + ε := by rw [one_mul]
+
+/-- The original pointwise deferred-sampling certificate for a query-bounded
+FRAME adversary.  It compares every fixed secret with one secret-independent
+evidence generator.  `FrameDeferred.lean` proves that this pointwise shape is
+too strong for the public-commitment game; the completed proof uses the
+secret-averaged replacement `FrameDeferredSamplingAvg` instead. -/
+structure FrameDeferredSampling (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) where
+  idealEvidence : ProbComp (Evidence F)
+  close : ∀ k : F,
+    Pr[= true | frameEvidence mclose A k >>= fun ev =>
+        pure (decide (Slashes k ev))]
+      ≤ Pr[= true | idealEvidence >>= fun ev =>
+          pure (decide (Slashes k ev))]
+        + (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+
+/-- Direct secret probes, nullifier preimage probes against all exposed
+slopes, and a conservative slope-collision birthday charge combine into the
+concrete handler's leakage numerator. -/
+theorem frameQueryCharge_eq
+    {A : F → OracleComp (frameSpec F M) (Evidence F)}
+    (qb : FrameQueryBounds A) :
+    (qb.qA : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+        + (qb.qE : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+        + (qb.qId : ENNReal) * (Fintype.card F : ENNReal)⁻¹
+        + ((qb.qNf * qb.qSig : ℕ) : ENNReal) *
+            (Fintype.card F : ENNReal)⁻¹
+        + ((qb.qSig * qb.qSig : ℕ) : ENNReal) *
+            (Fintype.card F : ENNReal)⁻¹
+      = (qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹ := by
+  simp only [FrameQueryBounds.total, Nat.cast_add, Nat.cast_mul, add_mul]
+
+/-- **Legacy pointwise query-bounded composition theorem.** If a
+`FrameDeferredSampling` certificate is supplied, it turns the structural
+query budgets into `(qb.total + 1)/|F|`.  The implication remains valid, but
+the certificate shape is too strong in general (`frameDeferredSampling_refuted`).
+The final public theorem uses `FrameDeferredSamplingAvg` and is
+`T7_frame_query_bound_unconditional` in `FrameComplete.lean`. -/
+theorem T7_frame_query_bound (mclose : M)
+    (A : F → OracleComp (frameSpec F M) (Evidence F))
+    (qb : FrameQueryBounds A) (hds : FrameDeferredSampling mclose A qb) :
+    frameWinProb mclose A
+      ≤ ((qb.total + 1 : ℕ) : ENNReal) *
+          (Fintype.card F : ENNReal)⁻¹ := by
+  refine le_trans
+    (T7_frame_bound_of_pointwise mclose A hds.idealEvidence
+      ((qb.total : ENNReal) * (Fintype.card F : ENNReal)⁻¹) hds.close) ?_
+  rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul]
+  exact le_of_eq (add_comm _ _)
+
+/-- **Conditional blind-guess FRAME bound.** For every honest member and every
+adversary whose evidence is independent of the secret `k` (hypothesis
+`hobliv`), the probability that `Dispute` slashes the honest member is at most
+`1/|F|`.  The hypothesis-free, finite-query result is
+`T7_frame_query_bound_unconditional` in `FrameComplete.lean`; it uses the
+secret-averaged certificate rather than this exact-independence interface. -/
 theorem T7_frame_bound (mclose : M)
     (A : F → OracleComp (frameSpec F M) (Evidence F))
     (gen : ProbComp (Evidence F))
@@ -224,4 +435,10 @@ end Zkpc.Games
 -- F2 kernel audit (K2): only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Games.frameWinProb_YK_eq_one
 #print axioms Zkpc.Games.frameWinProb_aReuse_eq_one
+#print axioms Zkpc.Games.frameWinProb_slopeReveal_eq_one
+#print axioms Zkpc.Games.uniformSecretProbeBound
+#print axioms Zkpc.Games.uniformSlopeProbeBound
+#print axioms Zkpc.Games.T7_frame_bound_of_pointwise
+#print axioms Zkpc.Games.frameQueryCharge_eq
+#print axioms Zkpc.Games.T7_frame_query_bound
 #print axioms Zkpc.Games.T7_frame_bound

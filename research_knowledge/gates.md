@@ -1,10 +1,12 @@
-# Human-gate record
+# Definition-gate record (agent simulation; human acceptance pending)
 
 Per the executor contract, the human gates review definitions only. In this
-run the gates are executed by independent reviewer agents that did not write
-the artifact under review, per the operator's instruction to simulate the
-human gate; each round is logged here verbatim-in-summary, and the operator
-(dmarz) can re-open any gate by re-reading the artifact against this record.
+run, independent reviewer agents that did not write the artifact simulated
+those reviews; each round is logged here verbatim-in-summary. Historical
+`SIGN-OFF` labels below mean **agent-review sign-off only**. They do not
+satisfy `BRIEF.md`'s requirement that at least one non-author human review the
+M0 statements, nor the human B1/B3/K1 tasks. No such human approval is logged
+here, so those acceptance gates remain pending.
 
 ## Gate B1 — Spec.md theorem statements (M0)
 
@@ -269,7 +271,7 @@ checkpoint binding, every dangle, header). Two residuals:
   close-dispute exculpability and upgrade-round bounds; MC2 B scope
   note; header rewritten as rev-8.
 
-### Round 8 — 2026-07-07, fresh reviewer vs Spec.md rev-8: **SIGN-OFF**
+### Round 8 — 2026-07-07, fresh agent reviewer vs Spec.md rev-8: **AGENT SIGN-OFF**
 
 Both round-7 repairs verified with full attack walks: the
 receipt-withholding wedge is dead in all three variants (withholding,
@@ -285,7 +287,8 @@ stated in assumption 5 + Used-by list; F8-m2 T5-B off-by-Δ; F8-m3 T2-B
 deadline anchored to the final re-close; F8-m4 settlement-detected
 slash remainder stays in the pool; F8-m5 header dangle).
 
-**B1 GATE: SIGN-OFF on Spec.md rev-8.** The M0 definitions are frozen.
+**B1 AGENT-REVIEW GATE: SIGN-OFF on Spec.md rev-8.** The M0 definitions are
+frozen for the next agent round.
 Any future change to §2/§7/§8 re-opens this gate.
 
 ### Round 9 (scoped re-open) — 2026-07-07, rev-9 K4 amendments: pending
@@ -334,7 +337,7 @@ ticket (that match IS the conviction mechanism), and an honest
 receipt-deprived payer reaches the path. **F10-m1 (minor):** MC18 still
 carried the unscoped pre-rev-10 slash rule.
 
-### Round 11 — 2026-07-07, rev-11: **SIGN-OFF (final)**
+### Round 11 — 2026-07-07, rev-11: **AGENT SIGN-OFF (final agent revision)**
 
 F10-1 scoping verified with a full mechanics walk (the residue is true:
 one spend / one epoch session, via the revealed nf_j matching the
@@ -348,10 +351,11 @@ publication prices the payee's recovery, not the linkage; (ii) the
 session extension of the linkage requires the ticket transcript, which
 in B only the payee holds.
 
-**B1 GATE: SIGN-OFF on Spec.md rev-11. Definitions FINAL.** Eleven
+**B1 AGENT-REVIEW GATE: SIGN-OFF on Spec.md rev-11.** Eleven
 rounds, six reviewers-equivalent of independent context, every blocking
-finding a concrete counterexample, two external audits (K1, K4) and one
-independent method (TLC) converging on the same repairs.
+finding a concrete counterexample, two auxiliary agent audits (K1, K4) and one
+independent method (TLC) converging on the same repairs. “Final” here means
+the agent-reviewed revision; independent-human acceptance is still pending.
 
 ### (superseded round-10 plan entry)
 
@@ -362,9 +366,9 @@ abandoner declined its own published upgrade; mirrors ForceClose-forfeit;
 Σc ≤ D conservation-safe); T2-B split accordingly; CloseView obligation
 judged jointly with the transcript; multiplicity-tag calibration point.
 
-## Gate K1 — independent statement audit
+## Gate K1 — independent-agent statement audit
 
-2026-07-07: **FAITHFUL-WITH-NOTES sign-off** (k1-statement-audit.md).
+2026-07-07: **FAITHFUL-WITH-NOTES agent sign-off** (k1-statement-audit.md).
 No theorem states less than its docstring; all deltas documented
 GATE-NOTEs except one drift finding: FRAME omits cm = H_id(k) from the
 adversary view (strictly less information, unacknowledged) — routed to
@@ -381,7 +385,7 @@ superset, unconditional-tag schemes. The ⊥-branch anonymity accounting
 endorsed as field-standard; the gap was missing arithmetic, not wrong
 accounting.
 
-## Gate B3 — security-game definitions in Lean (Zkpc/Games/)
+## Gate B3 — security-game definitions in Lean (agent review; human acceptance pending)
 
 ### Round 1 — 2026-07-07, fresh reviewer vs Framework/Unlink/Frame.lean: REVISE
 
@@ -413,7 +417,7 @@ challenge-incapable). **D3** — spec-side dangles: fixed in rev-7.
 Minors Mi1–Mi4 recorded (nf_e omission in FRAME + named proof
 obligations), recommended not gating.
 
-### Round 2 — 2026-07-07: **SIGN-OFF** on the M1/M2/D1/D2 fixes
+### Round 2 — 2026-07-07: **AGENT SIGN-OFF** on the M1/M2/D1/D2 fixes
 
 zkBridgeObligation verified as the correct bridging Prop (right shape,
 right direction, discoverable); adversary-issued genesis walked incl.
@@ -423,7 +427,7 @@ points; close docstrings MC20-faithful with the lastSig no-op argument
 airtight; no regressions in the round-1 verified cores; O1–O3 register
 approved as the right residual obligations.
 
-### Round 3 — 2026-07-07: **SIGN-OFF** on the rev-9 batch (session form,
+### Round 3 — 2026-07-07: **AGENT SIGN-OFF** on the rev-9 batch (session form,
 O4, FRAME cm)
 
 Session challenge: non-adaptivity STRUCTURAL (one-move List submission,
@@ -437,3 +441,96 @@ keyed at the preimage, no new k-extraction channel. Minors O4-a..d
 (docstring/register syncs, incl. aligning O4's satisfaction text to
 rev-11's true-count scoping) routed to the H-phase alongside instance
 work. **The T4/T7 proof phase is unblocked.**
+
+### Round 4 — 2026-07-09: **FINDING** — the pointwise deferred-sampling
+certificate is unsatisfiable (T7 composition layer)
+
+`FrameDeferredSampling` (Zkpc/Games/T7.lean) demands one secret-independent
+`idealEvidence` dominating the real conditional slash probability
+**pointwise in `k`** up to `qb.total/|F|`. Kernel-checked refutation
+(`Zkpc/Games/FrameDeferred.lean`, `frameDeferredSampling_refuted`): the
+two-probe adversary (`roId` at constants `c₁ ≠ c₂`, budget `qId = 2`,
+`total = 2`) wins with probability `1` at `k = c₁` and `≥ 1 − 1/|F|` at
+`k = c₂`; since `Slashes c₁ ·` and `Slashes c₂ ·` are disjoint evidence
+events, any single generator can grant the two slices total mass at most
+`1`, forcing `|F| ≤ 5`. So no certificate exists over any field with more
+than five elements. The game definitions and `Spec.md` T7 are untouched:
+the flaw is only in the *shape* of the (unconsumed-in-any-final-theorem)
+certificate structure, whose pointwise `close` field was strictly stronger
+than what `T7_frame_query_bound` needs. Corrected socket landed in the
+same file: `FrameDeferredSamplingAvg` states the comparison averaged over
+the uniform secret (exactly what the FRAME experiment produces and what a
+lazy-ROM identical-until-bad argument yields), `T7_frame_query_bound_avg`
+composes it to the full corrected bound `(qb.total + 1)/|F|`, and
+`FrameDeferredSampling.toAvg` proves the averaged form is implied by the
+pointwise one, so the composition endpoint loses nothing. The remaining
+open T7 work is constructing `FrameDeferredSamplingAvg` from `frameImpl`
+for query-bounded adversaries.
+
+### Round 5 — 2026-07-10: **RESOLUTION SHAPE ACCEPTED BY AGENT REVIEW; RELEASE EVIDENCE PENDING**
+
+The Round-4 finding is preserved: the pointwise certificate remains
+refuted and must not return as the advertised endpoint. The repair closes
+the statement in the probability space the game actually uses. For every
+`A` with `qb : FrameQueryBounds A`,
+`T7_frame_query_bound_unconditional` concludes the secret-averaged bound
+`frameWinProb mclose A ≤ (qb.total + 1)/|F|`, and
+`T7Certificate.ofQueryBounds` exposes the same result at the composition
+boundary. Neither statement accepts a residual good-slice, coupling,
+bad-mass, counting, `hobliv`, or deferred-sampling premise.
+
+The accepted architecture is:
+
+1. `frameGoodSliceTransfer_of_tape` discharges the general good slice;
+2. `dsBadMassLe_of_queryBounds` discharges the adaptive deferred-slope
+   count, which `frameRealBadMassLe_of_dsCount` transports to the real bad
+   mass;
+3. `frameDeferredSamplingAvg_holds` assembles the corrected averaged
+   certificate; and
+4. `T7_frame_query_bound_avg` yields the public endpoint.
+
+Scope condition: this is a concrete finite-query/finite-field inequality in
+the ideal random-oracle model. It does not itself classify PPT adversaries or
+establish the scaling facts needed for asymptotic negligibility, and it does
+not instantiate a deployed hash. A separate scaling wrapper can only transfer
+the bound under explicit per-parameter query and field-growth/negligibility
+hypotheses.
+
+Gate status remains **pending**, not sign-off, until a final clean build and
+axiom audit are attached. No SHA, command result, or axiom output is
+asserted by this entry.
+
+#### Technical-validation addendum — source checkpoint `abb878f`
+
+The pending release-evidence status in Round 5 is preserved above as the
+status when that agent review concluded. It was subsequently closed for the
+proof-bearing source at checkpoint `abb878f`: in a fresh clone, the pinned
+cache restore fetched 8,283 files and the full root build succeeded on Lean
+4.30.0 after 3,595 jobs. Explicit `#print axioms` output covered the full T7
+route, both `T7Certificate` constructors, both flat/refund end-to-end
+wrappers, both `FrameAsymptotic` theorems, five `ElGamal.lean` endpoints, six
+`ReceiptMac.lean` endpoints, and one `AuthenticatedFleet.lean` endpoint.
+Every captured declaration used only a subset of `propext`,
+`Classical.choice`, and `Quot.sound`.
+
+Project `rg` scans found no `sorry`, `admit`, or `native_decide`, and no
+`axiom` outside `Zkpc/Assumptions.lean`; `git diff --check` was clean. The
+exact final PR head will be recorded externally after the
+documentation/PDF-only release commit. That SHA handoff is release
+bookkeeping, not pending
+proof evidence. This technical completion does **not** satisfy or replace any
+human-review gate.
+
+## Current acceptance status
+
+- **B1 human gate:** pending; eleven independent-agent rounds are recorded,
+  but no non-author human sign-off is logged.
+- **B3 human gate:** pending; five agent rounds are recorded, including the
+  T7 pointwise-certificate finding and repair review.
+- **K1 human component:** pending; the recorded K1 report is agent-run.
+- **K4 outside-cryptographer task:** pending if the full task ledger is to be
+  closed; the recorded K4 exercise is explicitly simulated.
+- **T7 technical release evidence:** complete for proof-bearing source
+  checkpoint `abb878f`; the exact final PR head after the
+  documentation/PDF-only release commit is an external release record, not
+  pending proof evidence.
