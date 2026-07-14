@@ -80,3 +80,18 @@ deployed primitives.
 B1, B3, and K1 still require non-author human sign-off. The exact final
 documentation/PDF SHA is recorded in the PR and issues rather than being
 conflated with source checkpoint `abb878f`.
+
+## Conventions added at the 2026-07-14 re-baseline
+
+- **Secret-averaged certificates only.** Any certificate that quantifies
+  pointwise in a game-sampled secret while requiring one
+  secret-independent generator is unsound; the shape is kernel-refuted
+  (`frameDeferredSampling_refuted`: a two-probe adversary wins whenever
+  `|F| > 5`). State certificates at the level the game samples the
+  secret: averaged.
+- **Recorded-build attestation.** A "builds green" claim requires a
+  fresh-clone root build (`lake exe cache get` + full `lake build`) at a
+  named SHA, recorded in-repo. Token greps are not evidence: the T7 stack
+  audit (`research_knowledge/t7-stack-audit-2026-07-10.md`, F1) records
+  non-compiling proof code committed twice while greps passed. CI builds
+  `main` pushes, not branches; branch work needs its own attestation.

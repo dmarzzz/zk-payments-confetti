@@ -1,3 +1,14 @@
+> **SUPERSEDED (2026-07-14).** This file is the frozen rev-11 definition
+> of the historical object (instantiations A and B: the RLN flat-ticket
+> credit protocol and the encrypted-refund variant). The design of record
+> is now `PROTOCOL.md`, which removes the re-randomizable homomorphic
+> encrypted running total in favor of hiding commitments plus
+> recipient-signature verification inside the proof, in a post-quantum
+> setting. Every kernel-checked theorem citing this file remains a valid
+> statement about this object only. Do not extend this spec: new
+> definitional work happens in the Spec-v2 gate series
+> (`research_knowledge/gates.md`, findings G1–G5).
+
 # Spec: the zk payment channel object and theorems T1–T7
 
 Status: **revision 11.** Round 10 passed F9-1a/b and F9-m2 and found the

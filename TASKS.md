@@ -1,3 +1,8 @@
+> **Historical (rev-11 scoped).** This task tree drove the original
+> campaign against `Spec.md` rev-11 and is kept as provenance. It is not
+> the live worklist: see `OPEN-PROOFS.md` for the v2 plan against
+> `PROTOCOL.md`.
+
 # Tasks
 
 The full implementation tree for the research line, from repo scaffold to a paper that answers the thread. Organized by workstream; each task has an ID, a one-line definition of done, and its dependencies. Human-gate tasks are marked 🚦. Milestone mapping is in `BRIEF.md`.

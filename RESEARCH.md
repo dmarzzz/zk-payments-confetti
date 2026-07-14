@@ -1,5 +1,10 @@
 # zk payment channels: field report
 
+> **Note (2026-07-14):** the project's protocol has moved to the
+> nullifier-chain design (`PROTOCOL.md`); this report's
+> channel-per-gateway application framing predates that move. The
+> literature findings themselves stand.
+
 Synthesis of six verified literature-review angles (zk-api-credits, BOLT/zkChannels, hub/multi-hop privacy, ecash/credit tokens, state channels/capital efficiency, formal verification), July 2026. All load-bearing claims below survived adversarial verification against primary sources; corrections from verification passes are applied. Residual uncertainties are listed at the end of each deep dive and in "Open problems / unverified."
 
 Application context: a reputation-gated Tor onion-service egress fleet. Members prove Semaphore membership in zk; an RLN-style nullifier over (secret, epoch) rate-limits per member. Design question: per-request payment across N mutually distrusting gateways without any party linking requests to members. Candidate shapes: (a) a distributed spent set shared by all gateways, (b) a zk payment channel per member-gateway pair.

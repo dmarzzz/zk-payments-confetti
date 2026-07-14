@@ -1,3 +1,11 @@
+> **Historical (rev-11 scoped).** This contract governed the original
+> campaign against `Spec.md` rev-11; kept as provenance. The design of
+> record is now `PROTOCOL.md`. If a v2 brief is written, the T4
+> calibration requirement re-targets to the new must-fail/must-pass pair
+> (non-hiding balances and clear signatures must fail; the real scheme
+> must pass), and the refund-variant workstream disappears: the new
+> protocol has no refund variant, genesis-close is the refund.
+
 # Task brief: zk payment channels, the literature and the proofs
 
 The executor's contract for the autoresearch experiment described in README.md. The executor is an agent (or agent swarm); the human reviews theorem statements and security-game definitions at the marked gates, and nothing else; the audience for the outputs is the applied-zk research community. Where this brief says "prove," it means kernel-checked, not argued.

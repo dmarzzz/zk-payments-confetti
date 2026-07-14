@@ -1,3 +1,7 @@
+> **Status (2026-07-14).** Not posted. Scoped to the historical rev-11
+> object; pending the same restructure and disclosure additions as
+> `paper/paper.md` (see its status banner) before any outbound use.
+
 # zk payment channels: a definition, and the first machine-checked unlinkability results for a credit construction
 
 <!-- ethresear.ch long-form version of paper/paper.md (task J8a). Same

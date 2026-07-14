@@ -1,3 +1,17 @@
+> **Superseded target (2026-07-14).** Everything below was delivered
+> against `Spec.md` rev-11, now historical: the design of record is
+> `PROTOCOL.md` (the post-quantum nullifier-chain channel). PR #2
+> (lalalune, 100 commits) is merged; it completed the secret-averaged
+> finite-query T7 endpoint, ideal-model ZK bridges, the compositions, and
+> the nullifier-chain seed (`Zkpc/Chain/`), and kernel-refuted
+> pointwise-in-secret T7 certificates. Attestation state: source
+> validated at `abb878f` (full root build) and `cfd1f74` (target build);
+> the 11 commits merged after `cfd1f74` carry no build attestation (see
+> `OPEN-PROOFS.md`, "Attestation debt"). `paper/paper.pdf` was removed
+> pending a rebuild from the current source. The "first machine-checked
+> spend-unlinkability" line below is a literature claim that has not been
+> independently verified. The live worklist is `OPEN-PROOFS.md`.
+
 # Delivery — what got proved
 
 Task K6 (TASKS.md): the delivery package. This note is the two-paragraph

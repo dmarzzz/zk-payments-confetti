@@ -534,3 +534,31 @@ human-review gate.
   checkpoint `abb878f`; the exact final PR head after the
   documentation/PDF-only release commit is an external release record, not
   pending proof evidence.
+
+## Gate series v2 — PROTOCOL.md (the nullifier-chain design of record)
+
+Opened 2026-07-14. The rev-11 series above is closed as historical; its
+sign-offs do not transfer to the new object. Round-0 findings, from the
+re-baseline review (five-analyst swarm plus synthesis, 2026-07-14):
+
+- **G1 — signature channel-binding.** The spec must state exactly what
+  Bob signs; it must bind channel id and recipient, or cross-channel
+  signature splicing rebuilds the rev-1 attack shape against the
+  no-overspend analogue.
+- **G2 — withheld-countersignature wedge (critical path).** Alice reveals
+  `N_{i+1}`, Bob refuses to countersign: closing on the parent state is
+  forfeit-bait while the child was never accepted. Legality of closing on
+  an unsigned-but-proof-valid state is undefined. Genuine design work; no
+  repair stated in `PROTOCOL.md`.
+- **G3 — challenge-window duration.** Bob's post-close challenge window is
+  unspecified.
+- **G4 — close-time commitment verification.** What the close path proves
+  about the committed balance is unspecified.
+- **G5 — forfeit-all proportionality.** Entire-deposit forfeiture in
+  honest-limit edge cases needs a stated accounting rule; interacts with
+  G2.
+
+Freeze rule unchanged from the rev-11 series: Spec-v2 is drafted, then
+adversarially reviewed B1-style round by round (every blocking finding a
+concrete counterexample) until a full round produces no blocking finding,
+then frozen before the proof campaign starts.

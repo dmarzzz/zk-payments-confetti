@@ -1,3 +1,8 @@
+> **Status (2026-07-14).** Rows are scoped to the historical rev-11
+> object; the design of record is now `PROTOCOL.md`. Rows tied to the
+> encrypted-refund/RLN machinery are historical; the C-instantiation rows
+> carry the disclosure hedges listed in `paper/paper.md`'s status banner.
+
 # Claims ledger (task J1)
 
 Every claim the paper makes, mapped to its source. Built before the paper;

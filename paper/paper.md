@@ -1,3 +1,14 @@
+> **Status (2026-07-14).** This draft is scoped to the historical rev-11
+> object (instantiations A and B, with C recorded additively). The
+> project's design of record is now `PROTOCOL.md`; a restructure that
+> re-scopes A/B as historical and presents the nullifier-chain protocol
+> as the superseding design is pending. Known disclosure debts for the C
+> material, currently stated only in Lean docstrings and owed to the
+> text: the anonymity result is a two-payment, no-oracle, ideal model;
+> commitment binding holds by construction; the settlement guard assumes
+> an honest recipient; the n²/|N| collision bound is asserted, not
+> proved. The PDF was removed pending rebuild from this source.
+
 # zk Payment Channels: a Definition, and the First Machine-Checked Unlinkability Results for a Credit Construction
 
 **Abstract.** A zk payment channel is a two-party channel in which the payee
