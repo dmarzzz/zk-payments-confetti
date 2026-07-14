@@ -28,10 +28,15 @@ independently verified.
 
 - Full fresh-clone root builds recorded at `2fe8354` (3,595 jobs) and, for
   targets, `e2de071`.
-- **Unattested:** the 11 commits merged after `e2de071` (EC crypto
-  modules, schedulers, serialization refinements). No clean-machine build
-  is recorded for them; they are also elliptic-curve constructions the new
-  protocol excludes. See `ROADMAP.md`, "Attestation debt".
+- **Post-merge attestation (closes the debt):** CI ran the full root
+  `lake build` green on clean runners on merged `main`, which imports all
+  83 modules — including the 11 commits merged after `e2de071` that
+  previously had no recorded build
+  ([run 29364041425](https://github.com/dmarzzz/zk-payments-confetti/actions/runs/29364041425),
+  on the `lean/` layout). Residual: per-endpoint `#print axioms` audits
+  for those modules' theorems are still unrecorded (`make audit THM=...`);
+  the CI guardrails do bound the axiom surface meanwhile. They also remain
+  EC constructions the new protocol excludes.
 - CI builds `main` on every push (guardrail greps + full `lake build`).
 
 ## Review state

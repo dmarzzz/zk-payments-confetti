@@ -127,12 +127,15 @@ The last clean-machine build attestations are `2fe8354` (full root build,
 3,595 jobs) and `e2de071` (target build, per the PR #2 record). The 11
 commits merged after `e2de071` (ElGamalDDH, FramePPT, Schnorr*,
 ThresholdSchnorr, Serialization, the Network schedulers, the refund
-crypto/serialization refinements) have **no build attestation**, and the
-branch's own audit (`research/raw/t7-stack-audit-2026-07-10.md`,
-finding F1) documents that token-level greps passed while non-compiling
-proof code was committed. Before any v2 work builds on those modules, run
-a full fresh-clone root build on a machine with resources and record the
-result here. Tracked: [#15](https://github.com/dmarzzz/zk-payments-confetti/issues/15).
+crypto/serialization refinements) initially had **no build attestation**
+(the branch's own audit, `research/raw/t7-stack-audit-2026-07-10.md`
+finding F1, documents that token-level greps passed while non-compiling
+proof code was committed). **Discharged 2026-07-14:** post-merge CI ran
+the full root build green on clean runners; the root target imports all
+83 modules, so this was a full-tree kernel check
+([#15](https://github.com/dmarzzz/zk-payments-confetti/issues/15), closed
+with the run link). Residual: per-endpoint `#print axioms` audits for
+those modules are still unrecorded (`make audit THM=...`).
 
 ## Ground rules for a contribution (unchanged)
 
