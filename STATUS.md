@@ -45,7 +45,10 @@ independently verified.
 
 ## Near-term
 
-1. Spec-v2 gate rounds on G1–G5 (`ROADMAP.md` Phase 0).
-2. Attestation build of merged `main` on a machine with resources.
+1. Spec-v2 gate rounds on G1–G5 (`ROADMAP.md` Phase 0; issues
+   [#10–#14](https://github.com/dmarzzz/zk-payments-confetti/issues), G2 =
+   [#11](https://github.com/dmarzzz/zk-payments-confetti/issues/11)).
+2. Attestation build of merged `main` on a machine with resources
+   ([#15](https://github.com/dmarzzz/zk-payments-confetti/issues/15)).
 3. Then the ranked obligations (`ROADMAP.md` Phase 1+), starting with the
    safety core on the new transition machine.

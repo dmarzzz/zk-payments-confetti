@@ -22,20 +22,20 @@ through as stated, that is a finding about the definition and goes to
 definitional issues, recorded as round-0 findings of the v2 gate series in
 `research/raw/gates.md`:
 
-- **G1 — signature channel-binding.** What exactly Bob signs must bind the
+- **G1 ([#10](https://github.com/dmarzzz/zk-payments-confetti/issues/10)) — signature channel-binding.** What exactly Bob signs must bind the
   channel id and recipient, or cross-channel signature splicing rebuilds
   the rev-1 attack against the no-overspend analogue.
-- **G2 — the withheld-countersignature wedge (critical path).** Alice
+- **G2 ([#11](https://github.com/dmarzzz/zk-payments-confetti/issues/11)) — the withheld-countersignature wedge (critical path).** Alice
   reveals `N_{i+1}`; Bob refuses to countersign. Closing on state `i` is
   now forfeit-bait (Bob holds the revealing message), but the new state
   was never accepted. Is closing on an unsigned-but-proof-valid state
   legal? This is genuine protocol design, not transcription, and no repair
   is stated in `PROTOCOL.md`.
-- **G3 — challenge-window duration.** Bob's window to challenge a close is
+- **G3 ([#12](https://github.com/dmarzzz/zk-payments-confetti/issues/12)) — challenge-window duration.** Bob's window to challenge a close is
   unspecified.
-- **G4 — what Close verifies about the balance commitment.** The close
+- **G4 ([#13](https://github.com/dmarzzz/zk-payments-confetti/issues/13)) — what Close verifies about the balance commitment.** The close
   path's proof obligation (the π_close successor) is unspecified.
-- **G5 — forfeit-all proportionality.** Forfeiting the entire deposit in
+- **G5 ([#14](https://github.com/dmarzzz/zk-payments-confetti/issues/14)) — forfeit-all proportionality.** Forfeiting the entire deposit in
   honest-limit edge cases interacts with G2; the accounting needs a stated
   rule.
 
@@ -132,7 +132,7 @@ branch's own audit (`research/raw/t7-stack-audit-2026-07-10.md`,
 finding F1) documents that token-level greps passed while non-compiling
 proof code was committed. Before any v2 work builds on those modules, run
 a full fresh-clone root build on a machine with resources and record the
-result here.
+result here. Tracked: [#15](https://github.com/dmarzzz/zk-payments-confetti/issues/15).
 
 ## Ground rules for a contribution (unchanged)
 
