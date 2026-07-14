@@ -139,7 +139,7 @@ theorem forceClose_forfeit (s : St Rep)
 
 /-! ## H5 — the B self-slash race is closed (Spec.md MC18/MC4; gates.md round-3 R3-2)
 
-`research_knowledge/gates.md` R3-2 (major): MC18's "no sweeps in B" left the
+`research/raw/gates.md` R3-2 (major): MC18's "no sweeps in B" left the
 slash path uncovered — a B payer could consume service, self-slash, and race
 the payee's recovery, stranding the payee's revenue. The repair (MC18, scoped
 in rev-10/11): a channel hit by a fund-slash settles by **forfeit of `D` to

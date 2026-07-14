@@ -32,7 +32,7 @@
 (*  - "rev2root" (HISTORICAL probe): rev2 + root rotation at close         *)
 (*    submission -- shows rotation alone does not repair the hole.         *)
 (*                                                                         *)
-(* Other modeling choices (research_knowledge/tla-findings.md):            *)
+(* Other modeling choices (research/raw/tla-findings.md):            *)
 (*  - Tickets carry no epoch stamp; Redeem's check 3 collapses to          *)
 (*    counting the budget against the redeem-time epoch (safety-safe       *)
 (*    over-approximation).  Epochs/lag are modeled in ZkpcFleet.           *)

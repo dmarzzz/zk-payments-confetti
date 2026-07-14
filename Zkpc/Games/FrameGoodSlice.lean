@@ -46,7 +46,7 @@ event is at most the deferred-secret ghost win probability.
 The single remaining case is honest emission at an `nfAt`-pinned slope: from
 a *fixed* real state whose future emission slope is already materialized, the
 emitted `y = k + a₀·x` is deterministic while the ideal `y` is fresh-uniform,
-so no per-state step dominance exists (`OPEN-PROOFS.md` §1, the eager-read
+so no per-state step dominance exists (`ROADMAP.md` §1, the eager-read
 obstruction; the counterexample state pins `a₀ = 0`). The value of an
 unconsumed pin must stay *deferred* (averaged) between its `nfAt` draw and
 its consuming emission — a run-level tape argument in the style of

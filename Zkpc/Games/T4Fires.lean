@@ -3,7 +3,7 @@ import Zkpc.Games.FlatInstance
 /-!
 # T4-A challenge-firing witness (Spec.md §7 T4; k3-vacuity-review.md flag 1)
 
-The K3 adversarial-vacuity review (`research_knowledge/k3-vacuity-review.md`)
+The K3 adversarial-vacuity review (`research/raw/k3-vacuity-review.md`)
 proves `T4_flat_unlinkability : unlinkAdvantage (flatInstance budget) A = 0` is
 **non-vacuous**, but records (its §"Flagged build-checks", item 1) that the
 argument rests *by analogy* on the shared, instance-generic challenge machinery

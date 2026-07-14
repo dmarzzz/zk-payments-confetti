@@ -33,7 +33,7 @@ commutes exactly with canonical secret erasure on good states. The
 fresh-slope cases require carving out the sampled-slope collision mass
 (a genuine bad event, not an exact commutation) and — for `spend` at an
 index whose slope was pre-materialized by `nfAt` — the eager-read
-obstruction documented in `OPEN-PROOFS.md` §1.
+obstruction documented in `ROADMAP.md` §1.
 -/
 
 open OracleSpec OracleComp

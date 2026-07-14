@@ -4,7 +4,7 @@ import Zkpc.Games.FrameBadMass
 /-!
 # Stage-2 counting for the deferred-slope run (Spec.md §7 T7, `DSBadMassLe`)
 
-This file executes the recorded stage-2 plan of `OPEN-PROOFS.md` §1: the
+This file executes the recorded stage-2 plan of `ROADMAP.md` §1: the
 k-averaged leakage mass of the deferred-slope joint experiment
 `dsFrameJoint` is at most `qb.total/|F|`.  The strategy re-parameterizes
 the deferred run into an entirely `k`-free *shadow transcript*:
