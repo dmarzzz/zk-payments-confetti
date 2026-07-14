@@ -500,11 +500,11 @@ Gate status remains **pending**, not sign-off, until a final clean build and
 axiom audit are attached. No SHA, command result, or axiom output is
 asserted by this entry.
 
-#### Technical-validation addendum — source checkpoint `abb878f`
+#### Technical-validation addendum — source checkpoint `2fe8354`
 
 The pending release-evidence status in Round 5 is preserved above as the
 status when that agent review concluded. It was subsequently closed for the
-proof-bearing source at checkpoint `abb878f`: in a fresh clone, the pinned
+proof-bearing source at checkpoint `2fe8354`: in a fresh clone, the pinned
 cache restore fetched 8,283 files and the full root build succeeded on Lean
 4.30.0 after 3,595 jobs. Explicit `#print axioms` output covered the full T7
 route, both `T7Certificate` constructors, both flat/refund end-to-end
@@ -531,7 +531,7 @@ human-review gate.
 - **K4 outside-cryptographer task:** pending if the full task ledger is to be
   closed; the recorded K4 exercise is explicitly simulated.
 - **T7 technical release evidence:** complete for proof-bearing source
-  checkpoint `abb878f`; the exact final PR head after the
+  checkpoint `2fe8354`; the exact final PR head after the
   documentation/PDF-only release commit is an external release record, not
   pending proof evidence.
 

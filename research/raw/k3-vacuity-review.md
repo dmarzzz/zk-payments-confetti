@@ -324,7 +324,7 @@ over PPT adversary families or prove asymptotic negligibility, and the lazy
 random-oracle handlers are not a deployed hash instantiation.
 
 **Post-review kernel status (2026-07-10):** the release audit later completed
-at source checkpoint `abb878f`: the fresh Lean 4.30.0 root build completed
+at source checkpoint `2fe8354`: the fresh Lean 4.30.0 root build completed
 3,595 jobs and the final T7/composition/scaling axiom capture used only
 Lean's standard axioms. This evidence is recorded independently of the
 statement-shape audit rather than inferred from declaration presence.

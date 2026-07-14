@@ -68,7 +68,7 @@ one; entries marked **[repair]** change protocol behavior rather than merely
 disambiguate.
 
 Technical source validation is separate from those acceptance gates. At
-checkpoint `abb878f`, a fresh checkout restored 8,283 cached files and the
+checkpoint `2fe8354`, a fresh checkout restored 8,283 cached files and the
 Lean 4.30.0 root build completed all 3,595 jobs; exact T7, composition,
 conditional-scaling, and refund-reference endpoint axiom capture used only
 standard Lean axioms, and the source/diff scans were clean. This does not
@@ -655,7 +655,7 @@ interfaces 2/3/5 rather than postulate a per-scheme "advantage is negligible"
 axiom — that would assume the theorem. The current reference development
 realizes these interfaces as model guards, ideal sampling, and proved lemmas;
 it declares no project-specific Lean axioms. K2 source validation at
-`abb878f` audited that boundary, including the added ElGamal algebra and the
+`2fe8354` audited that boundary, including the added ElGamal algebra and the
 narrow independent-key receipt-MAC endpoints. It does **not** establish a
 deployed-hash reduction, DDH/IND-CPA security, shared-key multi-query
 EUF-CMA, or adaptive threshold-signature security.

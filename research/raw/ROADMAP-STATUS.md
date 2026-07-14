@@ -1,7 +1,7 @@
 # End-to-end formalization status
 
 Current source checkpoint for the implementation PR. The Lean tree was
-source-validated at `abb878f`: a fresh checkout restored 8,283 cached files,
+source-validated at `2fe8354`: a fresh checkout restored 8,283 cached files,
 the Lean 4.30.0 root build completed all 3,595 jobs, the exact endpoint axiom
 capture used only standard Lean axioms, and the source scans/diff hygiene
 checks were clean. The later final documentation/PDF head is not being
@@ -100,7 +100,7 @@ The branch contains source for the following components:
 - the nullifier-chain channel safety, collision, anonymity, and refinement
   results.
 
-This implementation inventory is backed by the `abb878f` clean build and
+This implementation inventory is backed by the `2fe8354` clean build and
 trust audit described above. It does not upgrade the reference constructions
 into production cryptographic reductions. The synchronized paper was rebuilt
 as a 12-page PDF and visually checked page by page.
@@ -128,7 +128,7 @@ all direct-secret, slope-preimage, and signal-collision opportunities in
 
 ## Source validation and remaining artifact gates
 
-The technical source gates K2/K5 completed at `abb878f`:
+The technical source gates K2/K5 completed at `2fe8354`:
 
 1. fresh checkout and dependency cache restore (8,283 files);
 2. clean full root build (3,595 jobs, Lean 4.30.0);

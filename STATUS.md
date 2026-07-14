@@ -26,9 +26,9 @@ independently verified.
 
 ## Attestation
 
-- Full fresh-clone root builds recorded at `abb878f` (3,595 jobs) and, for
-  targets, `cfd1f74`.
-- **Unattested:** the 11 commits merged after `cfd1f74` (EC crypto
+- Full fresh-clone root builds recorded at `2fe8354` (3,595 jobs) and, for
+  targets, `e2de071`.
+- **Unattested:** the 11 commits merged after `e2de071` (EC crypto
   modules, schedulers, serialization refinements). No clean-machine build
   is recorded for them; they are also elliptic-curve constructions the new
   protocol excludes. See `ROADMAP.md`, "Attestation debt".

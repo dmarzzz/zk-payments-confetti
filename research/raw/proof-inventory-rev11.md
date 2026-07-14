@@ -15,7 +15,7 @@ the non-author human approval required by `BRIEF.md`; B1, B3, and K1 remain
 acceptance gates even though the agent review rounds reached sign-off.
 
 The implementation inventory below is source-validated at checkpoint
-`abb878f`. From a fresh checkout, `lake exe cache get` restored 8,283 files
+`2fe8354`. From a fresh checkout, `lake exe cache get` restored 8,283 files
 and the Lean 4.30.0 root build completed all 3,595 jobs. Exact endpoint axiom
 capture, the forbidden-token/project-axiom scans, and diff hygiene checks
 were clean. The later documentation/PDF artifact was regenerated to 12 pages
@@ -92,7 +92,7 @@ premises shown in their theorem signatures.
 
 ## Current source inventory
 
-The following table is an implementation map backed by the `abb878f` source
+The following table is an implementation map backed by the `2fe8354` source
 validation described above. It is not evidence for production reductions or
 for production reductions or the still-pending human acceptance gates.
 
@@ -164,7 +164,7 @@ finite query-bounded T7 theorem above.
 
 ## Completed source validation and remaining closeout
 
-K2/K5 completed at source checkpoint `abb878f`:
+K2/K5 completed at source checkpoint `2fe8354`:
 
 1. fresh dependency/cache restore (8,283 files);
 2. clean root build (3,595 jobs, Lean 4.30.0);

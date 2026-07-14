@@ -291,7 +291,7 @@ reduction for a deployed hash function. Any prose saying simply
 
 **Post-handoff status (2026-07-10):** statement inspection was complete at
 this handoff, and the release audit subsequently closed the technical
-evidence at source checkpoint `abb878f`: the fresh Lean 4.30.0 root build
+evidence at source checkpoint `2fe8354`: the fresh Lean 4.30.0 root build
 completed 3,595 jobs and the final endpoint `#print axioms` capture used only
 Lean's standard axioms. Required non-author human K1 acceptance remains
 pending; this technical addendum does not substitute for it.

@@ -14,7 +14,7 @@ every checkbox. The T7 and clean-room entries below are updated for the
 current PR. Agent-simulated reviews never satisfy a 🚦 checkbox: B1, B3, and
 K1 still require a non-author human sign-off, and K4 still requires a real
 outside cryptographer if the full task contract is being closed. K2/K5 source
-validation is complete at checkpoint `abb878f`; the synchronized 12-page PDF
+validation is complete at checkpoint `2fe8354`; the synchronized 12-page PDF
 has also been rebuilt and visually checked page by page. Final delivery
 requires the K6 operator decision about
 outbound publication. The repository itself is already public; acceptance
@@ -71,7 +71,7 @@ and merge remain maintainer-controlled actions.
 
 - [ ] **G1** Distributed spent-set model: N gateways, per-gateway nullifier views, a reconciliation relation with lag L. DoD: compiles; matches the TLA+ C4 model.
 - [ ] **G2** **T6 Priced divergence**: extractable double-spend value before detection ≤ f(L, r) < D. DoD: proved; the bound is explicit and matches C4.
-- [x] **G3** **T7 Exculpability under collusion**: for every `A` carrying `FrameQueryBounds`, `T7_frame_query_bound_unconditional` states the secret-averaged finite FRAME bound `(qb.total + 1)/|F|` with no residual coupling or counting hypothesis. The complete route and its composition wrapper were clean-built and axiom-captured at source checkpoint `abb878f`. This does not by itself formalize PPT runtime or deployed hashes/signatures. `FrameAsymptotic.lean` contains two conditional lifts: one assumes the displayed query/field-size ratio is negligible; the second derives that premise from an explicit polynomial numerator bound and negligible inverse field size. Neither derives query certificates or field growth from PPT.
+- [x] **G3** **T7 Exculpability under collusion**: for every `A` carrying `FrameQueryBounds`, `T7_frame_query_bound_unconditional` states the secret-averaged finite FRAME bound `(qb.total + 1)/|F|` with no residual coupling or counting hypothesis. The complete route and its composition wrapper were clean-built and axiom-captured at source checkpoint `2fe8354`. This does not by itself formalize PPT runtime or deployed hashes/signatures. `FrameAsymptotic.lean` contains two conditional lifts: one assumes the displayed query/field-size ratio is negligible; the second derives that premise from an explicit polynomial numerator bound and negligible inverse field size. Neither derives query certificates or field growth from PPT.
 - [x] **G4** RLN algebra lemmas: two signals on the same (secret, index) reveal the secret; one signal reveals nothing. Proved and reused by T7 and the slash logic; the stronger pointwise T7 certificate is separately kernel-refuted, so the final theorem correctly uses the uniform-secret average.
 
 ## H. Refund-bearing variant (M5 — answers the upstream use case)
@@ -100,10 +100,10 @@ and merge remain maintainer-controlled actions.
 ## K. Verification, review, delivery
 
 - [ ] **K1** Independent statement audit: a second agent (and a human) reads only `Spec.md` + the games and confirms they say what's meant, before trusting any proof. 🚦 DoD: sign-off logged.
-- [x] **K2** Axiom audit: exact output at source checkpoint `abb878f` covers the final T7, composition, conditional scaling, ElGamal, receipt-MAC, and authenticated-fleet endpoints. Every captured theorem uses only a subset of `propext`, `Classical.choice`, and `Quot.sound`; the escape-hatch/project-axiom scans and diff hygiene checks are clean. The later exact release SHA is recorded externally rather than retroactively relabeling this source checkpoint.
+- [x] **K2** Axiom audit: exact output at source checkpoint `2fe8354` covers the final T7, composition, conditional scaling, ElGamal, receipt-MAC, and authenticated-fleet endpoints. Every captured theorem uses only a subset of `propext`, `Classical.choice`, and `Quot.sound`; the escape-hatch/project-axiom scans and diff hygiene checks are clean. The later exact release SHA is recorded externally rather than retroactively relabeling this source checkpoint.
 - [ ] **K3** Adversarial proof review: a skeptic agent tries to find a vacuous theorem (true because a hypothesis is unsatisfiable) or a definition that trivializes T4. DoD: report; anything found becomes a task.
 - [ ] **K4** External review of the *definitions* (the A2L lesson): solicit one outside cryptographer to attack the games, not the proofs. DoD: feedback incorporated or rebutted in writing.
-- [x] **K5** Full clean-room source rebuild: fresh checkout at `abb878f`, 8,283 cached files restored, then all 3,595 root jobs completed successfully with Lean 4.30.0. The synchronized paper was subsequently rebuilt as a 12-page PDF and inspected page by page; the later exact release SHA is recorded externally.
+- [x] **K5** Full clean-room source rebuild: fresh checkout at `2fe8354`, 8,283 cached files restored, then all 3,595 root jobs completed successfully with Lean 4.30.0. The synchronized paper was subsequently rebuilt as a 12-page PDF and inspected page by page; the later exact release SHA is recorded externally.
 - [ ] **K6** Delivery package for the thread: the repo is public; the remaining operator gate is whether/when to send the post, PDF, and two-paragraph "what got proved" note for the intended reviewers. DoD: sent.
 - [x] **K7** Log the experiment's outcome against README's success/failure shapes (did definitions drift? trivial theorems? did Lean hold or fall back to SSProve?). The note, Lean source validation, and PDF/artifact closeout are complete. Required non-author human gates and real K4 review remain separately pending.
 
@@ -121,7 +121,7 @@ Everything in J (paper) can draft in parallel with D–I once B is frozen; K4 (e
 - C (TLA+) is deliberately before D–G: it is hours, not days, and it catches state-model bugs that would otherwise be discovered expensively mid-proof.
 - F1 was the headline Lean risk and SSProve was the documented fallback. The
   T4 source and the corrected T7 chain have since landed. K2/K5 record the
-  latter as machine-checked at source checkpoint `abb878f`; do not extend
+  latter as machine-checked at source checkpoint `2fe8354`; do not extend
   that statement to deployed primitives. The synchronized final PDF has its
   own completed render and visual-QA evidence.
 - H (refunds) is what makes the paper answer the thread rather than simplify it; treat it as required, not optional, for the delivery in K6.

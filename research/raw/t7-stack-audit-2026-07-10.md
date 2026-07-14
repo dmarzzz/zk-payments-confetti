@@ -3,8 +3,8 @@
 Auditor: independent adversarial verifier (read-only on `.lean`; all builds
 performed in a detached git worktree with an isolated cloned build
 directory, so sibling agents' in-flight edits could not contaminate
-results). Audited commits: HEAD `acba6cf` ("Export composition and count
-reindexing lemmas") and the discharge commit `ecdbcec` ("Discharge FRAME
+results). Audited commits: HEAD `ed8c851` ("Export composition and count
+reindexing lemmas") and the discharge commit `acee270` ("Discharge FRAME
 query-bound certificate"), branch `codex/end-to-end-zk-payments`.
 Freeze baseline: `28b7f80`. The live tree had
 `Zkpc/Games/FrameDSCountInduction.lean` mid-edit throughout the audit.
@@ -12,7 +12,7 @@ Freeze baseline: `28b7f80`. The live tree had
 **Current-status note.** F1 below is intentionally preserved as a finding
 about the named historical commits. Later source contains a repair, described
 in “Post-F1 reconciliation” at the end. Technical validation of that repair
-completed at proof-bearing source checkpoint `abb878f`: a fresh-clone full
+completed at proof-bearing source checkpoint `2fe8354`: a fresh-clone full
 build, explicit axiom capture, source scans, and diff hygiene now supersede
 F1's kernel-status verdict for the repaired source. The exact final PR head
 will be recorded externally after the documentation/PDF-only release commit;
@@ -23,7 +23,7 @@ that SHA handoff is not pending proof evidence.
 ## **FINDING F1 — the advertised unconditional T7 closure was not kernel-checked in the audited commits**
 
 **`Zkpc/Games/FrameDSCountInduction.lean` fails to compile at both the
-discharge commit `ecdbcec` and HEAD `acba6cf`. Therefore
+discharge commit `acee270` and HEAD `ed8c851`. Therefore
 `Zkpc.Games.dsBadMassLe_of_queryBounds` (the stage-2 counting discharge)
 and its dependent `Zkpc.Composition.T7Certificate.ofQueryBounds` (the
 "unconditional bound from `FrameQueryBounds` alone") were not verified by
@@ -32,7 +32,7 @@ endpoint remained CONDITIONAL on the named residual `DSBadMassLe`.**
 
 Failing statements, from clean rebuilds in the isolated worktree:
 
-- At `ecdbcec` (6 errors, all inside the new seeded-shadow lane):
+- At `acee270` (6 errors, all inside the new seeded-shadow lane):
   - `FrameDSCountInduction.lean:791:18` and `793:14` — unsolved goals in
     the `query_bind.spend` case of `dsFrameImpl_seeded_bad_le`;
   - `805:18` and `846:18` — `rewrite` failed (pattern not found), same
@@ -41,12 +41,12 @@ Failing statements, from clean rebuilds in the isolated worktree:
     `DeferredSampling.evalDist_bind_comm` step **inside
     `dsBadMassLe_of_queryBounds` itself**;
   - `1029:6` — `rewrite` failed, same theorem.
-- At `acba6cf` (24 errors): all of the above plus 18 new errors from
+- At `ed8c851` (24 errors): all of the above plus 18 new errors from
   `evalDist_rlnY_uniform` and neighbors (lines 777–784) written with the
   wrong notation glyph `𝓓[...]` (U+1D4D3) instead of the project's
   `evalDist` notation `𝒟[...]` (U+1D49F) — `Unknown identifier 𝓓`.
 - Because the module fails, `Zkpc/Composition/EndToEnd.lean` (which
-  imports it since `ecdbcec`) cannot be elaborated at either commit;
+  imports it since `acee270`) cannot be elaborated at either commit;
   `T7Certificate.ofQueryBounds` is dead code from the kernel's point of
   view.
 - Additionally, at the earlier snapshot `271beae`,
@@ -58,7 +58,7 @@ Why this slipped through: CI (`.github/workflows/ci.yml`) runs
 `lake build` only on pushes to `main` and on PRs; this working branch gets
 no build check, and the grep guardrails (which do pass) cannot detect
 non-compiling proofs. Broken proof code has been committed at least twice
-on this branch (`ecdbcec`, `acba6cf`).
+on this branch (`acee270`, `ed8c851`).
 
 **Historical action required at audit time:** repair
 `FrameDSCountInduction.lean` (the live tree was visibly mid-repair — the
@@ -68,7 +68,7 @@ conditional on `DSBadMassLe` only* (see F2).
 
 ## FINDING F2 — what IS kernel-verified (all axiom-clean)
 
-Fresh source rebuilds at `ecdbcec`/`acba6cf` kernel-checked the following,
+Fresh source rebuilds at `acee270`/`ed8c851` kernel-checked the following,
 each printing exactly `[propext, Classical.choice, Quot.sound]` (in-file
 `#print axioms` output captured from the build logs):
 
@@ -85,7 +85,7 @@ each printing exactly `[propext, Classical.choice, Quot.sound]` (in-file
   `realDSStepCoupling_holds` (route-B stage 1),
   **`frameGoodSliceTransfer_of_tape`** (the general good-slice transfer,
   `FrameGoodSliceTapeInduction.lean:647`) — this one is real: it builds
-  from source at both `ecdbcec` and `acba6cf` and is axiom-clean.
+  from source at both `acee270` and `ed8c851` and is axiom-clean.
 
 Net verified reduction: for every adversary `A` with budget certificate
 `qb`, `frameWinProb mclose A ≤ (qb.total + 1)/|F|` **given only**
@@ -98,7 +98,7 @@ Net verified reduction: for every adversary `A` with budget certificate
 
 ### 1. Frozen-definition drift — PASS
 
-`git diff 28b7f80 acba6cf -- Zkpc/Games/Frame.lean Zkpc/Games/T7.lean` is
+`git diff 28b7f80 ed8c851 -- Zkpc/Games/Frame.lean Zkpc/Games/T7.lean` is
 empty across all ~90 intervening commits: `frameGame`, `frameWinProb`,
 `Slashes`, `frameSpec`, `frameImpl`, `emitSignal`, `Evidence`,
 `recoverSecret`, `FrameQueryBounds(.total)`, `FrameDeferredSampling`, and
@@ -183,15 +183,15 @@ be axiom-audited — they do not elaborate (F1).
 
 ### 7. CI greps — PASS
 
-All three CI greps clean at `acba6cf`: `sorry` — clean; `axiom` outside
+All three CI greps clean at `ed8c851`: `sorry` — clean; `axiom` outside
 `Zkpc/Assumptions.lean` — clean; `admit|native_decide` — clean. (But see
 F1: the greps pass while the build is red; CI's `lake build` job does not
 run on this branch.)
 
 ### 8. `T7Certificate.ofQueryBounds` — statement PASS, verification FAIL at the audited commits
 
-Statement (`Zkpc/Composition/EndToEnd.lean`, identical at `ecdbcec` and
-`acba6cf`): `(mclose)(A)(qb : FrameQueryBounds A) : T7Certificate mclose A qb`
+Statement (`Zkpc/Composition/EndToEnd.lean`, identical at `acee270` and
+`ed8c851`): `(mclose)(A)(qb : FrameQueryBounds A) : T7Certificate mclose A qb`
 where `T7Certificate ... := frameWinProb mclose A ≤ (qb.total + 1)/|F|`.
 Hypotheses beyond `qb`: none — only the ambient typeclass instances needed
 to state the game. If its dependency compiled, this would give the exact
@@ -222,14 +222,14 @@ there.
    mass `2/|F|`); `x`-collisions play no role in `Slashes` or the leakage
    events.
 6. `ROADMAP.md` and `ROADMAP-STATUS.md` were updated at
-   `56d5c3f`/`acba6cf` to claim the closure; per F1 those claims are ahead
+   `56d5c3f`/`ed8c851` to claim the closure; per F1 those claims are ahead
    of the kernel and should be re-reconciled after the repair.
 
 ---
 
-## Post-F1 reconciliation — repaired endpoint validated at source checkpoint `abb878f`
+## Post-F1 reconciliation — repaired endpoint validated at source checkpoint `2fe8354`
 
-F1 is a historical finding about `ecdbcec` and `acba6cf`; it is not erased
+F1 is a historical finding about `acee270` and `ed8c851`; it is not erased
 by later edits. The repair now present in source changes the disputed
 stage-2 proof and introduces a dedicated final assembly module. The target
 dependency chain is:
@@ -263,7 +263,7 @@ PPT-to-query boundedness.
 ### Technical evidence superseding F1 for the repaired source
 
 The required observations were completed against source checkpoint
-`abb878f` in a fresh clone:
+`2fe8354` in a fresh clone:
 
 - the pinned cache restore fetched 8,283 files;
 - the full root build succeeded on Lean 4.30.0, completing 3,595 jobs;
@@ -282,8 +282,8 @@ The required observations were completed against source checkpoint
   `axiom` outside `Zkpc/Assumptions.lean`; and
 - `git diff --check` was clean.
 
-F1 remains the accurate historical verdict for `ecdbcec` and `acba6cf`; the
+F1 remains the accurate historical verdict for `acee270` and `ed8c851`; the
 fresh-clone evidence above overturns it for the repaired proof source at
-`abb878f`. The exact final PR head will be recorded externally after the
+`2fe8354`. The exact final PR head will be recorded externally after the
 documentation/PDF-only release commit. That final SHA record is release
 bookkeeping, not an outstanding source check, build, or axiom audit.

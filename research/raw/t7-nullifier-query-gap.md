@@ -120,7 +120,7 @@ numerator bound plus negligible inverse field size—but neither derives those
 premises from a PPT/runtime model.
 
 **Post-reconciliation evidence status (2026-07-10):** the release audit is
-complete at source checkpoint `abb878f`: a fresh Lean 4.30.0 root build
+complete at source checkpoint `2fe8354`: a fresh Lean 4.30.0 root build
 completed 3,595 jobs, the final T7/composition/scaling axiom capture used
 only Lean's standard axioms, and the source scans were clean. This later
 evidence supersedes the pending-status snapshot above without changing the

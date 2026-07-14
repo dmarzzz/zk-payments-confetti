@@ -174,7 +174,7 @@ consumed as hypotheses by the assembly theorems — they appear in theorem
 *statements*, never as axioms, so nothing in this extension weakens the
 verdict above.
 
-## T7 closure extension — technical validation complete at source checkpoint `abb878f` (2026-07-10)
+## T7 closure extension — technical validation complete at source checkpoint `2fe8354` (2026-07-10)
 
 The paragraph immediately above is preserved as the status of the earlier
 audited commits. Later source introduces the no-residual chain
@@ -187,7 +187,7 @@ ambient finite-field/typeclass data and conclude the secret-averaged bound
 hypotheses.
 
 The required technical validation was completed against proof-bearing source
-checkpoint `abb878f` in a fresh clone:
+checkpoint `2fe8354` in a fresh clone:
 
 - the pinned dependency-cache restore fetched 8,283 files;
 - the full root build succeeded on Lean 4.30.0, completing 3,595 jobs;

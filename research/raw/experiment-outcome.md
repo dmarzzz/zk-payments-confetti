@@ -48,7 +48,7 @@ recorded, so the original success condition is not yet fully met.
   divergence, fleet), the finite-query T7 endpoint, the refund variant
   (T1-B/T3-B/conservation), and the calibration pair. The repaired final T7,
   composition, and scaling endpoints passed the fresh-clone build and axiom
-  audit at source checkpoint `abb878f`, as recorded in the amendment below.
+  audit at source checkpoint `2fe8354`, as recorded in the amendment below.
 - **The T7 boundary, logged:** the source endpoint now states the
   secret-averaged finite inequality
   `frameWinProb ≤ (qb.total + 1)/|F|` directly from `FrameQueryBounds`; the
@@ -133,7 +133,7 @@ hallucinating agreement with itself.
 ## Honest ledger of what is NOT done
 
 - Technical validation of the proof-bearing source completed at checkpoint
-  `abb878f`. The exact final PR head will be recorded externally after the
+  `2fe8354`. The exact final PR head will be recorded externally after the
   documentation/PDF-only release commit; that SHA handoff is not pending
   proof evidence.
 - A PPT/runtime model, a theorem deriving polynomial query certificates from
@@ -162,7 +162,7 @@ concentrated on the substantial definition/game surface, where every
 blocking finding arose, while recorded kernel checks handled the audited
 proof endpoints. The definitions became stronger under attack rather than
 softer, and the proof-bearing source passed the recorded technical release
-audit at `abb878f`. But the experiment's full success verdict is deliberately
+audit at `2fe8354`. But the experiment's full success verdict is deliberately
 withheld until a non-author human accepts the statements. Agent simulation
 cannot report that event on the human's behalf; the real K4 outside review is
 also still pending.
@@ -196,7 +196,7 @@ certificates from PPT, prove the scaling premises automatically, or reduce a
 deployed hash function to the ideal random-oracle handlers used here.
 
 **Technical-validation completion.** Proof-bearing source checkpoint
-`abb878f` was validated in a fresh clone. The pinned cache restore fetched
+`2fe8354` was validated in a fresh clone. The pinned cache restore fetched
 8,283 files, and the full root build succeeded on Lean 4.30.0 after 3,595
 jobs. Explicit `#print axioms` output covered the full T7 route, both
 `T7Certificate` constructors, both flat/refund end-to-end wrappers, both

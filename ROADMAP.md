@@ -123,9 +123,9 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
 
 ## Attestation debt
 
-The last clean-machine build attestations are `abb878f` (full root build,
-3,595 jobs) and `cfd1f74` (target build, per the PR #2 record). The 11
-commits merged after `cfd1f74` (ElGamalDDH, FramePPT, Schnorr*,
+The last clean-machine build attestations are `2fe8354` (full root build,
+3,595 jobs) and `e2de071` (target build, per the PR #2 record). The 11
+commits merged after `e2de071` (ElGamalDDH, FramePPT, Schnorr*,
 ThresholdSchnorr, Serialization, the Network schedulers, the refund
 crypto/serialization refinements) have **no build attestation**, and the
 branch's own audit (`research/raw/t7-stack-audit-2026-07-10.md`,

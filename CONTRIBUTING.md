@@ -16,7 +16,7 @@ The statements, not the proofs. If `lake build` is green with zero proof
 escape hatches and the axiom audit shows only the intended foundations, the
 kernel has checked the proofs; the remaining judgment is whether the
 **definitions** (in `Zkpc/Spec/`) and **theorem docstrings** say what we
-meant. Source checkpoint `abb878f` has that technical evidence: fresh cache
+meant. Source checkpoint `2fe8354` has that technical evidence: fresh cache
 restore (8,283 files), all 3,595 root jobs on Lean 4.30.0, exact endpoint
 axiom capture using only standard Lean axioms, and clean source/diff scans.
 That does not replace the pending human gates. The later synchronized
@@ -79,7 +79,7 @@ deployed primitives.
 
 B1, B3, and K1 still require non-author human sign-off. The exact final
 documentation/PDF SHA is recorded in the PR and issues rather than being
-conflated with source checkpoint `abb878f`.
+conflated with source checkpoint `2fe8354`.
 
 ## Conventions added at the 2026-07-14 re-baseline
 

@@ -13,7 +13,7 @@ Pick up in this order:
    withheld-countersignature wedge, is the critical-path item and is
    genuine protocol design.
 2. **Attestation build** of merged `main` on a machine with resources: a
-   fresh-clone full root build to clear the debt on the 11 post-`cfd1f74`
+   fresh-clone full root build to clear the debt on the 11 post-`e2de071`
    commits (`ROADMAP.md`, "Attestation debt"). Not a laptop job.
 3. **The ranked worklist** in `ROADMAP.md` Phase 1+ (safety core on
    the new machine first; then de-idealized collision soundness; then
