@@ -69,7 +69,7 @@ and merge remain maintainer-controlled actions.
 - [x] **G3** **T7 Exculpability under collusion**: for every `A` carrying `FrameQueryBounds`, `T7_frame_query_bound_unconditional` states the secret-averaged finite FRAME bound `(qb.total + 1)/|F|` with no residual coupling or counting hypothesis. The complete route and its composition wrapper were clean-built and axiom-captured at source checkpoint `abb878f`. This does not by itself formalize PPT runtime or deployed hashes/signatures. `FrameAsymptotic.lean` contains two conditional lifts: one assumes the displayed query/field-size ratio is negligible; the second derives that premise from an explicit polynomial numerator bound and negligible inverse field size. Neither derives query certificates or field growth from PPT.
 - [x] **G4** RLN algebra lemmas: two signals on the same (secret, index) reveal the secret; one signal reveals nothing. Proved and reused by T7 and the slash logic; the stronger pointwise T7 certificate is separately kernel-refuted, so the final theorem correctly uses the uniform-secret average.
 
-## H. Refund-bearing variant (M5 — answers Vitalik's actual use case)
+## H. Refund-bearing variant (M5 — answers the upstream use case)
 
 - [ ] **H1** Refund-ticket state extension: server-signed refund total R, solvency (i+1)·C_max ≤ D + R. DoD: compiles as a second instantiation of the abstract object.
 - [ ] **H2** Model both refund-total representations: static encrypted E(R) and re-randomized-with-proof-of-equivalence. DoD: both compile.
@@ -99,7 +99,7 @@ and merge remain maintainer-controlled actions.
 - [ ] **K3** Adversarial proof review: a skeptic agent tries to find a vacuous theorem (true because a hypothesis is unsatisfiable) or a definition that trivializes T4. DoD: report; anything found becomes a task.
 - [ ] **K4** External review of the *definitions* (the A2L lesson): solicit one outside cryptographer to attack the games, not the proofs. DoD: feedback incorporated or rebutted in writing.
 - [x] **K5** Full clean-room source rebuild: fresh checkout at `abb878f`, 8,283 cached files restored, then all 3,595 root jobs completed successfully with Lean 4.30.0. The synchronized paper was subsequently rebuilt as a 12-page PDF and inspected page by page; the later exact release SHA is recorded externally.
-- [ ] **K6** Delivery package for the thread: the repo is public; the remaining operator gate is whether/when to send the post, PDF, and two-paragraph "what got proved" note for Ken/Vitalik. DoD: sent.
+- [ ] **K6** Delivery package for the thread: the repo is public; the remaining operator gate is whether/when to send the post, PDF, and two-paragraph "what got proved" note for the intended reviewers. DoD: sent.
 - [x] **K7** Log the experiment's outcome against README's success/failure shapes (did definitions drift? trivial theorems? did Lean hold or fall back to SSProve?). The note, Lean source validation, and PDF/artifact closeout are complete. Required non-author human gates and real K4 review remain separately pending.
 
 ---

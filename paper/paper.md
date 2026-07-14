@@ -38,7 +38,7 @@ problem; and one-trace composition theorems deliver the channel and wire
 guarantee bundles, while synchronized flat/refund product endpoints combine
 trace-derived operational guarantees with separate T4 and finite-query T7
 game claims. A third,
-post-quantum instantiation — Buterin's unidirectional nullifier-chain
+post-quantum instantiation — an externally contributed unidirectional nullifier-chain
 channel — is placed in the design space and its core is machine-checked
 too: balance safety, both directions of the collision-based stale-close
 mechanism, refund liveness, and per-request anonymity at advantage
@@ -545,12 +545,10 @@ this trade-off, presumably because no prior design was pushed through an
 adversarial review that forced both closes to be sound.
 
 **C: the unidirectional nullifier-chain channel.** A third instantiation,
-due to Vitalik Buterin (communicated via
-[dmarzzz](https://gist.github.com/dmarzzz/ddcd1302c5f511001f8f46102874a08e)),
-sits at a different point in the design space and is markedly simpler; we
-record it here and formalize its core alongside A and B (the design
-document is archived in
-`research_knowledge/vitalik-nullifier-chain-channel.md`). Alice maintains
+contributed by an external collaborator (relayed through the maintainer's
+agent), sits at a different point in the design space and is markedly
+simpler; we record it here and formalize its core alongside A and B (the
+design document is recorded verbatim in `PROTOCOL.md`). Alice maintains
 a nullifier chain $N_{i+1} = H(N_i, c)$ under a private seed $c$. `Open`
 deposits $D$, names the recipient publicly, and commits (hiding) to $N_1$.
 Each payment reveals the parent state's committed next-nullifier and

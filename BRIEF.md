@@ -38,7 +38,7 @@ Lean 4 + mathlib, building with `lake build` clean.
 
 **Two instantiations, in order.** Formalize the general channel object once, then instantiate the theorems twice.
 1. *Flat-ticket RLN credit protocol* (deposit D, flat price C, solvency inequality (i+1)·C ≤ D, per-index nullifier, slash on reuse): no refunds, no revocation, one inequality. The smallest machine-checkable unlinkability target in the literature, and the protocol the egress fleet runs. T1-T4, plus T6-T7 which only exist here.
-2. *Refund-bearing variant* (server-signed refund tickets, re-randomized encrypted running total): this is the variant Vitalik's own use case needs (LLM cost variance, his 100x-overhead argument), and refunds are where the construction's only known privacy bug lived. Satisfying his message means covering this, not just flat-ticket. It carries the T4 calibration test above.
+2. *Refund-bearing variant* (server-signed refund tickets, re-randomized encrypted running total): this is the variant the upstream use case needs (LLM cost variance, the 100x-overhead argument from the public thread), and refunds are where the construction's only known privacy bug lived. Answering the thread means covering this, not just flat-ticket. It carries the T4 calibration test above.
 
 Complete flat-ticket first; the refund variant is what makes the paper answer the thread rather than a simplification of it.
 
@@ -53,7 +53,7 @@ M0's `Spec.md` should formalize *this* protocol, not a reinvented one: its prose
 
 ## Milestones
 
-- M0: repo scaffold + `Spec.md` with all seven theorem statements in English. **Human review gate here** (this is the gate that could be handed to a reviewer who did not write it, Vitalik included).
+- M0: repo scaffold + `Spec.md` with all seven theorem statements in English. **Human review gate here** (this is the gate that could be handed to an external reviewer who did not write it).
 - M0.5: TLA+ model of the protocol state machine (open, spend, nullifier check, reconcile, slash, close), model-checked at small scope. Cheap insurance; the Lightning TLA+ work shows the method scales past our simpler protocol.
 - M1: state model + T1 (flat-ticket).
 - M2: T2, T3.
@@ -64,4 +64,4 @@ M0's `Spec.md` should formalize *this* protocol, not a reinvented one: its prose
 
 ## Acceptance
 
-`lake build` clean, zero `sorry`, axioms confined and named, T1-T4 and T6-T7 proved on flat-ticket, T4 proved on the refund variant with the calibration test passing, statements reviewed at M0 by at least one human who did not write them. T5 is stretch. The paper stands alone without the proofs; the proofs make it citable. Completing this answers Ken/Vitalik's Tuesday thread: the literature exists, it is in Lean, and the headline theorem is a first.
+`lake build` clean, zero `sorry`, axioms confined and named, T1-T4 and T6-T7 proved on flat-ticket, T4 proved on the refund variant with the calibration test passing, statements reviewed at M0 by at least one human who did not write them. T5 is stretch. The paper stands alone without the proofs; the proofs make it citable. Completing this answers the upstream thread: the literature exists, it is in Lean, and the headline theorem is a first.

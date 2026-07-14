@@ -5,7 +5,7 @@ import Mathlib.Logic.Function.Basic
 # Nullifier-chain channel: settlement state machine and safety (Class A)
 
 Formalizes the core of the unidirectional zk payment channel of
-`research_knowledge/vitalik-nullifier-chain-channel.md` (the Vitalik
+`PROTOCOL.md` (the
 nullifier-chain design): Alice deposits `D` naming Bob; each off-chain
 payment produces a successor state whose balance grows by a public `δ` under
 the guard `new_balance ≤ D`; Bob countersigns every state he accepts; Alice

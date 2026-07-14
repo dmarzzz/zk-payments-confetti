@@ -222,8 +222,8 @@ abort-immunity and pays at close time; interactive receipts buy cheap
 certified closes and hand the payee a live abort lever (withheld receipts
 stall solvency). We have not seen this trade-off stated before.
 
-**A third shape, from Vitalik.** A unidirectional nullifier-chain channel
-([design gist via dmarzzz](https://gist.github.com/dmarzzz/ddcd1302c5f511001f8f46102874a08e))
+**A third shape, externally contributed.** A unidirectional nullifier-chain channel
+(design recorded verbatim in the repository's `PROTOCOL.md`)
 sits at a simpler point of the same space: Alice chains nullifiers
 $N_{i+1} = H(N_i, c)$; each payment reveals the parent's committed
 next-nullifier plus a ZK proof that the parent is the genesis or *some*

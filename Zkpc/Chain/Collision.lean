@@ -4,7 +4,7 @@ import Zkpc.Chain.State
 # Nullifier-chain channel: the stale-close collision mechanism
 
 The algebra behind the challenge rule of
-`research_knowledge/vitalik-nullifier-chain-channel.md` ("How it works" /
+`PROTOCOL.md` ("How it works" /
 "Stale-close detection"): each state `i` commits (hiding) to the next
 nullifier `N_{i+1}`; message `j ≥ 1` (the payment creating state `j`)
 *reveals* `N_j`, the nullifier its parent committed to; closing state `i`

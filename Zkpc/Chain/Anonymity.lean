@@ -4,7 +4,7 @@ import Zkpc.Games.Framework
 /-!
 # Nullifier-chain channel: per-request anonymity (Class B)
 
-The design doc (`research_knowledge/vitalik-nullifier-chain-channel.md`,
+The design doc (`PROTOCOL.md`,
 "Goals" / "Privacy properties") asks for **per-request anonymity**: Bob must
 not learn that two payments came from the same Alice, nor that they belong to
 the same channel — he learns only "someone paid me δ". This module states and
