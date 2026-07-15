@@ -87,4 +87,6 @@ own rules no proving starts until they are resolved and Spec-v2 freezes:
 | G5 | Forfeit-all proportionality in honest-limit edge cases. | Interacts with G2; needs a stated accounting rule. |
 
 Counterexamples and repair proposals for these are the highest-value
-contribution right now. Estimated 4–7 rounds to a freeze.
+contribution right now. Estimated 4–7 rounds to a freeze. The five
+questions, each with a proposed default, are packaged for the designer in
+[`design-questions.md`](design-questions.md).

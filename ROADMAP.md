@@ -39,6 +39,10 @@ definitional issues, recorded as round-0 findings of the v2 gate series in
   honest-limit edge cases interacts with G2; the accounting needs a stated
   rule.
 
+The five questions are packaged for the designer, each with a proposed
+default so a one-word answer suffices:
+[`research/processed/design-questions.md`](research/processed/design-questions.md).
+
 Deliverable: Spec-v2 (new algorithm tuple, payment relation `R_pay`
 including `δ ≥ 0`, challenge-evidence validity, the two close timers),
 gate-frozen B1-style. The old object took 11 rounds; this object is far
