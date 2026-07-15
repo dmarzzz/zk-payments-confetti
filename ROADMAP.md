@@ -22,9 +22,12 @@ through as stated, that is a finding about the definition and goes to
 definitional issues, recorded as round-0 findings of the v2 gate series in
 `research/raw/gates.md`:
 
-- **G1 ([#10](https://github.com/dmarzzz/zk-payments-confetti/issues/10)) — signature channel-binding.** What exactly Bob signs must bind the
-  channel id and recipient, or cross-channel signature splicing rebuilds
-  the rev-1 attack against the no-overspend analogue.
+- **G1 ([#10](https://github.com/dmarzzz/zk-payments-confetti/issues/10)) — signature/proof channel-binding.** Neither the signed payload nor
+  the payment proof is bound to a channel; the working attack is a
+  cross-channel spliced *close* (a Bob-signed small-balance state from
+  channel 1 closes channel 2, unchallengeable — the collision rule is
+  per-chain). The binding must be hidden (`Com(channel_id; r)`), not in
+  the clear, or it breaks per-request anonymity.
 - **G2 ([#11](https://github.com/dmarzzz/zk-payments-confetti/issues/11)) — the withheld-countersignature wedge (critical path).** Alice
   reveals `N_{i+1}`; Bob refuses to countersign. Closing on state `i` is
   now forfeit-bait (Bob holds the revealing message), but the new state
@@ -35,12 +38,21 @@ definitional issues, recorded as round-0 findings of the v2 gate series in
   unspecified.
 - **G4 ([#13](https://github.com/dmarzzz/zk-payments-confetti/issues/13)) — what Close verifies about the balance commitment.** The close
   path's proof obligation (the π_close successor) is unspecified.
-- **G5 ([#14](https://github.com/dmarzzz/zk-payments-confetti/issues/14)) — forfeit-all proportionality.** Forfeiting the entire deposit in
-  honest-limit edge cases interacts with G2; the accounting needs a stated
-  rule.
+- **G5 ([#14](https://github.com/dmarzzz/zk-payments-confetti/issues/14), closed) — forfeit-all proportionality.** REFUTED by the red-team
+  round: forfeit-all is the doc's stated intent, a graded penalty is
+  structurally impossible (anonymity prevents Bob showing staleness
+  depth), and the named race edge is fictional. Residue folded into G2 as
+  a persist-before-send operational note.
+- **G6 ([#16](https://github.com/dmarzzz/zk-payments-confetti/issues/16)) — challenge-witness unforgeability (critical path, with G2).** The
+  doc never says what makes a challenge message genuine; unless the
+  payment circuit enforces `N_{i+1} = H(N_i, c)` in-statement with `c`
+  bound at open, Bob forges a challenge witness after any honest close
+  and takes everything. The challenge relation is unwritable in Lean
+  until pinned. Found by the red-team round.
 
-The five questions are packaged for the designer, each with a proposed
-default so a one-word answer suffices:
+The open questions (G1–G4, G6) are packaged for the designer as Q1–Q5,
+each with a proposed default so a one-word answer suffices, red-teamed
+before sending:
 [`research/processed/design-questions.md`](research/processed/design-questions.md).
 
 Deliverable: Spec-v2 (new algorithm tuple, payment relation `R_pay`

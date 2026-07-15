@@ -6,32 +6,50 @@ formalization. The method there is that definitions freeze before any
 proving starts: the doc goes through adversarial review rounds, every
 blocking finding needs a concrete counterexample, and proofs are only
 written against the frozen spec. Round 0 of that review surfaced five
-points where the document underdetermines the object. Four of them need a
-sentence; one (Q2) needs a decision. Each comes with a proposed default,
-so "yes" is a complete answer. Whatever you don't care about, we'll take
-the default and record it as our choice, not yours.
+points where the document underdetermines the object — this packet itself
+went through a red-team round before being sent, which killed one
+question, corrected two attacks, and added the last one. Each question
+comes with a proposed default, so "yes to defaults" is a complete answer.
+Whatever you don't care about, we'll take the default and record it as
+our choice, not yours.
 
-The five are tracked publicly as issues #10 through #14 on the repo,
-without attribution.
+## Q1. What does Bob sign, and how does a payment prove it belongs to its channel?
 
-## Q1. What exactly does Bob sign?
+The doc says a payment extends "a state Bob signed," but never specifies
+the signed payload, and never says how the flat proof anchors to its own
+channel's genesis and deposit. Nothing binds a signed state, or a payment
+proof, to one channel.
 
-The doc says a payment proves it extends "a state Bob signed," but never
-specifies the signed payload. If the signature does not bind the channel
-id, an honestly signed state from channel 1 can be spliced in as the
-parent of a payment in channel 2, and the no-overspend argument breaks
-across channels (Alice opens two channels with Bob, gets one state
-signed, extends it in both).
+Concrete break of payment-channel safety: Alice opens channel 1 (small
+D₁) and channel 2 (large D₂), both naming Bob. She makes two tiny
+payments in channel 1 (Bob signs state 2, balance 2ε, committing N₃) and
+buys ~D₂ of service in channel 2. She then closes channel 2 by presenting
+channel-1-state-2: Bob's signature verifies (nothing scopes it to a
+channel), and Alice — who knows channel 1's chain secret c — opens N₃. No
+channel-2 message ever revealed N₃, so under "Bob challenges if he holds
+a message that revealed N" he cannot challenge; the collision rule is
+per-chain and never fires on an imported foreign chain. The contract pays
+Bob 2ε out of D₂. (Note the attack is at *close*, not at payment: trying
+to extend one signed state in two channels fails, because the parent's
+committed next-nullifier is a single value and Bob's dedup is necessarily
+global across his inbox — he can't attribute messages to channels, which
+is the point of the design.)
 
-**Proposed default:** Bob signs
-`H(channel_id, commit(balance), commit(N_next))`, i.e. the signature
-binds the channel and the exact commitments of the state being accepted.
-Recipient identity is already implied by channel_id (the recipient is
-named at open).
+**Proposed default:** the signed payload and the payment proof both bind
+the channel, but the binding is hidden from Bob to preserve per-request
+anonymity: Bob counter-signs `H(Com(channel_id; r), Com(balance),
+Com(N_next))`; the payment proof takes the channel's genesis reference
+and D as private witnesses and opens `Com(channel_id; r)` to the correct
+channel privately; the close-time verifier, which knows its own
+channel_id, checks the same opening. Binding channel_id *in the clear*
+would let Bob link every payment to the public channel record and destroy
+per-request anonymity, so it has to be the hidden form. This makes Bob a
+blind signer of an Alice-supplied digest — plausibly safe under the ≤ D
+check plus dedup, but that becomes a theorem to state, so flagging it.
 
 ## Q2. Is closing on an unsigned-but-proof-valid state legal? (the withheld-countersignature wedge)
 
-This is the one real design decision. Walk the message order:
+Walk the message order:
 
 1. Alice sends the message creating state i+1. That message *reveals*
    `N_{i+1}` (the nullifier state i committed to) before Bob has signed
@@ -42,70 +60,99 @@ This is the one real design decision. Walk the message order:
 4. The challenge rule as written is "Bob challenges if he holds a message
    that revealed N." He holds one. Alice forfeits everything.
 
-As written, every state Alice can close on has been "extended" by her own
-reveal the moment she attempts the next payment, whether or not Bob ever
-accepted it. A recipient who ghosts one countersignature turns the
-challenge rule into a griefing weapon against an honest payer.
+And the genesis case is no escape: if Bob ghosts message 1, a
+genesis-close opens `N₁`, which message 1 revealed — collision again. So
+under the signed-states-only reading, a recipient who withholds one
+countersignature leaves an honest payer with *no* safe close at all,
+which contradicts the stated liveness goal ("If Bob never signed
+anything, Alice can unilaterally recover her full deposit"). This is
+profitable theft, not just griefing.
 
-The natural repair may already be implicit in your design: nothing in the
-doc says closing *requires* Bob's signature on the closed state. If Alice
-may close on state i+1 by presenting the same flat ZK proof she sent Bob
-(it proves i+1 extends a signed state or genesis, with balance ≤ D), the
-wedge dissolves: she closes on i+1, opens `N_{i+2}`, no message ever
-revealed `N_{i+2}`, no challenge is possible. Her worst case is paying
-one δ for a request Bob ghosted, and Bob gains nothing by withholding.
+The natural repair is to let Alice close on the unsigned state itself —
+but the naive form of that breaks safety in two ways, so the default has
+to be a bundle:
 
-**Proposed default:** closing on an unsigned state is legal; the close
-verifies the same payment proof plus the commitment opening. The cost is
-that the close-time verifier gets bigger (it verifies a payment proof,
-not just an opening), and the safety theorems have to walk the case where
-the closed state was never seen by Bob.
+**Proposed default:** closing on an unsigned-but-proof-valid state is
+legal, with all three of:
 
-If instead you intend closes to be signed-states-only, we need the rule
-that protects the honest payer in step 4, because "Bob holds a revealing
-message" and "Bob accepted the successor" are different events and the
-current rule cannot tell them apart.
+- (i) the close verifies the payment proof plus the commitment opening;
+- (ii) **δ ≥ 0 is enforced inside the payment circuit.** The doc states
+  only `parent_balance + δ = new_balance ≤ D`, never δ ≥ 0. With unsigned
+  closes Bob never sees δ, so a δ = −15 self-extension is an
+  unchallengeable full refund that pays Bob nothing.
+- (iii) **the challenge fires on any nullifier the close exhibits** — the
+  opened next-nullifier *and* the parent nullifier revealed inside the
+  close proof — matched against any held message *other than the closed
+  state itself*. Without this, Alice forks an old Bob-signed state with
+  δ = 0 and a fresh next-nullifier only she knows, closes on the fork,
+  and no message ever revealed the opened nullifier → no challenge. (Bob's
+  countersignature + dedup was the anti-rollback mechanism; the naive
+  unsigned-close removes it, so the challenge relation has to pick up the
+  slack.) The same-state exception is required, or an honest tip-close on
+  unsigned state i+1 re-wedges on its own `N_{i+1}`.
 
-## Q3. How long is Bob's challenge window?
+One operational note we'd record alongside (not a protocol change): Alice
+must persist a payment message before sending it — a crash-then-stale
+close forfeits, and by design the contract cannot distinguish that from
+cheating.
+
+## Q3. How long is Bob's challenge window, and does payout wait for it?
 
 The 90-day and 7-day timers are specified; the post-close challenge
-window is not. It needs a stated duration τ and the constraint that τ
-exceeds the network/censorship delay assumed of Bob's monitoring.
+window is not. And the close paragraph as written orders "The contract
+pays out per the balance" *before* "Bob challenges…", so the text
+currently has no window at all rather than an unnamed one — the fix is a
+duration τ plus a sequencing rule.
 
-**Proposed default:** 7 days, matching the close-on-request timer, with
-the explicit assumption that Bob (or a watchtower) observes the chain at
-least once per window.
+**Proposed default:** payout is deferred until τ = 7 days elapse
+unchallenged (matching the close-on-request timer), under the assumption
+that Bob observes the chain at least once per window.
 
-## Q4. What does Close verify about the balance commitment?
+## Q4. Is the balance commitment joint with the next-nullifier, and what authenticates it at close?
 
-Balances live in hiding commitments, but "the contract pays out per the
-balance" and "the final split is revealed onchain at close." The step
-between those is unstated. Presumably: the close reveals the balance and
-the commitment randomness, and the contract checks the opening against
-the commitment carried by the closed state (or, under the shielded-pool
-extension, verifies a proof about the committed value instead of an
-opening). Whichever it is, the close relation has to be written to be
-transcribable into Lean.
+Parts of this are already determined by the doc, and we read them as
+settled: the base close reveals the split in the clear, the shielded
+variant hides it inside pool-note output commitments, and a
+contract-verifiable reveal of a hidden value is by definition an opening.
+What the transcription still needs:
 
-**Proposed default:** base protocol closes open the commitment in the
-clear (the split is public in the base protocol anyway); the shielded
-variant replaces the opening with a proof. Genesis-close (full refund)
-opens the genesis commitment the same way, keeping your uniform rule.
+- (a) does a state carry one joint commitment `Com(balance, N_next)` or
+  two separate commitments? (Under the joint reading, "opening the
+  committed-next-nullifier" at close already opens the balance and the
+  question nearly answers itself.)
+- (b) the commitment lives in an offchain message — what exactly does
+  Alice submit at close, and what authenticates that commitment as
+  belonging to the closed state (Bob's signature, or the Q2 payment
+  proof)? This authenticity link is also where the Q1 splice enters.
 
-## Q5. Is forfeit-everything the intended penalty in the honest-limit edges?
+**Proposed default:** each state commits jointly to
+`Com(balance, N_next)`; base-protocol closes open it in the clear; the
+shielded variant replaces the opening with a proof. Genesis-close opens
+only `N₁` — genesis balance is 0 by definition, so there is no genesis
+balance commitment to open.
 
-The only penalty is forfeiture of the entire deposit. Combined with Q2,
-an honest payer could reach a challengeable position through no fault of
-her own; and even with Q2 repaired, edge cases remain (crash after
-sending a message, close raced against an in-flight payment). Options:
-bound the honest loss structurally (the Q2 default does most of this), or
-keep forfeit-all and scope the residual edges out explicitly as
-documented honest limits. What we don't want is to discover the policy
-mid-proof.
+## Q5. What makes a "message that revealed N" unforgeable?
 
-**Proposed default:** keep forfeit-all (it is what makes the collision
-rule simple), adopt the Q2 default so honest loss is bounded by one δ,
-and document the crash/race edges as honest limits with their exact cost.
+The challenge relation is "Bob holds a message that revealed N," but the
+doc never says what makes a message *genuine*. If the challenge accepts
+any proof-carrying message, then after any honest close — which publishes
+the opening of the closed state's next-nullifier — Bob can forge a valid
+"message that revealed N": parent = the closed state, δ = 0, his own
+signature (self-certifying by the doc's own argument), fresh commitments,
+a valid flat proof. Then he challenges and takes everything on every
+honest close, inverting the safety goal.
+
+The likely intended defense is that the payment circuit enforces
+`N_{i+1} = H(N_i, c)` in-statement, against a chain secret c bound at
+open through the genesis `N₁` commitment — so a forger without c cannot
+author a successor to the closed state. But the doc defines the chain
+equation in prose only; the proof statement as written never includes it,
+and c is never said to be bound at open. The challenge relation cannot be
+transcribed into Lean until this is pinned.
+
+**Proposed default:** the payment circuit enforces `N_{i+1} = H(N_i, c)`
+with c bound at open through the genesis commitment; a message is a valid
+challenge witness only if its proof verifies under that constraint.
 
 ---
 

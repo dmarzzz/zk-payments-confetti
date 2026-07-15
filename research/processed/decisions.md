@@ -80,13 +80,17 @@ own rules no proving starts until they are resolved and Spec-v2 freezes:
 
 | # | Issue | Why it matters |
 |---|---|---|
-| G1 | What exactly does Bob sign? | Must bind channel id + recipient, or cross-channel signature splicing rebuilds the round-1 attack shape against no-overspend. |
-| G2 | **Withheld countersignature (critical path).** Alice reveals `N_{i+1}`, Bob refuses to sign. Closing on the parent is forfeit-bait; the child was never accepted. What close is legal? | The old object's round-7 wedge, reborn. Genuine design work; `PROTOCOL.md` states no repair. |
-| G3 | How long is Bob's challenge window? | Unspecified; liveness theorems need it. |
-| G4 | What does Close verify about the balance commitment? | The close-time proof obligation is unspecified. |
-| G5 | Forfeit-all proportionality in honest-limit edge cases. | Interacts with G2; needs a stated accounting rule. |
+| G1 | What does Bob sign, and how does a payment prove its channel? | Nothing binds a signed state or a proof to one channel; a cross-channel spliced *close* steals D₂ for 2ε, unchallengeable. Binding must be hidden or it breaks anonymity. |
+| G2 | **Withheld countersignature (critical path).** Bob withholds one signature → an honest Alice has *no* safe close (genesis included). What close is legal? | Profitable theft, not griefing. The naive repair (legalize unsigned closes) is itself refuted (rollback fork; δ < 0); the sound default is a three-part bundle. |
+| G3 | Challenge-window duration + payout sequencing. | The doc pays out *before* the challenge sentence; needs τ and payout-deferred-until-τ. |
+| G4 | Joint vs separate balance commitment; what authenticates it at close? | The opening-vs-proof half is already determined by the doc; the joint/separate choice and the authenticity link are not. |
+| ~~G5~~ | ~~Forfeit-all proportionality~~ — REFUTED by the red-team round (closed). | Forfeit-all is the doc's stated intent; graded penalties are structurally impossible; residue folded into G2. |
+| G6 | **Challenge-witness unforgeability (critical path).** What makes a "message that revealed N" genuine? | Unless the circuit enforces the chain equation with `c` bound at open, Bob forges a witness after any honest close and takes everything. |
 
-Counterexamples and repair proposals for these are the highest-value
-contribution right now. Estimated 4–7 rounds to a freeze. The five
+Round 0.5 (2026-07-14): the question packet itself was adversarially
+red-teamed before sending — G5 fell, the G1 attack was corrected from a
+payment-layer to a close-layer splice, two proposed defaults were replaced
+as unsound, and G6 was found. Counterexamples and repair proposals remain
+the highest-value contribution. Estimated 4–7 rounds to a freeze. The open
 questions, each with a proposed default, are packaged for the designer in
 [`design-questions.md`](design-questions.md).
