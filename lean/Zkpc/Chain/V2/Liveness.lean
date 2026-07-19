@@ -1,22 +1,24 @@
 import Zkpc.Chain.V2.State
 
 /-!
-# Close-window liveness under scheduling (ROADMAP obligation 5)
+# Close-window enabledness and deadlock-freedom (ROADMAP obligation 5, partial)
 
 `Zkpc/Chain/V2/State.lean`'s `alice_liveness` is existential: from a live
-state Alice *can* reach a safe settlement. This module upgrades it to a
-**guaranteed** statement under a minimal fairness assumption, and pins the
+state Alice *can* reach a safe settlement. This module adds the two
+progress facts that a weak-fairness liveness argument rests on —
+**enabledness persistence** and **deadlock-freedom** — and pins the
 two-timer deadline structure (Spec-v2 §4: 90-day absolute, 7-day
 on-request) as concrete reachability facts.
 
-The fairness model is deliberately light, matching the T5 clock lemmas the
-old object used: Alice's exit is a *finite fixed sequence* of her own moves
-and clock ticks (`closeOn`, `tick` past the window, `settle`), none of which
-any other party can disable — `Step` has no action that, from a live
-un-closing state, prevents `closeOn`. So "guaranteed under weak fairness"
-here is the concrete statement that the exit sequence is enabled and
-deterministic in outcome, which is what `alice_liveness` already witnesses;
-what this module adds is:
+**Scope (disclosed, per the review).** This module does **not** formalize
+fairness: there is no temporal operator, no schedule, no fair-run
+predicate, and `not_stuck` witnesses only that *some* step is enabled (for a
+pending in-window close that witness is `tick`, which does not itself force
+`settle`). The step "enabled + fair schedule ⇒ eventual settlement" is the
+standard weak-fairness closure and is argued in prose only; obligation 5's
+guaranteed-under-scheduling statement is therefore **not** discharged here —
+its temporal wrapper (a fair-schedule predicate + eventual-settlement
+theorem) remains open. What is proved:
 
 * `no_action_disables_close`: from any reachable live un-closing state,
   `closeOn (canonical ctx)` is enabled regardless of history — Bob has no
@@ -68,11 +70,13 @@ theorem request_deadline_reachable {P : Params} {nul : ℕ → N} {s : St}
     ∃ s', Step P nul s .timeoutForfeit s' ∧ s'.bobPay = P.D :=
   ⟨_, Step.timeoutForfeit s hlive hopen (Or.inr ⟨t, hreq, hlate⟩), rfl⟩
 
-/-- **Guaranteed settlement, either party.** Every reachable live channel
-has an enabled next step toward settlement — Alice's safe close if the
-channel is un-closing (with or without a pending timeout), or the resolution
-of a running challenge window. No reachable live state is stuck: the two
-liveness directions compose to total progress. -/
+/-- **Deadlock-freedom.** Every reachable live channel has *some* enabled
+step: Alice's safe close if the channel is un-closing, `settle` once a
+pending close's window has elapsed, or `tick` while it still runs. This is
+progress-possible, **not** progress-guaranteed — an infinite `tick`-only run
+past a pending close settles nothing; forcing `settle` needs the fairness
+wrapper (see the module header). What it rules out is a genuinely stuck
+state (no enabled action at all), which never arises. -/
 theorem not_stuck {P : Params} {nul : ℕ → N} {s : St}
     (h : Reach P nul s) (hlive : s.settled = false) :
     ∃ a s', Step P nul s a s' := by

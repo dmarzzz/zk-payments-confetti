@@ -52,16 +52,20 @@ theorem adaptive_secret_probe_bound (q : ℕ) (σ : List Bool → C) :
   OracleComp.probEvent_hiddenReadMany_le
     (fun r : C => (probOutput_uniformSample C r).le) q σ
 
-/-- **The adaptive frame bound** (Spec-v2 §7 non-frameability, stage 2):
-adding the honest close's fresh-uniform framing target
-(`Zkpc/Chain/V2/CollisionBound.lean`), an adaptive `q`-probe framer's total
-advantage is at most `q/|C| + 1/|N|`. Here the two events are stated on
-their own hidden targets (secret recovery, then the residual direct guess
-at the fresh nullifier), matching the stage-1 decomposition of
-`Frame.lean`'s `chainFrame_bound`; the union with the `1/|N|` fresh-target
-term is the same sum. -/
-theorem adaptive_frame_bound {N : Type} [DecidableEq N] [Fintype N]
-    [Nonempty N] [SampleableType N] (q : ℕ) (σ : List Bool → C) (y₀ : N) :
+/-- **Adaptive secret probe plus a direct target guess** (Spec-v2 §7, the
+two hidden-target terms of stage 2). **This is not a single fused game**:
+the two probabilities live in disjoint experiments (the adaptive probe run
+`hiddenReadMany`, and an independent uniform target draw), and their sum is
+stated only as the two terms that a *fused* adaptive frame game would union
+to. Fusing them into one adaptive experiment with a common programmable
+oracle — so that `q/|C| + q_N/|N|` bounds one win predicate — is exactly the
+FrameDeferred deferred-sampling port, the acknowledged stage-2 residual;
+this lemma does not claim it. The static fused game is `Frame.lean`'s
+`chainFrame_bound`; what stage 2 adds is only the adaptive upgrade of the
+secret-probe term (`adaptive_secret_probe_bound`). -/
+theorem adaptive_probe_plus_guess_terms {N : Type} [DecidableEq N]
+    [Fintype N] [Nonempty N] [SampleableType N] (q : ℕ) (σ : List Bool → C)
+    (y₀ : N) :
     Pr[(fun b : Bool => b = true) | OracleComp.hiddenReadMany ($ᵗ C) q σ]
       + Pr[(· = y₀) | ($ᵗ N)]
       ≤ (q : ℝ≥0∞) * (Fintype.card C : ℝ≥0∞)⁻¹
@@ -74,4 +78,4 @@ end Zkpc.Chain.V2
 
 -- Kernel audit (K2): only Lean's own `propext`/`Classical.choice`/`Quot.sound`.
 #print axioms Zkpc.Chain.V2.adaptive_secret_probe_bound
-#print axioms Zkpc.Chain.V2.adaptive_frame_bound
+#print axioms Zkpc.Chain.V2.adaptive_probe_plus_guess_terms

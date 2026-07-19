@@ -216,10 +216,18 @@ noncomputable def closeAnonAdvantage
     (A : PayMsg F × PayMsg F × CloseMsg F → ProbComp Bool) (δ : F) : ℝ :=
   Zkpc.Games.guessGap (closeAnonGame A δ)
 
-/-- **Signed-close unlinkability (advantage exactly 0)** — Spec-v2 §4's
-attribution-freeness [R1] as a theorem, provable because of the F-R2-1
-repair: for every adversary, the equal-split close-attribution game is a
-coin toss. -/
+/-- **Signed-close unlinkability (advantage exactly 0, ideal model)** —
+Spec-v2 §4's attribution-freeness [R1] as a theorem, provable because of the
+F-R2-1 repair: for every adversary, the equal-split close-attribution game
+is a coin toss. **The "exactly 0" is a property of the ideal model**, whose
+two load-bearing assumptions must travel with any quotation of this result:
+(i) commitments are perfectly hiding one-time masks (`r + v`) — a deployed
+hash-based `Com` gives `advantage ≤ Adv_hiding`, not 0; and (ii) `π_close`
+is zero-knowledge — the F-R2-1 repair moves `C_x` and `σ` *into* the close
+proof as witnesses, so if `π_close` leaked them the repair would be void.
+ZK of `π_close` is a required primitive (Spec-v2 §1), enforced here by the
+view type simply not containing the proof, matching the `flatInstance`
+convention of `Zkpc/Games/FlatInstance.lean`. -/
 theorem signed_close_anonymity
     (A : PayMsg F × PayMsg F × CloseMsg F → ProbComp Bool) (δ : F) :
     closeAnonAdvantage A δ = 0 := by

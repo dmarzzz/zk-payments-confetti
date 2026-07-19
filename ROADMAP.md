@@ -123,12 +123,12 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    plus challenge-fires witnesses (`T4Fires` port). The existing
    `lean/Zkpc/Chain/Anonymity.lean` (two payments, same δ, no oracles) is the
    warm-up, not this.
-5. **Close-window liveness.** *Done 2026-07-18
-   (`lean/Zkpc/Chain/V2/Liveness.lean`): guaranteed progress for both
-   parties (no_action_disables_close, timeout/request-deadline
-   reachability, not_stuck) on the clocked machine. The full
-   weak-fairness temporal wrapper (a scheduler model) is the only
-   residue.* The two-timer structure (90-day absolute,
+5. **Close-window liveness.** *Partial 2026-07-18
+   (`lean/Zkpc/Chain/V2/Liveness.lean`): enabledness persistence +
+   deadlock-freedom (no_action_disables_close, timeout/request-deadline
+   reachability, not_stuck) on the clocked machine. NOT discharged: the
+   weak-fairness temporal wrapper (a fair-schedule predicate + eventual-
+   settlement theorem) — `not_stuck` is progress-possible, not forced.* The two-timer structure (90-day absolute,
    7-day on-request), the G3 challenge window, and AWOL-forfeit under weak
    fairness — upgrading `alice_refund_liveness` from existential-trace to
    guaranteed-under-scheduling, reusing the T5 fairness machinery.
@@ -148,7 +148,16 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
     signature-as-witness (the SigmaInstance technique under a STARK
     idealization), then the one-trace end-to-end theorem
     (`Composition/EndToEnd.lean` pattern).
-11. **Stretch (each its own campaign; defer):** shielded-pool integrated
+11. **Rigor items (from the round-3 review, `research/raw/spec-v2-review-round3.md`).**
+    (R3-6) Weaken the chain theorems' `Function.Injective nul` (over all `ℕ`,
+    unsatisfiable at a finite nullifier type, inherited from the seed
+    `Chain/Collision.lean`) to `Set.InjOn nul (Set.Iic (msgs+2))` with a
+    one-line prefix-bridge lemma, so the assumed hypothesis matches the one
+    `CollisionBound.lean` probabilistically establishes. (R3-7) Strengthen
+    `linkable_leak_detected` from distributional separation to a concrete
+    positive-advantage adversary in the played `anonGame`. Neither affects a
+    current proof; both close statement/rigor gaps.
+12. **Stretch (each its own campaign; defer):** shielded-pool integrated
     open/close; recipient-anonymous opens; executable
     refinement/serialization for the new machine.
 

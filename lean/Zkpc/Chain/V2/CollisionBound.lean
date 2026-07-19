@@ -28,6 +28,18 @@ sets over strictly increasing index pairs; each collider has exactly
 `|N|^(n-1)` members (`colliderEquiv`), and there are `C(n,2)` pairs, so
 the collision event has probability at most
 `C(n,2) · |N|^(n-1) / |N|^n = n(n-1) / (2|N|)`.
+
+**Scope (disclosed, per the modeling review).** (1) This is one chain's `n`
+links. The cross-channel false-positive absorption of Spec-v2 §5 is the same
+birthday argument on the union of two chains' `2n` links (constant `4x`) and
+follows trivially; it is not separately stated here. (2) The iid-uniform
+reduction assumes no adversary has pre-queried Alice's chain slots
+`(N_j, c)`; that holds modulo the secret-probe bound of
+`Zkpc/Chain/V2/FrameAdaptive.lean` — another instance of the unfused
+composition tracked in `ROADMAP.md`. (3) The downstream `Function.Injective
+nul` hypothesis (over all of `ℕ`) is strictly stronger than this
+finite-prefix bound establishes; weakening it to `Set.InjOn` on the used
+index range is the R3-6 rigor item.
 -/
 
 open OracleComp Finset

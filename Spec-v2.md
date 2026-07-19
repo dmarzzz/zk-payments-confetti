@@ -24,7 +24,11 @@ proof; no elliptic curves).
 - `Sig = (KeyGen, Sign, Verify)`: a PQ-EUF-CMA signature whose verification is
   cheap inside a STARK (WOTS/XMSS/SPHINCS+/Dilithium; stateful schemes carry
   their state discipline as an explicit assumption).
-- A STARK proof system with knowledge soundness for the relations below.
+- A STARK proof system with knowledge soundness **and zero-knowledge** for
+  the relations below. ZK of `π_close` is load-bearing: the signed-close
+  proof (Section 4, per the F-R2-1 repair) carries the state commitment and
+  countersignature as private witnesses, so a non-ZK `π_close` would leak
+  them and re-open the attribution channel the repair closes.
 - Time constants: `T_abs` = 90 days (absolute close deadline), `T_req` =
   7 days (close-on-request deadline), `tau` = 7 days (challenge window, A3).
 - Nullifier space `N` = the hash range; `|N|` superpolynomial.
@@ -203,9 +207,14 @@ Within the window, Bob submits a held payment message
 1. `pi_m` verifies under R_pay against a root the contract accepts (A5:
    challenge-witness validity is proof validity; the chain equation inside
    R_pay is what makes witnesses unforgeable without `c`);
-2. `C_m != C_x` (the same-state exception, A2.iii: the closed state itself
-   is not evidence against its own close; for genesis closes there is no
-   `C_x` and every valid message qualifies);
+2. the **same-state exception**, per close mode (refined for F-R2-1, since
+   signed closes no longer publish `C_x`): for an **unsigned** close, `C_m
+   != C_x` (the closed commitment is public); for a **genesis** close there
+   is no closed commitment and every valid `m` qualifies; for a **signed**
+   close no exception is needed and none is checkable — the closed state's
+   own message revealed `N_x`, never the exhibited `N_{x+1}`, so it can
+   never be its own challenge witness (proved inert in
+   `lean/Zkpc/Chain/V2/Close.lean`);
 3. `N_m ∈ E` (the revealed nullifier of `m` collides with an exhibited
    nullifier of the close).
 
@@ -240,7 +249,25 @@ sent, `earned = bal_len`:
   and each of the listed safe closes admits no valid witness (assuming
   chain collision-freedom).
 - **Bob never loses.** Every safe close pays Bob at least `earned`; every
-  challenge and timeout pays him `D >= earned`.
+  challenge and timeout pays him `D >= earned`. *Two layering caveats, per
+  the modeling review.* (i) This is the **on-chain settlement** property; it
+  is conditional on the two probabilistic crypto kernels holding — the
+  collision bound (`safe_iff` assumes chain collision-freedom) and
+  non-frameability (a forged witness would slash an honest close). The
+  machine-level theorem and each kernel are proved separately; the fused
+  "never slashed except with probability ≤ `n(n-1)/2|N| + q_C/|C| +
+  q_N/|N|`" statement is the acknowledged unfused residual. (ii) The
+  forward "unsafe ⇒ challengeable" direction also assumes Bob **retained**
+  every message he was sent (an honest-recipient store), alongside the
+  vigilance assumption of Section 9.
+- **Just-closed-channel service loss (bounded, disclosed).** Because the
+  epoch-root rule (Section 3) accepts the current and previous epoch's
+  roots, Bob may accept a payment whose channel closed up to ~2 epochs ago;
+  such a payment can never be settled, so Bob renders service he cannot
+  collect on. This sits outside the single-channel "Bob never loses" model.
+  Bounded by service value per 2 epochs per channel; the mitigation is to
+  accept only the current-epoch root at close, traded against anonymity-set
+  width (GN-3). Flagged for the designer.
 - **Liveness for Alice, wedge included (the G2 repair).** From every live
   state, whatever Bob has done (including withholding the last
   countersignature), a safe close exists and Alice plus the clock can drive
@@ -252,7 +279,9 @@ sent, `earned = bal_len`:
   same rules: safe iff no message was ever sent.
 - **Non-frameability** (A5, probabilistic): no q-query adversary given the
   full transcript and an honest close's published openings produces a valid
-  challenge witness against it; bound of shape `~q/|N|`.
+  challenge witness against it; bound of shape `q_C/|C| + q_N/|N|` (secret
+  probes and target guesses, one guess per held cross-channel message —
+  `q_N` is not 1).
 
 ## 8. Privacy properties
 
@@ -388,3 +417,36 @@ proof is a finding about the definition):
   (`lean/Zkpc/Chain/V2/CloseView.lean`). Unsigned closes still publish
   `C_x` (the same-state exception needs it) and already concede the tip
   edge.
+
+Round-3 findings (independent Fable-5 modeling review of the proof corpus,
+2026-07-18; the kernel checks the proofs, this pass checks the
+statements). Wording/coverage corrections applied; two rigor items opened:
+
+- **R3-1 (applied; correctness).** The frame game's single target guess
+  understated the adversary: a real challenger has one guess per held
+  cross-channel message. Fixed to a guess *list*, bound now `q_C/|C| +
+  q_N/|N|` (Section 7; `lean/Zkpc/Chain/V2/Frame.lean`).
+- **R3-2 (applied; the `adaptive_frame_bound` defect).** The stage-2
+  "adaptive frame bound" summed two disjoint experiments as one advantage.
+  Renamed and reworded to state exactly the two separate hidden-target
+  terms; the fused adaptive game is the FrameDeferred residual, not claimed
+  (`lean/Zkpc/Chain/V2/FrameAdaptive.lean`).
+- **R3-3 (applied; overclaim).** The liveness module claimed
+  "guaranteed under fairness"; it proves enabledness + deadlock-freedom
+  only. Reworded; obligation 5's temporal wrapper is explicitly still open.
+- **R3-4 (applied; disclosure).** Signed-close "advantage 0" carries the
+  ideal-commitment and ZK-of-`π_close` qualifiers; the latter is now a named
+  primitive (Section 1).
+- **R3-5 (applied; the just-closed-channel loss and the conditional-on-
+  kernels framing of "Bob never loses", Section 7).**
+- **R3-6 (open; rigor).** The chain theorems assume `Function.Injective nul`
+  over all of `ℕ` (inherited from the seed `Chain/Collision.lean`), which is
+  unsatisfiable at a finite nullifier type. Only indices `≤ msgs + 2` are
+  ever used, so the fix is to weaken to `Set.InjOn nul (Set.Iic (msgs+2))`
+  with a one-line prefix bridge; tracked as a ROADMAP rigor item (does not
+  affect any current proof, but closes the gap between the assumed and the
+  probabilistically-established hypothesis).
+- **R3-7 (open; rigor).** The `linkable_leak_detected` calibration proves
+  distributional separation; strengthening it to "a concrete adversary has
+  positive advantage in the played `anonGame`" is one further lemma, tracked
+  alongside the anonymity battery.

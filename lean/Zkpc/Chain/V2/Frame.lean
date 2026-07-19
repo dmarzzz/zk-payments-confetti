@@ -51,30 +51,34 @@ variable {C N : Type} [DecidableEq C] [Fintype C] [DecidableEq N] [Fintype N]
 
 /-- A secret-averaged framing adversary: `probes` are the chain-secret
 candidates tested by its hash queries (at the public parent-reveal), and
-`fallback` is its direct guess at the unrevealed committed
-next-nullifier. -/
+`guesses` are its candidate values for the unrevealed committed
+next-nullifier — **one per held message from any channel**, since the
+contract evaluates `N_m ∈ E` for every message the challenger submits
+(Spec-v2 §5). The earlier single-`fallback` model understated this;
+`q_N = guesses.length` is the honest count. -/
 structure FrameGuess (C N : Type) where
   probes : List C
-  fallback : N
+  guesses : List N
 
 /-- The (conservative) win predicate: some probe hits the chain secret, or
-the fallback guesses the fresh target. -/
+some guess hits the fresh target. -/
 def ChainFrameWins (A : FrameGuess C N) (c : C) (y : N) : Prop :=
-  c ∈ A.probes ∨ A.fallback = y
+  c ∈ A.probes ∨ y ∈ A.guesses
 
 instance (A : FrameGuess C N) (c : C) (y : N) :
     Decidable (ChainFrameWins A c y) := by
   unfold ChainFrameWins
   infer_instance
 
-/-- Counting form: at most `q·|N| + |C|` of the `|C|·|N|` secret/target
+/-- Counting form: at most `q_C·|N| + q_N·|C|` of the `|C|·|N|` secret/target
 pairs are winning. -/
 lemma card_chainFrameWins_le (A : FrameGuess C N) :
     (univ.filter fun p : C × N => ChainFrameWins A p.1 p.2).card
-      ≤ A.probes.length * Fintype.card N + Fintype.card C := by
+      ≤ A.probes.length * Fintype.card N
+        + A.guesses.length * Fintype.card C := by
   have hsub : (univ.filter fun p : C × N => ChainFrameWins A p.1 p.2) ⊆
       (univ.filter fun p : C × N => p.1 ∈ A.probes) ∪
-        (univ.filter fun p : C × N => A.fallback = p.2) := by
+        (univ.filter fun p : C × N => p.2 ∈ A.guesses) := by
     intro p hp
     simp only [mem_filter, mem_univ, true_and] at hp
     rcases hp with h | h
@@ -91,24 +95,29 @@ lemma card_chainFrameWins_le (A : FrameGuess C N) :
     refine le_trans (Finset.card_le_card this) ?_
     rw [Finset.card_product, Finset.card_univ]
     exact Nat.mul_le_mul_right _ (A.probes.toFinset_card_le)
-  · -- fallback hits: contained in univ ×ˢ {fallback}
-    have : (univ.filter fun p : C × N => A.fallback = p.2) ⊆
-        (univ : Finset C) ×ˢ {A.fallback} := by
+  · -- guess hits: contained in univ ×ˢ guesses.toFinset
+    have : (univ.filter fun p : C × N => p.2 ∈ A.guesses) ⊆
+        (univ : Finset C) ×ˢ A.guesses.toFinset := by
       intro p hp
       simp only [mem_filter, mem_univ, true_and] at hp
-      exact Finset.mem_product.2 ⟨Finset.mem_univ _, Finset.mem_singleton.2 hp.symm⟩
+      exact Finset.mem_product.2 ⟨Finset.mem_univ _, List.mem_toFinset.2 hp⟩
     refine le_trans (Finset.card_le_card this) ?_
-    rw [Finset.card_product, Finset.card_univ, Finset.card_singleton, mul_one]
+    rw [Finset.card_product, Finset.card_univ]
+    calc Fintype.card C * A.guesses.toFinset.card
+        ≤ Fintype.card C * A.guesses.length :=
+          Nat.mul_le_mul_left _ A.guesses.toFinset_card_le
+      _ = A.guesses.length * Fintype.card C := Nat.mul_comm _ _
 
 variable [Inhabited C] [Inhabited N] [SampleableType C] [SampleableType N]
 
 /-- **The chain-frame kernel bound** (Spec-v2 §7 non-frameability, stage 1):
-a `q`-probe secret-averaged adversary frames an honest close with
-probability at most `q/|C| + 1/|N|`. -/
+a secret-averaged framer with `q_C` chain-secret probes and `q_N` target
+guesses (one per held cross-channel message) frames an honest close with
+probability at most `q_C/|C| + q_N/|N|` — the `~q/|F|` shape of Spec-v2 §7. -/
 theorem chainFrame_bound (A : FrameGuess C N) :
     Pr[fun p : C × N => ChainFrameWins A p.1 p.2 | $ᵗ (C × N)]
       ≤ (A.probes.length : ℝ≥0∞) / Fintype.card C
-        + (Fintype.card N : ℝ≥0∞)⁻¹ := by
+        + (A.guesses.length : ℝ≥0∞) / Fintype.card N := by
   have hC : 0 < Fintype.card C := Fintype.card_pos
   have hN : 0 < Fintype.card N := Fintype.card_pos
   have hCe : (Fintype.card C : ℝ≥0∞) ≠ 0 := by exact_mod_cast hC.ne'
@@ -118,29 +127,28 @@ theorem chainFrame_bound (A : FrameGuess C N) :
   rw [probEvent_uniformSample, Fintype.card_prod]
   calc ((univ.filter fun p : C × N => ChainFrameWins A p.1 p.2).card : ℝ≥0∞)
         / ((Fintype.card C * Fintype.card N : ℕ) : ℝ≥0∞)
-      ≤ ((A.probes.length * Fintype.card N + Fintype.card C : ℕ) : ℝ≥0∞)
+      ≤ ((A.probes.length * Fintype.card N
+            + A.guesses.length * Fintype.card C : ℕ) : ℝ≥0∞)
         / ((Fintype.card C * Fintype.card N : ℕ) : ℝ≥0∞) := by
         gcongr
         exact_mod_cast card_chainFrameWins_le A
     _ = ((A.probes.length * Fintype.card N : ℕ) : ℝ≥0∞)
           / ((Fintype.card C * Fintype.card N : ℕ) : ℝ≥0∞)
-        + ((Fintype.card C : ℕ) : ℝ≥0∞)
+        + ((A.guesses.length * Fintype.card C : ℕ) : ℝ≥0∞)
           / ((Fintype.card C * Fintype.card N : ℕ) : ℝ≥0∞) := by
         rw [ENNReal.div_add_div_same]
         push_cast
         ring_nf
     _ = (A.probes.length : ℝ≥0∞) / Fintype.card C
-        + (Fintype.card N : ℝ≥0∞)⁻¹ := by
+        + (A.guesses.length : ℝ≥0∞) / Fintype.card N := by
         congr 1
         · push_cast
           rw [mul_comm (A.probes.length : ℝ≥0∞) (Fintype.card N : ℝ≥0∞),
             mul_comm (Fintype.card C : ℝ≥0∞) (Fintype.card N : ℝ≥0∞),
             ENNReal.mul_div_mul_left _ _ hNe hNt]
         · push_cast
-          rw [ENNReal.div_eq_inv_mul,
-            ENNReal.mul_inv (Or.inl hCe) (Or.inl hCt),
-            mul_comm ((Fintype.card C : ℝ≥0∞))⁻¹ _, mul_assoc,
-            ENNReal.inv_mul_cancel hCe hCt, mul_one]
+          rw [mul_comm (Fintype.card C : ℝ≥0∞) (Fintype.card N : ℝ≥0∞),
+            ENNReal.mul_div_mul_right _ _ hCe hCt]
 
 /-! ## Anti-vacuity calibrations (must-lose degenerate schemes) -/
 
@@ -149,12 +157,12 @@ the adversary (a scheme that reveals it early, or a non-hiding joint
 commitment — the break A5/Q5 exists to prevent), the trivial adversary that
 echoes it frames every honest close: win probability `1`. -/
 theorem chainFrame_leaky_loses :
-    Pr[fun p : C × N => ChainFrameWins ⟨[], p.2⟩ p.1 p.2 | $ᵗ (C × N)]
+    Pr[fun p : C × N => ChainFrameWins ⟨[], [p.2]⟩ p.1 p.2 | $ᵗ (C × N)]
       = 1 := by
   rw [probEvent_uniformSample]
-  have hall : (univ.filter fun p : C × N => ChainFrameWins ⟨[], p.2⟩ p.1 p.2)
+  have hall : (univ.filter fun p : C × N => ChainFrameWins ⟨[], [p.2]⟩ p.1 p.2)
       = univ :=
-    Finset.filter_eq_self.2 fun p _ => Or.inr rfl
+    Finset.filter_eq_self.2 fun p _ => Or.inr (List.mem_singleton.2 rfl)
   rw [hall, Finset.card_univ, ENNReal.div_self
     (by exact_mod_cast (Fintype.card_pos (α := C × N)).ne')
     (ENNReal.natCast_ne_top _)]
@@ -163,13 +171,13 @@ theorem chainFrame_leaky_loses :
 hash probes enumerates the chain-secret space and frames every honest
 close: win probability `1`. The `q/|C|` term of the bound is exactly what
 priced this out. -/
-theorem chainFrame_grind_loses (y0 : N) :
+theorem chainFrame_grind_loses :
     Pr[fun p : C × N =>
-        ChainFrameWins ⟨(univ : Finset C).toList, y0⟩ p.1 p.2
+        ChainFrameWins ⟨(univ : Finset C).toList, []⟩ p.1 p.2
       | $ᵗ (C × N)] = 1 := by
   rw [probEvent_uniformSample]
   have hall : (univ.filter fun p : C × N =>
-      ChainFrameWins ⟨(univ : Finset C).toList, y0⟩ p.1 p.2)
+      ChainFrameWins ⟨(univ : Finset C).toList, []⟩ p.1 p.2)
       = univ :=
     Finset.filter_eq_self.2 fun p _ =>
       Or.inl (by simp [Finset.mem_toList])
