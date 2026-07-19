@@ -25,7 +25,8 @@ commits to `N₁`, so a refund-close after a payment collides with message 1:
   chain**, carried here as the explicit hypothesis
   `Function.Injective nul`. In the lazy-RO model each fresh slot
   `H(N_j, c)` is a fresh uniform sample, so a collision among the first `n`
-  chain links occurs with probability at most `n²/|N|`; the theorems below
+  chain links occurs with probability at most `n²/|N|` — proven (tighter,
+  `n(n-1)/(2|N|)`) in `Zkpc/Chain/V2/CollisionBound.lean`; the theorems below
   take the collision-free event as a hypothesis rather than folding a
   negligible term into every statement (the same idealization the
   `Zkpc/Games` layer makes explicit per instance).

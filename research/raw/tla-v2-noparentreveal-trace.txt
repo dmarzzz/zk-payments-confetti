@@ -1,0 +1,81 @@
+Error: Invariant BobFloor is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ msgs = 0
+/\ now = 0
+/\ len = 0
+/\ ghostD = 0
+/\ closing = [mode |-> "none", i |-> 0, d |-> 0, t0 |-> 0]
+/\ alicePay = 0
+/\ closeReqAt = -1
+/\ bals = (0 :> 0 @@ 1 :> 0 @@ 2 :> 0 @@ 3 :> 0)
+/\ forfeited = FALSE
+/\ settled = FALSE
+/\ bobPay = 0
+
+State 2: <Pay line 122, col 3 to line 127, col 57 of module ZkpcChainV2>
+/\ msgs = 1
+/\ now = 0
+/\ len = 1
+/\ ghostD = 0
+/\ closing = [mode |-> "none", i |-> 0, d |-> 0, t0 |-> 0]
+/\ alicePay = 0
+/\ closeReqAt = -1
+/\ bals = (0 :> 0 @@ 1 :> 1 @@ 2 :> 0 @@ 3 :> 0)
+/\ forfeited = FALSE
+/\ settled = FALSE
+/\ bobPay = 0
+
+State 3: <CloseOn line 152, col 3 to line 157, col 57 of module ZkpcChainV2>
+/\ msgs = 1
+/\ now = 0
+/\ len = 1
+/\ ghostD = 0
+/\ closing = [mode |-> "fresh", i |-> 0, d |-> 0, t0 |-> 0]
+/\ alicePay = 0
+/\ closeReqAt = -1
+/\ bals = (0 :> 0 @@ 1 :> 1 @@ 2 :> 0 @@ 3 :> 0)
+/\ forfeited = FALSE
+/\ settled = FALSE
+/\ bobPay = 0
+
+State 4: <Tick line 114, col 3 to line 119, col 57 of module ZkpcChainV2>
+/\ msgs = 1
+/\ now = 1
+/\ len = 1
+/\ ghostD = 0
+/\ closing = [mode |-> "fresh", i |-> 0, d |-> 0, t0 |-> 0]
+/\ alicePay = 0
+/\ closeReqAt = -1
+/\ bals = (0 :> 0 @@ 1 :> 1 @@ 2 :> 0 @@ 3 :> 0)
+/\ forfeited = FALSE
+/\ settled = FALSE
+/\ bobPay = 0
+
+State 5: <Tick line 114, col 3 to line 119, col 57 of module ZkpcChainV2>
+/\ msgs = 1
+/\ now = 2
+/\ len = 1
+/\ ghostD = 0
+/\ closing = [mode |-> "fresh", i |-> 0, d |-> 0, t0 |-> 0]
+/\ alicePay = 0
+/\ closeReqAt = -1
+/\ bals = (0 :> 0 @@ 1 :> 1 @@ 2 :> 0 @@ 3 :> 0)
+/\ forfeited = FALSE
+/\ settled = FALSE
+/\ bobPay = 0
+
+State 6: <Settle line 168, col 3 to line 174, col 81 of module ZkpcChainV2>
+/\ msgs = 1
+/\ now = 2
+/\ len = 1
+/\ ghostD = 0
+/\ closing = [mode |-> "fresh", i |-> 0, d |-> 0, t0 |-> 0]
+/\ alicePay = 2
+/\ closeReqAt = -1
+/\ bals = (0 :> 0 @@ 1 :> 1 @@ 2 :> 0 @@ 3 :> 0)
+/\ forfeited = FALSE
+/\ settled = TRUE
+/\ bobPay = 0
+
+10564 states generated, 9782 distinct states found, 6130 states left on queue.

@@ -55,6 +55,17 @@ each with a proposed default so a one-word answer suffices, red-teamed
 before sending:
 [`research/processed/design-questions.md`](research/processed/design-questions.md).
 
+**2026-07-18 update: the designer accepted all five defaults (A1–A5),
+resolving G1–G4 and G6 as proposed.** `Spec-v2.md` (draft) transcribes
+them; its round-1 adversarial reviews surfaced and repaired F-R1-1..5
+(`Spec-v2.md` §11, unabridged record in
+`research/raw/spec-v2-gate-round1.md`) and found one new definitional
+issue, **G7 (genesis anchoring / phantom channels)**, resolved in-draft by
+channel-tree membership in the genesis branch of R_pay — pending designer
+sign-off along with the two [R1] rescopes (anonymity-until-close;
+mode-dependent exhibit sets). Phase 1 obligation 1 (the safety core on the
+new machine, three fiats discharged) is done: `lean/Zkpc/Chain/V2/`.
+
 Deliverable: Spec-v2 (new algorithm tuple, payment relation `R_pay`
 including `δ ≥ 0`, challenge-evidence validity, the two close timers),
 gate-frozen B1-style. The old object took 11 rounds; this object is far
@@ -79,7 +90,13 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    (currently docstring-only in `lean/Zkpc/Chain/Collision.lean`), (b)
    commitment binding as an assumption rather than by construction, (c)
    challenge-evidence validity as defined in Spec-v2.
-3. **Challenge non-frameability (the T7 successor).** No q-query
+3. **Challenge non-frameability (the T7 successor).** *Stage 1 done
+   2026-07-18 (`lean/Zkpc/Chain/V2/Frame.lean`): the hidden-target kernel
+   `q/|C| + 1/|N|` with anti-vacuity calibrations, staged as rev-11 T7
+   was. Stage 2 core done 2026-07-18 (`Chain/V2/FrameAdaptive.lean`): the
+   adaptive hidden-target probe bound `q/|C|` via
+   `probEvent_hiddenReadMany_le`, summed with the fresh-target `1/|N|`;
+   residual = the deferred-sampling fusion with oracle semantics.* No q-query
    adversary — including Bob with the full transcript, grinding hashes for
    `c` — produces a message revealing an honest Alice's unrevealed
    committed next-nullifier. Probabilistic `~q/|F|`-shaped bound; port the
@@ -87,7 +104,13 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    (`FrameDeferredSamplingAvg`, the `qb.total` accounting) from the FRAME
    campaign. Pointwise-in-secret certificates are refuted
    (`frameDeferredSampling_refuted`); do not attempt them.
-4. **Per-request anonymity, full strength (the T4 successor).** Port the
+4. **Per-request anonymity, full strength (the T4 successor).** *Stage 1
+   done 2026-07-18 (`lean/Zkpc/Chain/V2/CloseView.lean`): signed-close
+   view unlinkability at advantage 0, which surfaced and repaired the
+   F-R2-1 close-attribution leak. Anti-vacuity calibration started
+   2026-07-18 (`Chain/V2/CalibrationChain.lean`: the linkable-nullifier
+   must-catch witness). The full-strength adaptive game and the rest of
+   the battery remain.* Port the
    `Unlink`/`Coupling`/`FlatInstance` framework to the chain view:
    adaptive adversary with oracle access, session vector `q ≥ 2`,
    countersignature-withholding as a charged abort lever, a
@@ -100,7 +123,12 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    plus challenge-fires witnesses (`T4Fires` port). The existing
    `lean/Zkpc/Chain/Anonymity.lean` (two payments, same δ, no oracles) is the
    warm-up, not this.
-5. **Close-window liveness.** The two-timer structure (90-day absolute,
+5. **Close-window liveness.** *Partial 2026-07-18
+   (`lean/Zkpc/Chain/V2/Liveness.lean`): enabledness persistence +
+   deadlock-freedom (no_action_disables_close, timeout/request-deadline
+   reachability, not_stuck) on the clocked machine. NOT discharged: the
+   weak-fairness temporal wrapper (a fair-schedule predicate + eventual-
+   settlement theorem) — `not_stuck` is progress-possible, not forced.* The two-timer structure (90-day absolute,
    7-day on-request), the G3 challenge window, and AWOL-forfeit under weak
    fairness — upgrading `alice_refund_liveness` from existential-trace to
    guaranteed-under-scheduling, reusing the T5 fairness machinery.
@@ -120,7 +148,16 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
     signature-as-witness (the SigmaInstance technique under a STARK
     idealization), then the one-trace end-to-end theorem
     (`Composition/EndToEnd.lean` pattern).
-11. **Stretch (each its own campaign; defer):** shielded-pool integrated
+11. **Rigor items (from the round-3 review, `research/raw/spec-v2-review-round3.md`).**
+    (R3-6) Weaken the chain theorems' `Function.Injective nul` (over all `ℕ`,
+    unsatisfiable at a finite nullifier type, inherited from the seed
+    `Chain/Collision.lean`) to `Set.InjOn nul (Set.Iic (msgs+2))` with a
+    one-line prefix-bridge lemma, so the assumed hypothesis matches the one
+    `CollisionBound.lean` probabilistically establishes. (R3-7) Strengthen
+    `linkable_leak_detected` from distributional separation to a concrete
+    positive-advantage adversary in the played `anonGame`. Neither affects a
+    current proof; both close statement/rigor gaps.
+12. **Stretch (each its own campaign; defer):** shielded-pool integrated
     open/close; recipient-anonymous opens; executable
     refinement/serialization for the new machine.
 
