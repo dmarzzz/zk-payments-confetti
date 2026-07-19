@@ -55,6 +55,17 @@ each with a proposed default so a one-word answer suffices, red-teamed
 before sending:
 [`research/processed/design-questions.md`](research/processed/design-questions.md).
 
+**2026-07-18 update: the designer accepted all five defaults (A1–A5),
+resolving G1–G4 and G6 as proposed.** `Spec-v2.md` (draft) transcribes
+them; its round-1 adversarial reviews surfaced and repaired F-R1-1..5
+(`Spec-v2.md` §11, unabridged record in
+`research/raw/spec-v2-gate-round1.md`) and found one new definitional
+issue, **G7 (genesis anchoring / phantom channels)**, resolved in-draft by
+channel-tree membership in the genesis branch of R_pay — pending designer
+sign-off along with the two [R1] rescopes (anonymity-until-close;
+mode-dependent exhibit sets). Phase 1 obligation 1 (the safety core on the
+new machine, three fiats discharged) is done: `lean/Zkpc/Chain/V2/`.
+
 Deliverable: Spec-v2 (new algorithm tuple, payment relation `R_pay`
 including `δ ≥ 0`, challenge-evidence validity, the two close timers),
 gate-frozen B1-style. The old object took 11 rounds; this object is far
