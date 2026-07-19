@@ -8,6 +8,7 @@ import Zkpc.Chain.Refinement
 import Zkpc.Chain.V2.Close
 import Zkpc.Chain.V2.State
 import Zkpc.Chain.V2.CollisionBound
+import Zkpc.Chain.V2.Frame
 import Zkpc.Core.State
 import Zkpc.Core.T1
 import Zkpc.Core.T2

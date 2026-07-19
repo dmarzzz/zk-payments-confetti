@@ -90,7 +90,10 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    (currently docstring-only in `lean/Zkpc/Chain/Collision.lean`), (b)
    commitment binding as an assumption rather than by construction, (c)
    challenge-evidence validity as defined in Spec-v2.
-3. **Challenge non-frameability (the T7 successor).** No q-query
+3. **Challenge non-frameability (the T7 successor).** *Stage 1 done
+   2026-07-18 (`lean/Zkpc/Chain/V2/Frame.lean`): the hidden-target kernel
+   `q/|C| + 1/|N|` with anti-vacuity calibrations, staged as rev-11 T7
+   was. Stage 2 = the adaptive shared-oracle composition below.* No q-query
    adversary — including Bob with the full transcript, grinding hashes for
    `c` — produces a message revealing an honest Alice's unrevealed
    committed next-nullifier. Probabilistic `~q/|F|`-shaped bound; port the
