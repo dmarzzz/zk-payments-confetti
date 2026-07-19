@@ -123,7 +123,12 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    plus challenge-fires witnesses (`T4Fires` port). The existing
    `lean/Zkpc/Chain/Anonymity.lean` (two payments, same δ, no oracles) is the
    warm-up, not this.
-5. **Close-window liveness.** The two-timer structure (90-day absolute,
+5. **Close-window liveness.** *Done 2026-07-18
+   (`lean/Zkpc/Chain/V2/Liveness.lean`): guaranteed progress for both
+   parties (no_action_disables_close, timeout/request-deadline
+   reachability, not_stuck) on the clocked machine. The full
+   weak-fairness temporal wrapper (a scheduler model) is the only
+   residue.* The two-timer structure (90-day absolute,
    7-day on-request), the G3 challenge window, and AWOL-forfeit under weak
    fairness — upgrading `alice_refund_liveness` from existential-trace to
    guaranteed-under-scheduling, reusing the T5 fairness machinery.
