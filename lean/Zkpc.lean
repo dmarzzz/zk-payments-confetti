@@ -11,6 +11,7 @@ import Zkpc.Chain.V2.CollisionBound
 import Zkpc.Chain.V2.Frame
 import Zkpc.Chain.V2.CloseView
 import Zkpc.Chain.V2.FrameAdaptive
+import Zkpc.Chain.V2.CalibrationChain
 import Zkpc.Core.State
 import Zkpc.Core.T1
 import Zkpc.Core.T2

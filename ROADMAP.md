@@ -93,7 +93,10 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
 3. **Challenge non-frameability (the T7 successor).** *Stage 1 done
    2026-07-18 (`lean/Zkpc/Chain/V2/Frame.lean`): the hidden-target kernel
    `q/|C| + 1/|N|` with anti-vacuity calibrations, staged as rev-11 T7
-   was. Stage 2 = the adaptive shared-oracle composition below.* No q-query
+   was. Stage 2 core done 2026-07-18 (`Chain/V2/FrameAdaptive.lean`): the
+   adaptive hidden-target probe bound `q/|C|` via
+   `probEvent_hiddenReadMany_le`, summed with the fresh-target `1/|N|`;
+   residual = the deferred-sampling fusion with oracle semantics.* No q-query
    adversary — including Bob with the full transcript, grinding hashes for
    `c` — produces a message revealing an honest Alice's unrevealed
    committed next-nullifier. Probabilistic `~q/|F|`-shaped bound; port the
