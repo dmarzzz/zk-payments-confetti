@@ -5,6 +5,9 @@ import Zkpc.Chain.State
 import Zkpc.Chain.Collision
 import Zkpc.Chain.Anonymity
 import Zkpc.Chain.Refinement
+import Zkpc.Chain.V2.Close
+import Zkpc.Chain.V2.State
+import Zkpc.Chain.V2.CollisionBound
 import Zkpc.Core.State
 import Zkpc.Core.T1
 import Zkpc.Core.T2
