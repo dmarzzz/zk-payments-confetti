@@ -101,7 +101,10 @@ simpler (no fleet, epochs, RLN, or refunds); estimate 4–7 rounds.
    (`FrameDeferredSamplingAvg`, the `qb.total` accounting) from the FRAME
    campaign. Pointwise-in-secret certificates are refuted
    (`frameDeferredSampling_refuted`); do not attempt them.
-4. **Per-request anonymity, full strength (the T4 successor).** Port the
+4. **Per-request anonymity, full strength (the T4 successor).** *Stage 1
+   done 2026-07-18 (`lean/Zkpc/Chain/V2/CloseView.lean`): signed-close
+   view unlinkability at advantage 0, which surfaced and repaired the
+   F-R2-1 close-attribution leak. The full-strength game below remains.* Port the
    `Unlink`/`Coupling`/`FlatInstance` framework to the chain view:
    adaptive adversary with oracle access, session vector `q ≥ 2`,
    countersignature-withholding as a charged abort lever, a

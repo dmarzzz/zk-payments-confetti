@@ -156,11 +156,18 @@ unsigned-but-proof-valid states** (A2.i).
   `C_open` (of this channel's on-chain record) opens to `c` and
   `N_1 = H(cid, c)`. Payout claim: `bal = 0`.
   Exhibit set `E = { N_1 }`.
-- **Signed close** on state `x`. Publishes `C_x`, `reveal N_{x+1}` (the
-  committed next-nullifier, opened), `bal_x`, with a proof: knowledge of
-  `r_x, sigma_x` with `C_x = Com(cid, D, bal_x, N_{x+1} ; r_x)` for THIS
-  channel's `cid, D`, and `Verify(pk_B, C_x, sigma_x)`.
+- **Signed close** on state `x`. Publishes `reveal N_{x+1}` (the committed
+  next-nullifier, opened) and `bal_x` ONLY, with a proof: knowledge of
+  `C, r, sigma` with `C = Com(cid, D, bal_x, N_{x+1} ; r)` for THIS
+  channel's `cid, D`, and `Verify(pk_B, C, sigma)` — the commitment and
+  signature are private witnesses, exactly as in R_pay's signed branch.
   Exhibit set `E = { N_{x+1} }`.
+  **[R2, F-R2-1]** An earlier draft published `C_x` in the clear; that is
+  an attribution leak (Bob holds every commitment he countersigned and
+  matches), found in the close-view anonymity proof attempt and repaired
+  here. Signed closes need no same-state exception (their own message's
+  revealed `N_x` is never in `E`), so nothing in the challenge relation
+  needs `C_x`.
 - **Unsigned close** on state `x` (A2). Publishes `C_x`, `reveal N_x`
   (parent-reveal), `reveal N_{x+1}` (opened), `bal_x`, `delta_x`, with a
   proof: the full R_pay relation for `C_x` (parent branch, chain equation,
@@ -367,3 +374,17 @@ Round-1 red-team findings (two adversarial reviews, safety and privacy, run
   (Section 8).
 - Also pinned from the safety review: either-party finalization
   (Section 4), cid-matched membership in GN-1.
+
+Round-2 findings (from the proof campaign itself, per the method: a failed
+proof is a finding about the definition):
+
+- **F-R2-1 (found in the close-view anonymity proof attempt).** The round-1
+  draft's signed close published `C_x` in the clear; Bob holds every
+  commitment he countersigned, so matching `C_x` attributes the closed tip
+  message even on a fully countersigned honest close — contradicting the
+  [R1] attribution-freeness claim of Section 4. Repaired: signed closes
+  publish only `(bal_x, N_{x+1})` and prove knowledge of a signed opening
+  (Section 4); the proof of close-view unlinkability then goes through
+  (`lean/Zkpc/Chain/V2/CloseView.lean`). Unsigned closes still publish
+  `C_x` (the same-state exception needs it) and already concede the tip
+  edge.
